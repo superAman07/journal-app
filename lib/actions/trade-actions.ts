@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { Trade } from "@prisma/client";
 
 export type TradeFormState = {
   success: boolean;
@@ -150,19 +151,19 @@ export async function getDashboardMetrics() {
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  const trades = await prisma.trade.findMany({
+  const trades: Trade[] = await prisma.trade.findMany({
     where: { userId: session.user.id },
     orderBy: { date: "desc" },
   });
 
   if (trades.length === 0) return null;
 
-  const wins = trades.filter((t) => t.outcome === "WIN");
-  const losses = trades.filter((t) => t.outcome === "LOSS");
-  const totalPnL = trades.reduce((sum, t) => sum + t.pnl, 0);
+  const wins = trades.filter((t: Trade) => t.outcome === "WIN");
+  const losses = trades.filter((t: Trade) => t.outcome === "LOSS");
+  const totalPnL = trades.reduce((sum: number, t: Trade) => sum + t.pnl, 0);
   const winRate = trades.length > 0 ? (wins.length / trades.length) * 100 : 0;
-  const avgRR = trades.length > 0 ? trades.reduce((sum, t) => sum + t.actualRR, 0) / trades.length : 0;
-  const rulesFollowed = trades.filter((t) => t.rulesFollowed).length;
+  const avgRR = trades.length > 0 ? trades.reduce((sum: number, t: Trade) => sum + t.actualRR, 0) / trades.length : 0;
+  const rulesFollowed = trades.filter((t: Trade) => t.rulesFollowed).length;
   const ruleFollowRate = trades.length > 0 ? (rulesFollowed / trades.length) * 100 : 0;
 
   return {
