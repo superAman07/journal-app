@@ -13,7 +13,7 @@ export async function UserButton({ collapsed = false }: { collapsed?: boolean })
           collapsed ? "h-10 w-10 mx-auto justify-center" : "p-2.5"
         }`}
       >
-        <div className="h-8 w-8 rounded-full bg-elevated border border-border flex items-center justify-center text-muted shrink-0">
+        <div className="h-8 w-8 rounded-full bg-elevated flex items-center justify-center text-muted shrink-0">
           <UserIcon className="h-4 w-4" />
         </div>
         {!collapsed && (
@@ -33,7 +33,7 @@ export async function UserButton({ collapsed = false }: { collapsed?: boolean })
           <img
             src={session.user.image}
             alt={session.user.name || "User"}
-            className="h-8 w-8 rounded-full border border-border shrink-0"
+            className="h-8 w-8 rounded-full shrink-0"
           />
         ) : (
           <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold shrink-0">

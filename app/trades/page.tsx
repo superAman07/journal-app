@@ -115,7 +115,7 @@ export default function TradesPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-border text-dim text-[10px] uppercase tracking-wider">
+              <tr className="text-dim text-[10px] uppercase tracking-wider">
                 <th className="py-2.5 pr-3 font-semibold">Date</th>
                 <th className="py-2.5 pr-3 font-semibold">Market</th>
                 <th className="py-2.5 pr-3 font-semibold">Instrument</th>

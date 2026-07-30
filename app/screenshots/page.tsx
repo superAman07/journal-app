@@ -57,7 +57,7 @@ export default function ScreenshotsPage() {
                   </span>
                 </div>
                 <p className="text-xs text-muted truncate">{sc.caption || "Chart snapshot"}</p>
-                <div className="text-[10px] text-dim flex items-center gap-1.5 pt-1 border-t border-border">
+                <div className="text-[10px] text-dim flex items-center gap-1.5 pt-1">
                   <Calendar className="h-3 w-3" /> {sc.date}
                 </div>
               </div>

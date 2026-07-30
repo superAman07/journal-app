@@ -129,7 +129,7 @@ export function TradeForm() {
                 isCurrent
                   ? "bg-accent-muted text-accent border-accent/30"
                   : isDone
-                  ? "bg-elevated text-soft border-border"
+                  ? "bg-elevated text-soft"
                   : "bg-transparent text-dim border-transparent"
               }`}
             >
@@ -175,7 +175,7 @@ export function TradeForm() {
                       className={`py-2 rounded-lg text-[11px] font-bold transition-all border ${
                         bias === b
                           ? b === "BULLISH" ? "bg-profit/15 text-profit border-profit/30" : b === "BEARISH" ? "bg-loss/15 text-loss border-loss/30" : "bg-elevated text-soft border-border-hover"
-                          : "bg-surface text-dim border-border hover:bg-elevated"
+                          : "bg-surface text-dim hover:bg-elevated"
                       }`}
                     >{b}</button>
                   ))}
@@ -260,7 +260,7 @@ export function TradeForm() {
                   className={`py-4 sm:py-5 rounded-xl text-center font-bold text-xs sm:text-sm transition-all border ${
                     outcome === o
                       ? o === "WIN" ? "bg-profit/15 text-profit border-profit/40" : o === "LOSS" ? "bg-loss/15 text-loss border-loss/40" : "bg-elevated text-soft border-border-hover"
-                      : "bg-surface text-dim border-border hover:bg-elevated"
+                      : "bg-surface text-dim hover:bg-elevated"
                   }`}
                 >
                   {o}
@@ -362,7 +362,7 @@ export function TradeForm() {
               {screenshots.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {screenshots.map((sc) => (
-                    <div key={sc.id} className="relative rounded-xl overflow-hidden border border-border aspect-video bg-base group">
+                    <div key={sc.id} className="relative rounded-xl overflow-hidden aspect-video bg-base group shadow-[var(--shadow-card)]">
                       <img src={sc.url} alt="" className="w-full h-full object-cover" />
                       <button type="button" onClick={() => setScreenshots(screenshots.filter((s) => s.id !== sc.id))}
                         className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-base/80 text-loss opacity-0 group-hover:opacity-100 transition-opacity"
@@ -395,7 +395,7 @@ export function TradeForm() {
 
 function SectionHeader({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
   return (
-    <div className="border-b border-border pb-3">
+    <div className="pb-3">
       <h2 className="text-sm font-semibold text-clean flex items-center gap-2">{icon} {title}</h2>
       <p className="text-[11px] text-dim mt-0.5">{desc}</p>
     </div>

@@ -62,12 +62,12 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`hidden lg:flex flex-col h-screen sticky top-0 z-40 border-r border-border bg-surface transition-all duration-200 select-none ${
+      className={`hidden lg:flex flex-col h-screen sticky top-0 z-40 bg-surface shadow-[1px_0_0_var(--color-border)] transition-all duration-200 select-none ${
         collapsed ? "w-[68px]" : "w-[240px]"
       }`}
     >
       {/* Brand */}
-      <div className={`flex items-center h-16 border-b border-border shrink-0 ${collapsed ? "justify-center px-2" : "px-5"}`}>
+      <div className={`flex items-center h-16 shrink-0 ${collapsed ? "justify-center px-2" : "px-5"}`}>
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="h-8 w-8 rounded-xl bg-accent flex items-center justify-center shadow-md shadow-accent/20 group-hover:shadow-accent/30 transition-shadow shrink-0">
             <TrendingUp className="h-4 w-4 text-white" />
@@ -137,7 +137,7 @@ export function Sidebar() {
       </div>
 
       {/* Footer controls */}
-      <div className="px-2 py-2 border-t border-border flex items-center gap-1">
+      <div className="px-2 py-2 flex items-center gap-1">
         <ThemeToggle />
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -149,14 +149,14 @@ export function Sidebar() {
       </div>
 
       {/* Profile */}
-      <div className={`border-t border-border ${collapsed ? "p-2" : "p-3"}`}>
+      <div className={`${collapsed ? "p-2" : "p-3"}`}>
         <Link
           href="/login"
           className={`flex items-center gap-2.5 rounded-xl transition-all hover:bg-elevated ${
             collapsed ? "h-10 w-10 mx-auto justify-center" : "p-2.5"
           }`}
         >
-          <div className="h-8 w-8 rounded-full bg-elevated border border-border flex items-center justify-center text-muted shrink-0">
+          <div className="h-8 w-8 rounded-full bg-elevated flex items-center justify-center text-muted shrink-0">
             <UserIcon className="h-4 w-4" />
           </div>
           {!collapsed && (

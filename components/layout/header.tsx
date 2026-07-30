@@ -6,7 +6,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export function Header() {
   return (
-    <header className="h-14 border-b border-border bg-surface/80 backdrop-blur-xl sticky top-0 z-30 px-4 lg:px-6 flex items-center justify-between gap-3">
+    <header className="h-14 bg-surface/80 backdrop-blur-xl sticky top-0 z-30 px-4 lg:px-6 flex items-center justify-between gap-3 shadow-[0_1px_0_var(--color-border)]">
       {/* Left: Mobile brand + Desktop ticker */}
       <div className="flex items-center gap-3 min-w-0">
         {/* Mobile brand mark */}
@@ -21,7 +21,7 @@ export function Header() {
 
         {/* Desktop live ticker */}
         <div className="hidden md:flex items-center gap-2 text-[11px]">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-card border border-border">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-elevated">
             <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-profit opacity-75"></span>
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-profit"></span>
@@ -29,11 +29,11 @@ export function Header() {
             <span className="text-muted">NY</span>
             <span className="text-profit font-semibold font-mono">Active</span>
           </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-card border border-border font-mono">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-elevated font-mono">
             <span className="text-dim">XAUUSD</span>
             <span className="text-profit font-semibold">2,385</span>
           </div>
-          <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-card border border-border font-mono">
+          <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-elevated font-mono">
             <span className="text-dim">BTC</span>
             <span className="text-profit font-semibold">65,250</span>
           </div>

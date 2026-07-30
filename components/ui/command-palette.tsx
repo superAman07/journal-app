@@ -81,7 +81,7 @@ export function CommandPalette() {
       <div className="fixed inset-x-0 top-[15vh] z-[210] flex justify-center px-4">
         <div className="w-full max-w-lg card overflow-hidden shadow-2xl shadow-black/30">
           {/* Search Input */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+          <div className="flex items-center gap-3 px-4 py-3 shadow-[0_1px_0_var(--color-border)]">
             <Search className="h-4 w-4 text-muted shrink-0" />
             <input
               autoFocus
@@ -95,7 +95,7 @@ export function CommandPalette() {
                 }
               }}
             />
-            <kbd className="text-[9px] font-mono text-dim bg-elevated px-1.5 py-0.5 rounded border border-border">ESC</kbd>
+            <kbd className="text-[9px] font-mono text-dim bg-elevated px-1.5 py-0.5 rounded">ESC</kbd>
           </div>
 
           {/* Results */}
@@ -113,7 +113,7 @@ export function CommandPalette() {
                     onClick={() => handleSelect(cmd.href)}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-elevated group"
                   >
-                    <div className="h-8 w-8 rounded-lg bg-elevated group-hover:bg-overlay border border-border flex items-center justify-center shrink-0">
+                    <div className="h-8 w-8 rounded-lg bg-elevated group-hover:bg-overlay flex items-center justify-center shrink-0">
                       <Icon className="h-4 w-4 text-muted group-hover:text-accent transition-colors" />
                     </div>
                     <span className="text-sm font-medium text-soft group-hover:text-clean transition-colors">
@@ -126,7 +126,7 @@ export function CommandPalette() {
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-2 border-t border-border flex items-center gap-4 text-[10px] text-dim">
+          <div className="px-4 py-2 shadow-[0_-1px_0_var(--color-border)] flex items-center gap-4 text-[10px] text-dim">
             <span>↑↓ Navigate</span>
             <span>↵ Open</span>
             <span>ESC Close</span>

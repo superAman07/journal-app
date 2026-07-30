@@ -60,7 +60,7 @@ export default function RulesPage() {
             <button
               onClick={() => toggleRule(rule.id)}
               className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
-                rule.isActive ? "bg-profit/10 text-profit border-profit/20" : "bg-elevated text-dim border-border"
+                rule.isActive ? "bg-profit/10 text-profit border-profit/20" : "bg-elevated text-dim"
               }`}
             >
               {rule.isActive ? "On" : "Off"}

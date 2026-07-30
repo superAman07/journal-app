@@ -24,7 +24,7 @@ export function ThemeToggle() {
     <button
       onClick={cycle}
       title={`Theme: ${theme} — click to cycle`}
-      className="h-8 w-8 rounded-lg flex items-center justify-center bg-elevated border border-border text-muted hover:text-clean hover:border-border-hover transition-all active:scale-95"
+      className="h-8 w-8 rounded-lg flex items-center justify-center bg-elevated text-muted hover:text-clean transition-all active:scale-95"
     >
       {theme === "dark" && <Moon className="h-3.5 w-3.5" />}
       {theme === "light" && <Sun className="h-3.5 w-3.5" />}

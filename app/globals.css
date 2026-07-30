@@ -3,6 +3,7 @@
 /* ═══════════════════════════════════════════════════
    OBSIDIAN APEX — Trading OS Design System
    Dark / Light mode via next-themes + CSS variables
+   Borderless, clean, no harsh lines
    ═══════════════════════════════════════════════════ */
 
 @theme {
@@ -27,13 +28,14 @@
 /* ── DARK THEME (default) ── */
 :root, .dark {
   --color-base: #06060a;
-  --color-surface: #0e0f16;
-  --color-card: #131420;
-  --color-elevated: #1a1b2e;
-  --color-overlay: #252640;
+  --color-surface: #0c0d14;
+  --color-card: #111219;
+  --color-elevated: #191a26;
+  --color-overlay: #222332;
 
-  --color-border: #1e1f33;
-  --color-border-hover: #2e2f48;
+  --color-border: #ffffff08;
+  --color-border-hover: #ffffff12;
+  --color-border-solid: #1e1f33;
 
   --color-dim: #494a62;
   --color-muted: #6b6d85;
@@ -41,22 +43,28 @@
   --color-soft: #c0c2d4;
   --color-clean: #e8e9f0;
 
-  --skeleton-base: #1a1b2e;
-  --skeleton-shine: #252640;
+  --skeleton-base: #191a26;
+  --skeleton-shine: #222332;
+
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.03);
+  --shadow-card-hover: 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.06);
+  --shadow-elevated: 0 1px 1px rgba(0,0,0,0.2);
+  --shadow-input: inset 0 1px 2px rgba(0,0,0,0.3);
 
   color-scheme: dark;
 }
 
 /* ── LIGHT THEME ── */
 .light {
-  --color-base: #f4f5f7;
-  --color-surface: #ffffff;
+  --color-base: #f5f6f8;
+  --color-surface: #fafbfc;
   --color-card: #ffffff;
   --color-elevated: #f0f1f5;
-  --color-overlay: #e5e7ed;
+  --color-overlay: #e8e9ef;
 
-  --color-border: #dfe1e8;
-  --color-border-hover: #c8cad4;
+  --color-border: #00000008;
+  --color-border-hover: #00000012;
+  --color-border-solid: #e2e4ea;
 
   --color-dim: #b0b3c0;
   --color-muted: #6b7280;
@@ -66,6 +74,11 @@
 
   --skeleton-base: #e5e7eb;
   --skeleton-shine: #f3f4f6;
+
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 1px 1px rgba(0,0,0,0.03);
+  --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-elevated: 0 1px 1px rgba(0,0,0,0.04);
+  --shadow-input: inset 0 1px 2px rgba(0,0,0,0.04);
 
   color-scheme: light;
 }
@@ -111,44 +124,50 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--color-dim);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-border-hover);
+  background: var(--color-muted);
 }
 
-/* ── Card Components ── */
+/* ═══════════════════════════════════════
+   CARD — Borderless with subtle shadow
+   ═══════════════════════════════════════ */
 .card {
   background: var(--color-card);
-  border: 1px solid var(--color-border);
+  border: none;
   border-radius: 16px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s ease;
 }
 
 .card:hover {
-  border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .card-elevated {
   background: var(--color-elevated);
-  border: 1px solid var(--color-border);
+  border: none;
   border-radius: 14px;
+  box-shadow: var(--shadow-elevated);
 }
 
 .card-glow {
   background: var(--color-card);
-  border: 1px solid var(--color-accent);
+  border: none;
   border-radius: 16px;
-  box-shadow: 0 0 24px -6px var(--color-accent-muted), inset 0 1px 0 rgba(255,255,255,0.03);
+  box-shadow: 0 0 24px -6px var(--color-accent-muted), var(--shadow-card), 0 0 0 1px var(--color-accent);
 }
 
 .surface {
   background: var(--color-surface);
 }
 
-/* ── Buttons ── */
+/* ═══════════════════════════════════════
+   BUTTONS — Clean, no borders
+   ═══════════════════════════════════════ */
 .btn-primary {
   background: var(--color-accent);
   color: #fff;
@@ -183,28 +202,31 @@ body {
   padding: 8px 16px;
   font-size: 13px;
   transition: all 0.15s ease;
-  border: 1px solid var(--color-border);
+  border: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  box-shadow: var(--shadow-elevated);
 }
 
 .btn-secondary:hover {
   background: var(--color-overlay);
-  border-color: var(--color-border-hover);
   color: var(--color-clean);
 }
 
-/* ── Inputs ── */
+/* ═══════════════════════════════════════
+   INPUTS — Borderless, bg contrast only
+   ═══════════════════════════════════════ */
 .input-field {
   width: 100%;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--color-elevated);
+  border: 1px solid transparent;
   border-radius: 10px;
   padding: 9px 14px;
   font-size: 13px;
   color: var(--color-clean);
+  box-shadow: var(--shadow-input);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -249,7 +271,7 @@ body {
 }
 
 /* ── Divider ── */
-.divider { border: none; border-top: 1px solid var(--color-border); margin: 0; }
+.divider { border: none; border-top: 1px solid var(--color-border-solid); margin: 0; opacity: 0.5; }
 
 /* ── Stat Value ── */
 .stat-value {
@@ -295,17 +317,4 @@ body {
 /* ── Mobile touch improvements ── */
 @media (max-width: 768px) {
   input, select, textarea, button { font-size: 16px !important; }
-}
-
-/* ── Light theme shadow adjustments ── */
-.light .card:hover {
-  box-shadow: 0 2px 12px -2px rgba(0,0,0,0.06);
-}
-
-.light .card-glow {
-  box-shadow: 0 0 24px -6px rgba(79,110,247,0.15), inset 0 1px 0 rgba(255,255,255,0.5);
-}
-
-.light .btn-primary:hover {
-  box-shadow: 0 4px 16px -2px rgba(79,110,247,0.25);
 }

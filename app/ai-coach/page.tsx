@@ -34,7 +34,7 @@ export default function AICoachPage() {
           </h1>
           <p className="text-xs text-muted mt-0.5">Automated trade reviews and pattern detection.</p>
         </div>
-        <div className="flex items-center gap-1 p-1 bg-card border border-border rounded-xl text-xs">
+        <div className="flex items-center gap-1 p-1 bg-card rounded-xl text-xs">
           <Cpu className="h-3.5 w-3.5 text-ai ml-2" />
           {(["Ollama", "OpenAI", "Gemini"] as const).map((p) => (
             <button key={p} onClick={() => { setProvider(p); setModel(p === "Ollama" ? "llama3:8b" : p === "OpenAI" ? "gpt-4o" : "gemini-1.5-pro"); }}
@@ -55,7 +55,7 @@ export default function AICoachPage() {
                 {msg.sender === "user" ? "You" : <Bot className="h-4 w-4" />}
               </div>
               <div className={`p-3.5 rounded-2xl max-w-[85%] sm:max-w-xl text-xs leading-relaxed ${
-                msg.sender === "user" ? "bg-accent/10 border border-accent/20 text-accent-hover" : "bg-elevated border border-border text-soft"
+                msg.sender === "user" ? "bg-accent/10 text-accent-hover" : "bg-elevated text-soft"
               }`}>
                 {msg.text}
               </div>
@@ -68,7 +68,7 @@ export default function AICoachPage() {
           )}
         </div>
 
-        <div className="p-3 sm:p-4 border-t border-border flex items-center gap-2 shrink-0">
+        <div className="p-3 sm:p-4 shadow-[0_-1px_0_var(--color-border)] flex items-center gap-2 shrink-0">
           <input
             value={userQuery}
             onChange={(e) => setUserQuery(e.target.value)}

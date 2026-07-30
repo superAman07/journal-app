@@ -145,7 +145,7 @@ export function DashboardView() {
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-border text-dim text-[10px] uppercase tracking-wider">
+                <tr className="text-dim text-[10px] uppercase tracking-wider">
                   <th className="py-2.5 pr-3 font-semibold">Date</th>
                   <th className="py-2.5 pr-3 font-semibold">Instrument</th>
                   <th className="py-2.5 pr-3 font-semibold">Setup</th>
@@ -256,7 +256,7 @@ export function DashboardView() {
                     ? "bg-loss/15 text-loss border border-loss/20 hover:bg-loss/25"
                     : isBlank
                     ? "bg-transparent opacity-20"
-                    : "bg-elevated/50 text-dim border border-border hover:bg-elevated"
+                    : "bg-elevated/50 text-dim hover:bg-elevated"
                 }`}
               >
                 <span className="font-mono font-medium leading-none">{dayNum}</span>

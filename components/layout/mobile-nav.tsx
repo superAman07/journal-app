@@ -56,9 +56,9 @@ export function MobileNav() {
       {/* More Sheet */}
       {moreOpen && (
         <div className="fixed bottom-0 left-0 right-0 z-[100] lg:hidden animate-slide-up">
-          <div className="mx-3 mb-[calc(72px+env(safe-area-inset-bottom,0px)+8px)] rounded-2xl bg-card border border-border overflow-hidden shadow-2xl shadow-black/50">
+          <div className="mx-3 mb-[calc(72px+env(safe-area-inset-bottom,0px)+8px)] rounded-2xl bg-card overflow-hidden shadow-2xl shadow-black/50">
             {/* Sheet Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+            <div className="flex items-center justify-between px-5 py-4">
               <span className="text-sm font-semibold text-clean">More Options</span>
               <button
                 onClick={() => setMoreOpen(false)}
@@ -96,7 +96,7 @@ export function MobileNav() {
 
       {/* Bottom Tab Bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-[80] lg:hidden">
-        <div className="bg-surface/95 backdrop-blur-xl border-t border-border" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+        <div className="bg-surface/95 backdrop-blur-xl shadow-[0_-1px_0_var(--color-border)]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
           <div className="flex items-center justify-around h-[64px] px-2">
             {MAIN_TABS.map((tab) => {
               const Icon = tab.icon;

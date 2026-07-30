@@ -15,7 +15,7 @@ export default function ReviewsPage() {
           </h1>
           <p className="text-xs text-muted mt-0.5">Weekly, monthly, and annual execution audits.</p>
         </div>
-        <div className="flex items-center gap-1 p-1 bg-card border border-border rounded-xl text-xs">
+        <div className="flex items-center gap-1 p-1 bg-card rounded-xl text-xs">
           {(["WEEKLY", "MONTHLY", "YEARLY"] as const).map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${activeTab === tab ? "bg-accent text-white" : "text-muted hover:text-soft"}`}
@@ -25,7 +25,7 @@ export default function ReviewsPage() {
       </div>
 
       <div className="card p-5 sm:p-6 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
           <div>
             <h2 className="text-base font-bold text-clean">
               {activeTab === "WEEKLY" ? "Week 30 (Jul 20–26, 2026)" : activeTab === "MONTHLY" ? "July 2026" : "2026 Annual Summary"}
