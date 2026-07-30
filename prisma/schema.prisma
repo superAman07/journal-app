@@ -1,0 +1,286 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  trades         Trade[]
+  strategies     Strategy[]
+  tradingRules   TradingRule[]
+  weeklyReviews  WeeklyReview[]
+  monthlyReviews MonthlyReview[]
+  yearlyReviews  YearlyReview[]
+  goals          Goal[]
+  aiInsights     AIInsight[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// Strategy Model
+model Strategy {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  winRate     Float?   @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trades Trade[]
+
+  @@map("strategies")
+}
+
+// Trade Model - Complete PRD Flow (Plan, Execution, Result, Mindset)
+model Trade {
+  id        String   @id @default(cuid())
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  date      DateTime @default(now())
+
+  // Market & Asset Info
+  market     String // Forex, Gold, Silver, Crypto, Nifty Options, BankNifty, Stocks, Futures
+  instrument String // e.g., EURUSD, XAUUSD, BTCUSDT, NIFTY24JULCE
+  session    String // Asian, London, New York, London/NY Overlap
+
+  // Setup & Strategy
+  strategyId String?
+  setup      String // e.g. Break & Retest, Liquidity Grab, Order Block, Trendline Break
+  bias       String // BULLISH, BEARISH, NEUTRAL
+
+  // Plan Phase
+  plannedEntry Decimal? @db.Decimal(18, 8)
+  stopLoss     Decimal  @db.Decimal(18, 8)
+  target       Decimal  @db.Decimal(18, 8)
+  expectedRR   Float
+
+  // Execution Phase
+  actualEntry  Decimal @db.Decimal(18, 8)
+  actualExit   Decimal @db.Decimal(18, 8)
+  positionSize Float // Units / Lots / Contracts
+  riskPercent  Float // e.g. 1.0 = 1%
+  actualRR     Float
+  isLateEntry  Boolean @default(false)
+  isEarlyEntry Boolean @default(false)
+  slippage     Float?  @default(0)
+
+  // Result Phase
+  outcome          String // WIN, LOSS, BREAKEVEN
+  exitReason       String // TARGET_HIT, STOP_HIT, MANUAL_EXIT
+  pnl              Float // Dollar / Currency amount
+  rMultiple        Float
+  rulesFollowed    Boolean @default(true)
+  ruleBreakReason  String?
+
+  // Mindset & Psychology Phase
+  mindsetBefore String?
+  mindsetDuring String?
+  mindsetAfter  String?
+  notes         String? @db.Text
+
+  // Relations
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy    Strategy?     @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  screenshots Screenshot[]
+  emotions    EmotionTag[]
+  mistakes    MistakeTag[]
+  tags        TradeTag[]
+
+  @@index([userId, date])
+  @@index([market])
+  @@index([outcome])
+  @@map("trades")
+}
+
+// Screenshot Model (Cloudinary Integration)
+model Screenshot {
+  id        String   @id @default(cuid())
+  tradeId   String
+  url       String
+  publicId  String?
+  stage     String   // BEFORE_ENTRY, DURING_TRADE, AFTER_EXIT
+  caption   String?
+  createdAt DateTime @default(now())
+
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@map("screenshots")
+}
+
+// Emotion Tag Model
+model EmotionTag {
+  id      String @id @default(cuid())
+  tradeId String
+  stage   String // BEFORE, DURING, AFTER
+  emotion String // Calm, Fear, Greed, Revenge, FOMO, Overconfidence, Anxiety, Hesitation, Frustration
+
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@map("emotion_tags")
+}
+
+// Mistake Tag Model
+model MistakeTag {
+  id      String @id @default(cuid())
+  tradeId String
+  mistake String // Overtrading, Moving SL, Early Exit, FOMO Entry, Risk Overload, Ignored Plan, Revenge Trade
+
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@map("mistake_tags")
+}
+
+// Custom Tag Model
+model TradeTag {
+  id      String @id @default(cuid())
+  tradeId String
+  name    String
+
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@map("trade_tags")
+}
+
+// Trading Rules Model
+model TradingRule {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  category    String   // RISK, EXECUTION, PSYCHOLOGY
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("trading_rules")
+}
+
+// Periodic Review Models
+model WeeklyReview {
+  id           String   @id @default(cuid())
+  userId       String
+  weekStartDate DateTime
+  winRate      Float
+  netPnL       Float
+  bestSetup    String?
+  worstMistake String?
+  winsNotes    String?  @db.Text
+  lossesNotes  String?  @db.Text
+  goalsNextWeek String? @db.Text
+  rating       Int      // 1 to 5
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("weekly_reviews")
+}
+
+model MonthlyReview {
+  id            String   @id @default(cuid())
+  userId        String
+  month         String   // e.g. "2026-07"
+  totalTrades   Int
+  winRate       Float
+  netPnL        Float
+  profitFactor  Float?
+  keyLearnings  String?  @db.Text
+  rating        Int
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("monthly_reviews")
+}
+
+model YearlyReview {
+  id           String   @id @default(cuid())
+  userId       String
+  year         Int      // e.g. 2026
+  totalTrades  Int
+  netPnL       Float
+  bestMonth    String?
+  summaryNotes String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("yearly_reviews")
+}
+
+// Goal Setting Model
+model Goal {
+  id          String    @id @default(cuid())
+  userId      String
+  title       String
+  targetValue Float
+  currentValue Float    @default(0)
+  metric      String    // PnL, WinRate, RuleFollowRate, BookRead
+  deadline    DateTime?
+  isCompleted Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("goals")
+}
+
+// AI Insight Model
+model AIInsight {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // PATTERN, MISTAKE_WARNING, WEEKLY_SUMMARY, TRADE_REVIEW
+  title     String
+  content   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ai_insights")
+}
