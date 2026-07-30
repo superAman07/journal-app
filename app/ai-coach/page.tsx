@@ -8,7 +8,10 @@ export default function AICoachPage() {
   const [model, setModel] = useState("llama3:8b");
   const [userQuery, setUserQuery] = useState("");
   const [messages, setMessages] = useState<{ sender: "user" | "ai"; text: string }[]>([
-    { sender: "ai", text: "Hello Trader! I've analyzed your last 42 trades. Your Gold NY Session execution is exceptional (+2.9R avg), but BankNifty Options trades suffer from 75% FOMO entry rate. How can I help today?" }
+    {
+      sender: "ai",
+      text: "Hello Trader! I am your AI Performance Coach. Ask me any question about strategy refinement, risk protocols, or execution discipline.",
+    },
   ]);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -19,9 +22,15 @@ export default function AICoachPage() {
     setUserQuery("");
     setIsGenerating(true);
     setTimeout(() => {
-      setMessages((p) => [...p, { sender: "ai", text: `[${provider}/${model}] Analyzing "${query}"... Your highest probability improvement is setting limit orders instead of market orders during news spikes.` }]);
+      setMessages((p) => [
+        ...p,
+        {
+          sender: "ai",
+          text: `[${provider}/${model}] Processing "${query}"... To optimize your trading performance, focus on strict Risk:Reward compliance (min 1:2.0) and setting limit orders during key session opens.`,
+        },
+      ]);
       setIsGenerating(false);
-    }, 1000);
+    }, 800);
   };
 
   return (
@@ -37,9 +46,18 @@ export default function AICoachPage() {
         <div className="flex items-center gap-1 p-1 bg-card rounded-xl text-xs">
           <Cpu className="h-3.5 w-3.5 text-ai ml-2" />
           {(["Ollama", "OpenAI", "Gemini"] as const).map((p) => (
-            <button key={p} onClick={() => { setProvider(p); setModel(p === "Ollama" ? "llama3:8b" : p === "OpenAI" ? "gpt-4o" : "gemini-1.5-pro"); }}
-              className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all ${provider === p ? "bg-ai text-white" : "text-muted hover:text-soft"}`}
-            >{p}</button>
+            <button
+              key={p}
+              onClick={() => {
+                setProvider(p);
+                setModel(p === "Ollama" ? "llama3:8b" : p === "OpenAI" ? "gpt-4o" : "gemini-1.5-pro");
+              }}
+              className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+                provider === p ? "bg-ai text-white" : "text-muted hover:text-soft"
+              }`}
+            >
+              {p}
+            </button>
           ))}
         </div>
       </div>
@@ -49,14 +67,18 @@ export default function AICoachPage() {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {messages.map((msg, idx) => (
             <div key={idx} className={`flex items-start gap-3 ${msg.sender === "user" ? "flex-row-reverse" : ""}`}>
-              <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
-                msg.sender === "user" ? "bg-elevated text-soft" : "bg-ai-muted text-ai"
-              }`}>
+              <div
+                className={`h-8 w-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
+                  msg.sender === "user" ? "bg-elevated text-soft" : "bg-ai-muted text-ai"
+                }`}
+              >
                 {msg.sender === "user" ? "You" : <Bot className="h-4 w-4" />}
               </div>
-              <div className={`p-3.5 rounded-2xl max-w-[85%] sm:max-w-xl text-xs leading-relaxed ${
-                msg.sender === "user" ? "bg-accent/10 text-accent-hover" : "bg-elevated text-soft"
-              }`}>
+              <div
+                className={`p-3.5 rounded-2xl max-w-[85%] sm:max-w-xl text-xs leading-relaxed ${
+                  msg.sender === "user" ? "bg-accent/10 text-accent-hover" : "bg-elevated text-soft"
+                }`}
+              >
                 {msg.text}
               </div>
             </div>
@@ -76,7 +98,7 @@ export default function AICoachPage() {
             placeholder={`Ask via ${provider}...`}
             className="input-field flex-1"
           />
-          <button onClick={handleSend} className="btn-primary !rounded-xl shrink-0">
+          <button onClick={handleSend} className="btn-primary !rounded-xl shrink-0 cursor-pointer">
             <Send className="h-4 w-4" />
           </button>
         </div>

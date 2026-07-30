@@ -1,26 +1,16 @@
-"use client";
-
-import { useState } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus, Search, Filter, BookOpen, ChevronRight, Download } from "lucide-react";
-import { exportToCSV, formatTradeForExport } from "@/lib/export-csv";
-import { MOCK_TRADES } from "@/lib/data/mock-trades";
+import { Plus, BookOpen } from "lucide-react";
+import { getUserTrades } from "@/lib/actions/trade-actions";
 import { formatCurrency, formatRMultiple } from "@/lib/utils";
 
-export default function TradesPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [marketFilter, setMarketFilter] = useState("ALL");
-  const [outcomeFilter, setOutcomeFilter] = useState("ALL");
+export const metadata: Metadata = {
+  title: "Trade Journal — Trading OS",
+  description: "Browse, search, and filter all logged trades across instruments and markets.",
+};
 
-  const filteredTrades = MOCK_TRADES.filter((trade) => {
-    const matchesSearch =
-      trade.instrument.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      trade.setup.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      trade.market.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesMarket = marketFilter === "ALL" || trade.market === marketFilter;
-    const matchesOutcome = outcomeFilter === "ALL" || trade.outcome === outcomeFilter;
-    return matchesSearch && matchesMarket && matchesOutcome;
-  });
+export default async function TradesPage() {
+  const trades = await getUserTrades();
 
   return (
     <div className="space-y-5">
@@ -33,128 +23,120 @@ export default function TradesPage() {
           <p className="text-xs text-muted mt-0.5">All logged trades across markets.</p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <button
-            onClick={() => exportToCSV(filteredTrades.map(formatTradeForExport), "trade-journal")}
-            className="btn-secondary"
-            title="Export filtered trades as CSV"
-          >
-            <Download className="h-4 w-4" /> CSV
-          </button>
-          <Link href="/trades/new" className="btn-primary">
+          <Link href="/trades/new" className="btn-primary cursor-pointer">
             <Plus className="h-4 w-4" /> Log Trade
           </Link>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="card p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dim" />
-          <input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search instrument, setup..."
-            className="input-field !pl-9"
-          />
+      {/* Main content: Trades Table or Empty State Guide */}
+      {trades.length === 0 ? (
+        <div className="card p-8 sm:p-12 text-center space-y-4 max-w-xl mx-auto">
+          <div className="mx-auto h-12 w-12 rounded-2xl bg-accent/10 text-accent flex items-center justify-center">
+            <BookOpen className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-clean">Your Trade Journal is Empty</h3>
+            <p className="text-xs text-muted leading-relaxed max-w-md mx-auto">
+              Start building your quantitative trading history by logging your first trade entry. All metrics, win rates, and setup insights will calculate automatically.
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link href="/trades/new" className="btn-primary text-xs cursor-pointer inline-flex items-center gap-1.5">
+              <Plus className="h-4 w-4" /> Log Your First Trade
+            </Link>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <select value={marketFilter} onChange={(e) => setMarketFilter(e.target.value)} className="input-field !w-auto">
-            <option value="ALL">All Markets</option>
-            <option value="Gold">Gold</option>
-            <option value="Forex">Forex</option>
-            <option value="Crypto">Crypto</option>
-            <option value="Nifty Options">Nifty Options</option>
-            <option value="Stocks">Stocks</option>
-          </select>
-          <select value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value)} className="input-field !w-auto">
-            <option value="ALL">All</option>
-            <option value="WIN">Win</option>
-            <option value="LOSS">Loss</option>
-            <option value="BREAKEVEN">BE</option>
-          </select>
-        </div>
-      </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Mobile Card List */}
+          <div className="space-y-2 sm:hidden">
+            {trades.map((trade: any) => {
+              const pnlNum = Number(trade.pnl);
+              const rrNum = Number(trade.actualRR);
+              return (
+                <div key={trade.id} className="card p-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-bold text-clean">{trade.instrument}</span>
+                      <span className={`badge ${trade.outcome === "WIN" ? "badge-profit" : trade.outcome === "LOSS" ? "badge-loss" : "badge-neutral"}`}>
+                        {trade.outcome}
+                      </span>
+                    </div>
+                    <span className={`font-mono text-sm font-bold ${pnlNum >= 0 ? "text-profit" : "text-loss"}`}>
+                      {formatCurrency(pnlNum)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-muted">{new Date(trade.date).toLocaleDateString()} · {trade.session}</span>
+                    <span className={`font-mono font-semibold ${rrNum >= 0 ? "text-profit" : "text-loss"}`}>
+                      {formatRMultiple(rrNum)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-dim truncate pr-4">{trade.setup}</span>
+                    <span className="badge badge-neutral text-[9px] shrink-0">{trade.market}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-      {/* Mobile: Card List */}
-      <div className="space-y-2 sm:hidden">
-        {filteredTrades.map((trade) => (
-          <div key={trade.id} className="card p-4 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-sm font-bold text-clean">{trade.instrument}</span>
-                <span className={`badge ${trade.outcome === "WIN" ? "badge-profit" : trade.outcome === "LOSS" ? "badge-loss" : "badge-neutral"}`}>
-                  {trade.outcome}
-                </span>
-              </div>
-              <span className={`font-mono text-sm font-bold ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
-                {formatCurrency(trade.pnl)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-muted">{trade.date} · {trade.session}</span>
-              <span className={`font-mono font-semibold ${trade.rMultiple >= 0 ? "text-profit" : "text-loss"}`}>
-                {formatRMultiple(trade.rMultiple)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-dim truncate pr-4">{trade.setup}</span>
-              <span className="badge badge-neutral text-[9px] shrink-0">{trade.market}</span>
-            </div>
-            <div className="text-[10px] text-dim font-mono flex items-center gap-2">
-              <span className="text-soft">{trade.actualEntry}</span>
-              <span>→</span>
-              <span className={trade.pnl >= 0 ? "text-profit" : "text-loss"}>{trade.actualExit}</span>
-              <span className="text-dim ml-auto">SL: {trade.stopLoss}</span>
+          {/* Desktop Table */}
+          <div className="hidden sm:block card p-4 sm:p-5">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="text-dim text-[10px] uppercase tracking-wider">
+                    <th className="py-2.5 pr-3 font-semibold">Date</th>
+                    <th className="py-2.5 pr-3 font-semibold">Market</th>
+                    <th className="py-2.5 pr-3 font-semibold">Instrument</th>
+                    <th className="py-2.5 pr-3 font-semibold">Session</th>
+                    <th className="py-2.5 pr-3 font-semibold">Setup</th>
+                    <th className="py-2.5 pr-3 font-semibold">Entry / SL / TP</th>
+                    <th className="py-2.5 pr-3 font-semibold">Outcome</th>
+                    <th className="py-2.5 pr-3 text-right font-semibold">R-Mult</th>
+                    <th className="py-2.5 text-right font-semibold">PnL</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {trades.map((trade: any) => {
+                    const entryNum = Number(trade.actualEntry);
+                    const slNum = Number(trade.stopLoss);
+                    const tpNum = Number(trade.target);
+                    const pnlNum = Number(trade.pnl);
+                    const rrNum = Number(trade.actualRR);
+
+                    return (
+                      <tr key={trade.id} className="hover:bg-elevated/40 transition-colors">
+                        <td className="py-3 pr-3 text-soft">{new Date(trade.date).toLocaleDateString()}</td>
+                        <td className="py-3 pr-3"><span className="badge badge-neutral">{trade.market}</span></td>
+                        <td className="py-3 pr-3 font-mono font-bold text-clean">{trade.instrument}</td>
+                        <td className="py-3 pr-3 text-muted">{trade.session}</td>
+                        <td className="py-3 pr-3 text-subtle max-w-40 truncate">{trade.setup}</td>
+                        <td className="py-3 pr-3 font-mono text-[11px]">
+                          <span className="text-soft">{entryNum}</span> / <span className="text-loss">{slNum}</span> / <span className="text-profit">{tpNum}</span>
+                        </td>
+                        <td className="py-3 pr-3">
+                          <span className={`badge ${trade.outcome === "WIN" ? "badge-profit" : trade.outcome === "LOSS" ? "badge-loss" : "badge-neutral"}`}>
+                            {trade.outcome}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-3 text-right font-mono font-semibold">
+                          <span className={rrNum >= 0 ? "text-profit" : "text-loss"}>{formatRMultiple(rrNum)}</span>
+                        </td>
+                        <td className="py-3 text-right font-mono font-bold">
+                          <span className={pnlNum >= 0 ? "text-profit" : "text-loss"}>{formatCurrency(pnlNum)}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Desktop: Table */}
-      <div className="hidden sm:block card p-4 sm:p-5">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="text-dim text-[10px] uppercase tracking-wider">
-                <th className="py-2.5 pr-3 font-semibold">Date</th>
-                <th className="py-2.5 pr-3 font-semibold">Market</th>
-                <th className="py-2.5 pr-3 font-semibold">Instrument</th>
-                <th className="py-2.5 pr-3 font-semibold">Session</th>
-                <th className="py-2.5 pr-3 font-semibold">Setup</th>
-                <th className="py-2.5 pr-3 font-semibold">Entry / SL / TP</th>
-                <th className="py-2.5 pr-3 font-semibold">Outcome</th>
-                <th className="py-2.5 pr-3 text-right font-semibold">R-Mult</th>
-                <th className="py-2.5 text-right font-semibold">PnL</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredTrades.map((trade) => (
-                <tr key={trade.id} className="hover:bg-elevated/40 transition-colors">
-                  <td className="py-3 pr-3 text-soft">{trade.date}</td>
-                  <td className="py-3 pr-3"><span className="badge badge-neutral">{trade.market}</span></td>
-                  <td className="py-3 pr-3 font-mono font-bold text-clean">{trade.instrument}</td>
-                  <td className="py-3 pr-3 text-muted">{trade.session}</td>
-                  <td className="py-3 pr-3 text-subtle max-w-40 truncate">{trade.setup}</td>
-                  <td className="py-3 pr-3 font-mono text-[11px]">
-                    <span className="text-soft">{trade.actualEntry}</span> / <span className="text-loss">{trade.stopLoss}</span> / <span className="text-profit">{trade.target}</span>
-                  </td>
-                  <td className="py-3 pr-3">
-                    <span className={`badge ${trade.outcome === "WIN" ? "badge-profit" : trade.outcome === "LOSS" ? "badge-loss" : "badge-neutral"}`}>
-                      {trade.outcome}
-                    </span>
-                  </td>
-                  <td className="py-3 pr-3 text-right font-mono font-semibold">
-                    <span className={trade.rMultiple >= 0 ? "text-profit" : "text-loss"}>{formatRMultiple(trade.rMultiple)}</span>
-                  </td>
-                  <td className="py-3 text-right font-mono font-bold">
-                    <span className={trade.pnl >= 0 ? "text-profit" : "text-loss"}>{formatCurrency(trade.pnl)}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -4,26 +4,33 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
-  TrendingDown,
   ArrowUpRight,
   Plus,
   Sparkles,
   Zap,
   ChevronRight,
   Database,
-  Trash2,
   CheckCircle2,
+  BookOpen,
+  Dna,
 } from "lucide-react";
-import { MOCK_TRADES, MOCK_METRICS, MOCK_DNA, MOCK_AI_INSIGHTS } from "@/lib/data/mock-trades";
 import { formatCurrency, formatPercent, formatRMultiple } from "@/lib/utils";
 import { seedDemoTrades, clearAllUserTrades } from "@/lib/actions/trade-actions";
+import { TradeItem, DashboardMetrics } from "@/types";
 
 interface DashboardViewProps {
   userName?: string | null;
   isAuthed?: boolean;
+  initialTrades?: TradeItem[] | any[];
+  initialMetrics?: DashboardMetrics | any | null;
 }
 
-export function DashboardView({ userName, isAuthed }: DashboardViewProps) {
+export function DashboardView({
+  userName,
+  isAuthed,
+  initialTrades = [],
+  initialMetrics = null,
+}: DashboardViewProps) {
   const [isPending, startTransition] = useTransition();
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
@@ -31,19 +38,18 @@ export function DashboardView({ userName, isAuthed }: DashboardViewProps) {
   const greeting = hour < 12 ? "Good Morning" : hour < 18 ? "Good Afternoon" : "Good Evening";
   const firstName = userName ? userName.split(" ")[0] : "Trader";
 
+  const hasTrades = initialTrades && initialTrades.length > 0;
+  const netPnL = initialMetrics?.netPnL ?? 0;
+  const winRate = initialMetrics?.winRate ?? 0;
+  const averageRR = initialMetrics?.averageRR ?? 0;
+  const totalTrades = initialMetrics?.totalTrades ?? initialTrades.length;
+  const ruleFollowRate = initialMetrics?.ruleFollowRate ?? 100;
+  const psychologyScore = initialMetrics?.psychologyScore ?? 100;
+
   const handleSeedData = () => {
     setStatusMsg(null);
     startTransition(async () => {
       const res = await seedDemoTrades();
-      setStatusMsg(res.message);
-    });
-  };
-
-  const handleClearData = () => {
-    if (!confirm("Are you sure you want to clear your demo database trades?")) return;
-    setStatusMsg(null);
-    startTransition(async () => {
-      const res = await clearAllUserTrades();
       setStatusMsg(res.message);
     });
   };
@@ -64,15 +70,15 @@ export function DashboardView({ userName, isAuthed }: DashboardViewProps) {
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          {isAuthed && (
+          {isAuthed && !hasTrades && (
             <button
               onClick={handleSeedData}
               disabled={isPending}
               className="btn-secondary text-xs cursor-pointer"
-              title="Populate your database with sample trades"
+              title="Populate your database with sample trades to test"
             >
               <Database className="h-3.5 w-3.5 text-accent" />
-              {isPending ? "Loading Sample..." : "Load Sample Data"}
+              {isPending ? "Loading..." : "Load Sample Trades"}
             </button>
           )}
           <Link href="/trades/new" className="btn-primary self-start sm:self-auto cursor-pointer">
@@ -102,13 +108,17 @@ export function DashboardView({ userName, isAuthed }: DashboardViewProps) {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="badge badge-ai">AI Insight</span>
+              <span className="badge badge-ai">AI Coach</span>
             </div>
             <h3 className="text-sm font-semibold text-clean mt-1 leading-snug">
-              {MOCK_AI_INSIGHTS[0].title}
+              {hasTrades
+                ? "Execution Analysis Active"
+                : "Welcome to TradingOS"}
             </h3>
             <p className="text-xs text-muted mt-1 line-clamp-2">
-              {MOCK_AI_INSIGHTS[0].content}
+              {hasTrades
+                ? "Your logged trades are actively analyzed by AI Coach for risk management and strategy refinement."
+                : "Log your first trade or load sample trades to generate AI-powered execution insights and setup win rates."}
             </p>
           </div>
         </div>
@@ -121,38 +131,38 @@ export function DashboardView({ userName, isAuthed }: DashboardViewProps) {
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         <KPICard
           label="Net PnL"
-          value={formatCurrency(MOCK_METRICS.netPnL)}
-          sub="+12.4% this month"
-          color="profit"
+          value={formatCurrency(netPnL)}
+          sub={hasTrades ? "realized PnL" : "0 trades"}
+          color={netPnL >= 0 ? "profit" : "loss"}
           icon={<TrendingUp className="h-3.5 w-3.5" />}
         />
         <KPICard
           label="Win Rate"
-          value={formatPercent(MOCK_METRICS.winRate)}
-          sub={`${MOCK_METRICS.totalTrades} trades`}
+          value={formatPercent(winRate)}
+          sub={`${totalTrades} trades`}
           color="default"
         />
         <KPICard
           label="Avg RR"
-          value={`1:${MOCK_METRICS.averageRR}`}
+          value={`1:${averageRR}`}
           sub="Risk:Reward"
           color="accent"
         />
         <KPICard
           label="Total Trades"
-          value={String(MOCK_METRICS.totalTrades)}
-          sub="5 markets"
+          value={String(totalTrades)}
+          sub="recorded"
           color="default"
         />
         <KPICard
           label="Psych Score"
-          value={`${MOCK_METRICS.psychologyScore}`}
+          value={`${psychologyScore}`}
           sub="/ 100 health"
           color="ai"
         />
         <KPICard
           label="Rule Follow"
-          value={formatPercent(MOCK_METRICS.ruleFollowRate)}
+          value={formatPercent(ruleFollowRate)}
           sub="compliance"
           color="profit"
         />
@@ -160,83 +170,114 @@ export function DashboardView({ userName, isAuthed }: DashboardViewProps) {
 
       {/* ── Main Content: Trades + DNA ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Recent Trades */}
+        {/* Recent Trades Section */}
         <div className="lg:col-span-2 card p-4 sm:p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-clean flex items-center gap-2">
               <Zap className="h-4 w-4 text-accent" /> Recent Trades
             </h2>
-            <Link href="/trades" className="text-xs font-medium text-accent hover:text-accent-hover flex items-center gap-1 cursor-pointer">
-              View All <ChevronRight className="h-3 w-3" />
-            </Link>
+            {hasTrades && (
+              <Link href="/trades" className="text-xs font-medium text-accent hover:text-accent-hover flex items-center gap-1 cursor-pointer">
+                View All <ChevronRight className="h-3 w-3" />
+              </Link>
+            )}
           </div>
 
-          {/* Mobile: Card Layout / Desktop: Table */}
-          <div className="space-y-2 sm:hidden">
-            {MOCK_TRADES.slice(0, 4).map((trade) => (
-              <div key={trade.id} className="card-elevated p-3.5 rounded-xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-bold text-clean">{trade.instrument}</span>
-                    <span className={`badge ${trade.outcome === "WIN" ? "badge-profit" : trade.outcome === "LOSS" ? "badge-loss" : "badge-neutral"}`}>
-                      {trade.outcome}
-                    </span>
-                  </div>
-                  <span className={`font-mono text-sm font-bold ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
-                    {formatCurrency(trade.pnl)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-muted">
-                  <span>{trade.date} · {trade.session}</span>
-                  <span className={`font-mono font-semibold ${trade.rMultiple >= 0 ? "text-profit" : "text-loss"}`}>
-                    {formatRMultiple(trade.rMultiple)}
-                  </span>
-                </div>
-                <p className="text-[11px] text-dim truncate">{trade.setup}</p>
+          {!hasTrades ? (
+            /* Clean Empty State Guide when 0 trades */
+            <div className="card-elevated p-8 text-center space-y-4 my-2">
+              <div className="mx-auto h-12 w-12 rounded-2xl bg-accent/10 text-accent flex items-center justify-center">
+                <BookOpen className="h-6 w-6" />
               </div>
-            ))}
-          </div>
-
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="text-dim text-[10px] uppercase tracking-wider">
-                  <th className="py-2.5 pr-3 font-semibold">Date</th>
-                  <th className="py-2.5 pr-3 font-semibold">Instrument</th>
-                  <th className="py-2.5 pr-3 font-semibold">Setup</th>
-                  <th className="py-2.5 pr-3 font-semibold">Outcome</th>
-                  <th className="py-2.5 pr-3 font-semibold text-right">R-Mult</th>
-                  <th className="py-2.5 font-semibold text-right">PnL</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/20">
-                {MOCK_TRADES.slice(0, 5).map((trade) => (
-                  <tr key={trade.id} className="group hover:bg-elevated/40 transition-colors">
-                    <td className="py-3 pr-3 text-muted font-mono whitespace-nowrap">
-                      <div>{trade.date}</div>
-                      <span className="text-[10px] text-dim">{trade.session}</span>
-                    </td>
-                    <td className="py-3 pr-3 font-bold font-mono text-clean">{trade.instrument}</td>
-                    <td className="py-3 pr-3 text-soft max-w-45 truncate">{trade.setup}</td>
-                    <td className="py-3 pr-3">
-                      <span className={`badge ${trade.outcome === "WIN" ? "badge-profit" : trade.outcome === "LOSS" ? "badge-loss" : "badge-neutral"}`}>
-                        {trade.outcome}
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-clean">No Trades Logged Yet</h3>
+                <p className="text-xs text-muted max-w-sm mx-auto leading-relaxed">
+                  Start tracking your trading journey by logging your first trade setup. Your performance metrics, win rate, and analytics will calculate automatically.
+                </p>
+              </div>
+              <div className="pt-2 flex items-center justify-center gap-3 flex-wrap">
+                <Link href="/trades/new" className="btn-primary text-xs cursor-pointer inline-flex items-center gap-1.5">
+                  <Plus className="h-4 w-4" /> Log Your First Trade
+                </Link>
+                {isAuthed && (
+                  <button onClick={handleSeedData} disabled={isPending} className="btn-secondary text-xs cursor-pointer inline-flex items-center gap-1.5">
+                    <Database className="h-3.5 w-3.5 text-accent" /> Load Sample Trades
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Trades Table & Mobile Cards when trades exist */
+            <>
+              {/* Mobile: Card Layout */}
+              <div className="space-y-2 sm:hidden">
+                {initialTrades.slice(0, 4).map((trade: any) => (
+                  <div key={trade.id} className="card-elevated p-3.5 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-bold text-clean">{trade.instrument}</span>
+                        <span className={`badge ${trade.outcome === "WIN" ? "badge-profit" : trade.outcome === "LOSS" ? "badge-loss" : "badge-neutral"}`}>
+                          {trade.outcome}
+                        </span>
+                      </div>
+                      <span className={`font-mono text-sm font-bold ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
+                        {formatCurrency(trade.pnl)}
                       </span>
-                    </td>
-                    <td className={`py-3 pr-3 font-mono font-semibold text-right ${trade.rMultiple >= 0 ? "text-profit" : "text-loss"}`}>
-                      {formatRMultiple(trade.rMultiple)}
-                    </td>
-                    <td className={`py-3 font-mono font-bold text-right ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
-                      {formatCurrency(trade.pnl)}
-                    </td>
-                  </tr>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-muted">
+                      <span>{new Date(trade.date).toLocaleDateString()} · {trade.session}</span>
+                      <span className={`font-mono font-semibold ${(trade.actualRR ?? trade.rMultiple ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>
+                        {formatRMultiple(trade.actualRR ?? trade.rMultiple ?? 0)}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-dim truncate">{trade.setup}</p>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+
+              {/* Desktop: Table */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="text-dim text-[10px] uppercase tracking-wider">
+                      <th className="py-2.5 pr-3 font-semibold">Date</th>
+                      <th className="py-2.5 pr-3 font-semibold">Instrument</th>
+                      <th className="py-2.5 pr-3 font-semibold">Setup</th>
+                      <th className="py-2.5 pr-3 font-semibold">Outcome</th>
+                      <th className="py-2.5 pr-3 font-semibold text-right">R-Mult</th>
+                      <th className="py-2.5 font-semibold text-right">PnL</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                    {initialTrades.slice(0, 5).map((trade: any) => (
+                      <tr key={trade.id} className="group hover:bg-elevated/40 transition-colors">
+                        <td className="py-3 pr-3 text-muted font-mono whitespace-nowrap">
+                          <div>{new Date(trade.date).toLocaleDateString()}</div>
+                          <span className="text-[10px] text-dim">{trade.session}</span>
+                        </td>
+                        <td className="py-3 pr-3 font-bold font-mono text-clean">{trade.instrument}</td>
+                        <td className="py-3 pr-3 text-soft max-w-45 truncate">{trade.setup}</td>
+                        <td className="py-3 pr-3">
+                          <span className={`badge ${trade.outcome === "WIN" ? "badge-profit" : trade.outcome === "LOSS" ? "badge-loss" : "badge-neutral"}`}>
+                            {trade.outcome}
+                          </span>
+                        </td>
+                        <td className={`py-3 pr-3 font-mono font-semibold text-right ${(trade.actualRR ?? trade.rMultiple ?? 0) >= 0 ? "text-profit" : "text-loss"}`}>
+                          {formatRMultiple(trade.actualRR ?? trade.rMultiple ?? 0)}
+                        </td>
+                        <td className={`py-3 font-mono font-bold text-right ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
+                          {formatCurrency(trade.pnl)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* DNA Snapshot */}
+        {/* DNA Snapshot Section */}
         <div className="card p-4 sm:p-5 space-y-4 flex flex-col justify-between">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -248,20 +289,30 @@ export function DashboardView({ userName, isAuthed }: DashboardViewProps) {
               </Link>
             </div>
 
-            <div className="space-y-2.5">
-              <DNAItem label="Best Market" value={MOCK_DNA.bestMarket} badge="82% Win" type="profit" />
-              <DNAItem label="Best Setup" value={MOCK_DNA.bestSetup} badge="3.2R Avg" type="accent" />
-              <DNAItem label="Peak Session" value={MOCK_DNA.bestSession} badge="NY Open" type="profit" />
-            </div>
+            {!hasTrades ? (
+              <div className="card-elevated p-6 rounded-2xl text-center space-y-2 my-2">
+                <Dna className="h-6 w-6 text-ai mx-auto" />
+                <h4 className="text-xs font-semibold text-clean">DNA Analysis Pending</h4>
+                <p className="text-[11px] text-dim leading-relaxed">
+                  Log at least 5 trades to unlock your quantitative trading fingerprint and setup win rates.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                <DNAItem label="Best Market" value={initialTrades[0]?.market || "N/A"} badge="Active" type="profit" />
+                <DNAItem label="Best Setup" value={initialTrades[0]?.setup || "N/A"} badge="Primary" type="accent" />
+                <DNAItem label="Peak Session" value={initialTrades[0]?.session || "N/A"} badge="Session" type="profit" />
+              </div>
+            )}
           </div>
 
           <div className="pt-3 border-t border-border/20">
             <div className="flex items-center justify-between text-xs text-muted">
-              <span>Monthly Win Rate</span>
-              <span className="font-mono font-bold text-profit">68.4%</span>
+              <span>Win Rate</span>
+              <span className="font-mono font-bold text-profit">{formatPercent(winRate)}</span>
             </div>
             <div className="w-full bg-elevated rounded-full h-2 mt-1.5 overflow-hidden">
-              <div className="bg-profit h-full rounded-full transition-all duration-500" style={{ width: "68.4%" }} />
+              <div className="bg-profit h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, winRate)}%` }} />
             </div>
           </div>
         </div>

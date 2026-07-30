@@ -1,15 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { Image as ImageIcon, Calendar } from "lucide-react";
-import { MOCK_TRADES } from "@/lib/data/mock-trades";
+import Link from "next/link";
+import { Image as ImageIcon, Calendar, Plus } from "lucide-react";
 
 export default function ScreenshotsPage() {
   const [selectedStage, setSelectedStage] = useState("ALL");
-
-  const allScreenshots = MOCK_TRADES.flatMap((t) =>
-    t.screenshots.map((s) => ({ ...s, instrument: t.instrument, market: t.market, date: t.date, outcome: t.outcome, pnl: t.pnl }))
-  );
+  const allScreenshots: Array<{
+    id: string;
+    url: string;
+    stage: string;
+    caption?: string;
+    instrument: string;
+    market: string;
+    date: string;
+    outcome: string;
+    pnl: number;
+  }> = [];
 
   const filtered = allScreenshots.filter((s) => selectedStage === "ALL" || s.stage === selectedStage);
 
@@ -34,10 +41,21 @@ export default function ScreenshotsPage() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="card p-12 text-center">
-          <ImageIcon className="h-10 w-10 text-dim mx-auto mb-3" />
-          <p className="text-sm text-muted">No screenshots found for this filter.</p>
-          <p className="text-xs text-dim mt-1">Upload charts when logging new trades.</p>
+        <div className="card p-8 sm:p-12 text-center space-y-4 max-w-xl mx-auto">
+          <div className="mx-auto h-12 w-12 rounded-2xl bg-accent/10 text-accent flex items-center justify-center">
+            <ImageIcon className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-clean">Screenshot Vault is Empty</h3>
+            <p className="text-xs text-muted leading-relaxed max-w-md mx-auto">
+              Attach TradingView chart URLs when logging trades (during Plan, Execution, or Result phase) to build your visual setup archive.
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link href="/trades/new" className="btn-primary text-xs cursor-pointer inline-flex items-center gap-1.5">
+              <Plus className="h-4 w-4" /> Log Trade with Chart
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
