@@ -100,6 +100,21 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* ── Enforce Cursor Pointer on All Interactive Elements ── */
+button,
+a,
+select,
+summary,
+[role="button"],
+label[for],
+input[type="submit"],
+input[type="button"],
+input[type="reset"],
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer !important;
+}
+
 /* ── Focus Rings ── */
 *:focus-visible {
   outline: 2px solid var(--color-accent);

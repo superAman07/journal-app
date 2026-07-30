@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TrendingUp, ShieldCheck, ArrowRight } from "lucide-react";
+import { ShieldCheck, ArrowRight } from "lucide-react";
 import { auth, signIn } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -17,7 +17,7 @@ export default async function LoginPage() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "radial-gradient(ellipse at top, #0e0f1a 0%, #06060a 70%)" }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "linear-gradient(180deg, #0e0f1a 0%, #06060a 100%)" }}>
       {/* Subtle background grid */}
       <div className="absolute inset-0 opacity-[0.03]" style={{
         backgroundImage: `linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px)`,
@@ -29,22 +29,19 @@ export default async function LoginPage() {
           {/* Glow */}
           <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-accent/10 rounded-full blur-[80px] pointer-events-none" />
 
-          {/* Logo */}
-          <div className="relative">
-            <div className="mx-auto h-14 w-14 rounded-2xl bg-accent flex items-center justify-center shadow-lg shadow-accent/20">
-              <TrendingUp className="h-7 w-7 text-white" />
-            </div>
-          </div>
-
-          {/* Title */}
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-clean tracking-tight">
-              Welcome to <span className="text-accent">TradingOS</span>
+          {/* Brand — Clean Text, No Icon Box */}
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold text-clean tracking-tight">
+              Trading<span className="text-accent">OS</span>
             </h1>
-            <p className="text-sm text-muted leading-relaxed max-w-xs mx-auto">
-              Your personal trading journal, analytics engine, and AI performance coach.
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-dim">
+              Performance Engine
             </p>
           </div>
+
+          <p className="text-xs text-muted leading-relaxed max-w-xs mx-auto">
+            Your personal trading journal, analytics engine, and AI performance coach.
+          </p>
 
           {/* Actions */}
           <div className="space-y-3 pt-1">
@@ -57,7 +54,7 @@ export default async function LoginPage() {
             >
               <button
                 type="submit"
-                className="w-full py-3 px-4 rounded-xl bg-elevated hover:bg-overlay text-clean font-semibold text-sm transition-all flex items-center justify-center gap-3 active:scale-[0.98] shadow-[var(--shadow-elevated)]"
+                className="w-full py-3 px-4 rounded-xl bg-elevated hover:bg-overlay text-clean font-semibold text-sm transition-all flex items-center justify-center gap-3 active:scale-[0.98] shadow-[var(--shadow-elevated)] cursor-pointer"
               >
                 <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -72,7 +69,7 @@ export default async function LoginPage() {
             {/* Demo Mode */}
             <Link
               href="/"
-              className="btn-primary w-full !py-3"
+              className="btn-primary w-full !py-3 cursor-pointer"
             >
               Explore Demo Mode <ArrowRight className="h-4 w-4" />
             </Link>
@@ -80,7 +77,7 @@ export default async function LoginPage() {
 
           {/* Footer */}
           <div className="flex items-center justify-center gap-1.5 text-[11px] text-dim pt-1">
-            <ShieldCheck className="h-3 w-3 text-accent" />
+            <ShieldCheck className="h-3.5 w-3.5 text-accent" />
             <span>Private &amp; Secure · User-isolated database</span>
           </div>
         </div>

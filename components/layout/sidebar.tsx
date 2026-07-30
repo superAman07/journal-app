@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import {
   LayoutDashboard,
   BookOpen,
@@ -14,13 +15,12 @@ import {
   Sparkles,
   CalendarRange,
   Settings,
-  TrendingUp,
   ChevronLeft,
   ChevronRight,
   User as UserIcon,
+  LogOut,
 } from "lucide-react";
 import { useState } from "react";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const NAV_SECTIONS = [
   {
@@ -58,6 +58,7 @@ const NAV_SECTIONS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -66,18 +67,19 @@ export function Sidebar() {
         collapsed ? "w-[68px]" : "w-[240px]"
       }`}
     >
-      {/* Brand */}
+      {/* Brand — Clean Text, No Icon Box */}
       <div className={`flex items-center h-16 shrink-0 ${collapsed ? "justify-center px-2" : "px-5"}`}>
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="h-8 w-8 rounded-xl bg-accent flex items-center justify-center shadow-md shadow-accent/20 group-hover:shadow-accent/30 transition-shadow shrink-0">
-            <TrendingUp className="h-4 w-4 text-white" />
-          </div>
-          {!collapsed && (
+        <Link href="/" className="flex items-center gap-2 group cursor-pointer">
+          {collapsed ? (
+            <span className="font-bold text-base text-clean tracking-tight">
+              T<span className="text-accent">OS</span>
+            </span>
+          ) : (
             <div className="overflow-hidden">
-              <span className="font-bold text-[15px] text-clean tracking-tight leading-none block">
+              <span className="font-bold text-[16px] text-clean tracking-tight leading-none block">
                 Trading<span className="text-accent">OS</span>
               </span>
-              <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-dim leading-none block mt-0.5">
+              <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-dim leading-none block mt-1">
                 Performance Engine
               </span>
             </div>
@@ -109,7 +111,7 @@ export function Sidebar() {
                     key={item.href}
                     href={item.href}
                     title={collapsed ? item.label : undefined}
-                    className={`flex items-center gap-2.5 rounded-xl transition-all duration-150 group relative ${
+                    className={`flex items-center gap-2.5 rounded-xl transition-all duration-150 group relative cursor-pointer ${
                       collapsed
                         ? "h-10 w-10 mx-auto justify-center"
                         : "px-3 py-2"
@@ -136,36 +138,68 @@ export function Sidebar() {
         ))}
       </div>
 
-      {/* Footer controls */}
-      <div className="px-2 py-2 flex items-center gap-1">
-        <ThemeToggle />
+      {/* Collapse controls — NO border lines */}
+      <div className="px-3 py-2 flex items-center justify-between">
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="flex-1 flex items-center justify-center h-8 rounded-lg hover:bg-elevated text-dim hover:text-muted transition-all"
+          className="w-full flex items-center justify-center h-8 rounded-lg hover:bg-elevated text-dim hover:text-muted transition-all cursor-pointer"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
       </div>
 
-      {/* Profile */}
+      {/* Profile / Live Auth State — NO border lines */}
       <div className={`${collapsed ? "p-2" : "p-3"}`}>
-        <Link
-          href="/login"
-          className={`flex items-center gap-2.5 rounded-xl transition-all hover:bg-elevated ${
-            collapsed ? "h-10 w-10 mx-auto justify-center" : "p-2.5"
-          }`}
-        >
-          <div className="h-8 w-8 rounded-full bg-elevated flex items-center justify-center text-muted shrink-0">
-            <UserIcon className="h-4 w-4" />
-          </div>
-          {!collapsed && (
-            <div className="truncate">
-              <p className="text-xs font-semibold text-soft truncate">Trader</p>
-              <p className="text-[10px] text-dim truncate">Sign in with Google</p>
+        {session?.user ? (
+          <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} gap-2`}>
+            <div className="flex items-center gap-2.5 min-w-0">
+              {session.user.image ? (
+                <img
+                  src={session.user.image}
+                  alt={session.user.name || "User"}
+                  className="h-8 w-8 rounded-full shrink-0"
+                />
+              ) : (
+                <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  {session.user.name?.charAt(0) || "T"}
+                </div>
+              )}
+              {!collapsed && (
+                <div className="truncate">
+                  <p className="text-xs font-semibold text-soft truncate">{session.user.name || "Trader"}</p>
+                  <p className="text-[10px] text-dim truncate">{session.user.email}</p>
+                </div>
+              )}
             </div>
-          )}
-        </Link>
+            {!collapsed && (
+              <button
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                title="Sign out"
+                className="p-1.5 rounded-lg hover:bg-elevated text-dim hover:text-loss transition-colors cursor-pointer shrink-0"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <Link
+            href="/login"
+            className={`flex items-center gap-2.5 rounded-xl transition-all hover:bg-elevated cursor-pointer ${
+              collapsed ? "h-10 w-10 mx-auto justify-center" : "p-2.5"
+            }`}
+          >
+            <div className="h-8 w-8 rounded-full bg-elevated flex items-center justify-center text-muted shrink-0">
+              <UserIcon className="h-4 w-4" />
+            </div>
+            {!collapsed && (
+              <div className="truncate">
+                <p className="text-xs font-semibold text-soft truncate">Sign In</p>
+                <p className="text-[10px] text-dim truncate">Google OAuth</p>
+              </div>
+            )}
+          </Link>
+        )}
       </div>
     </aside>
   );

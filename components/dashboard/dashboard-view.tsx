@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -7,19 +8,45 @@ import {
   ArrowUpRight,
   Plus,
   Sparkles,
-  Dna,
-  Calendar,
   Zap,
-  Target,
-  Shield,
   ChevronRight,
+  Database,
+  Trash2,
+  CheckCircle2,
 } from "lucide-react";
 import { MOCK_TRADES, MOCK_METRICS, MOCK_DNA, MOCK_AI_INSIGHTS } from "@/lib/data/mock-trades";
 import { formatCurrency, formatPercent, formatRMultiple } from "@/lib/utils";
+import { seedDemoTrades, clearAllUserTrades } from "@/lib/actions/trade-actions";
 
-export function DashboardView() {
+interface DashboardViewProps {
+  userName?: string | null;
+  isAuthed?: boolean;
+}
+
+export function DashboardView({ userName, isAuthed }: DashboardViewProps) {
+  const [isPending, startTransition] = useTransition();
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good Morning" : hour < 18 ? "Good Afternoon" : "Good Evening";
+  const firstName = userName ? userName.split(" ")[0] : "Trader";
+
+  const handleSeedData = () => {
+    setStatusMsg(null);
+    startTransition(async () => {
+      const res = await seedDemoTrades();
+      setStatusMsg(res.message);
+    });
+  };
+
+  const handleClearData = () => {
+    if (!confirm("Are you sure you want to clear your demo database trades?")) return;
+    setStatusMsg(null);
+    startTransition(async () => {
+      const res = await clearAllUserTrades();
+      setStatusMsg(res.message);
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -27,16 +54,45 @@ export function DashboardView() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-clean tracking-tight">
-            {greeting}, Trader 👋
+            {greeting}, {firstName} 👋
           </h1>
           <p className="text-sm text-muted mt-0.5">
-            Here&apos;s your performance snapshot for today.
+            {isAuthed
+              ? "Welcome to your personal trading journal & analytics engine."
+              : "Here's your performance snapshot for today."}
           </p>
         </div>
-        <Link href="/trades/new" className="btn-primary self-start sm:self-auto">
-          <Plus className="h-4 w-4" /> Log Trade
-        </Link>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {isAuthed && (
+            <button
+              onClick={handleSeedData}
+              disabled={isPending}
+              className="btn-secondary text-xs cursor-pointer"
+              title="Populate your database with sample trades"
+            >
+              <Database className="h-3.5 w-3.5 text-accent" />
+              {isPending ? "Loading Sample..." : "Load Sample Data"}
+            </button>
+          )}
+          <Link href="/trades/new" className="btn-primary self-start sm:self-auto cursor-pointer">
+            <Plus className="h-4 w-4" /> Log Trade
+          </Link>
+        </div>
       </div>
+
+      {/* Notification Toast */}
+      {statusMsg && (
+        <div className="card p-3 bg-accent-muted/30 border border-accent/20 rounded-xl flex items-center justify-between text-xs text-clean">
+          <span className="flex items-center gap-2 font-medium">
+            <CheckCircle2 className="h-4 w-4 text-profit shrink-0" />
+            {statusMsg}
+          </span>
+          <button onClick={() => setStatusMsg(null)} className="text-dim hover:text-clean font-bold px-2 cursor-pointer">
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* ── AI Coach Insight Banner ── */}
       <div className="card-glow p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -56,7 +112,7 @@ export function DashboardView() {
             </p>
           </div>
         </div>
-        <Link href="/ai-coach" className="btn-secondary shrink-0 self-start sm:self-center">
+        <Link href="/ai-coach" className="btn-secondary shrink-0 self-start sm:self-center cursor-pointer">
           Ask Coach <ArrowUpRight className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -110,7 +166,7 @@ export function DashboardView() {
             <h2 className="text-sm font-semibold text-clean flex items-center gap-2">
               <Zap className="h-4 w-4 text-accent" /> Recent Trades
             </h2>
-            <Link href="/trades" className="text-xs font-medium text-accent hover:text-accent-hover flex items-center gap-1">
+            <Link href="/trades" className="text-xs font-medium text-accent hover:text-accent-hover flex items-center gap-1 cursor-pointer">
               View All <ChevronRight className="h-3 w-3" />
             </Link>
           </div>
@@ -141,7 +197,6 @@ export function DashboardView() {
             ))}
           </div>
 
-          {/* Desktop Table */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
@@ -150,37 +205,29 @@ export function DashboardView() {
                   <th className="py-2.5 pr-3 font-semibold">Instrument</th>
                   <th className="py-2.5 pr-3 font-semibold">Setup</th>
                   <th className="py-2.5 pr-3 font-semibold">Outcome</th>
-                  <th className="py-2.5 pr-3 text-right font-semibold">R-Mult</th>
-                  <th className="py-2.5 text-right font-semibold">PnL</th>
+                  <th className="py-2.5 pr-3 font-semibold text-right">R-Mult</th>
+                  <th className="py-2.5 font-semibold text-right">PnL</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
-                {MOCK_TRADES.map((trade) => (
-                  <tr key={trade.id} className="hover:bg-elevated/50 transition-colors">
-                    <td className="py-3 pr-3">
-                      <span className="text-soft">{trade.date}</span>
-                      <span className="block text-[10px] text-dim">{trade.session}</span>
+              <tbody className="divide-y divide-border/20">
+                {MOCK_TRADES.slice(0, 5).map((trade) => (
+                  <tr key={trade.id} className="group hover:bg-elevated/40 transition-colors">
+                    <td className="py-3 pr-3 text-muted font-mono whitespace-nowrap">
+                      <div>{trade.date}</div>
+                      <span className="text-[10px] text-dim">{trade.session}</span>
                     </td>
-                    <td className="py-3 pr-3">
-                      <span className="font-mono font-bold text-clean bg-elevated px-2 py-0.5 rounded-md text-[11px]">
-                        {trade.instrument}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-3 text-subtle max-w-[180px] truncate">{trade.setup}</td>
+                    <td className="py-3 pr-3 font-bold font-mono text-clean">{trade.instrument}</td>
+                    <td className="py-3 pr-3 text-soft max-w-[180px] truncate">{trade.setup}</td>
                     <td className="py-3 pr-3">
                       <span className={`badge ${trade.outcome === "WIN" ? "badge-profit" : trade.outcome === "LOSS" ? "badge-loss" : "badge-neutral"}`}>
                         {trade.outcome}
                       </span>
                     </td>
-                    <td className="py-3 pr-3 text-right font-mono font-semibold">
-                      <span className={trade.rMultiple >= 0 ? "text-profit" : "text-loss"}>
-                        {formatRMultiple(trade.rMultiple)}
-                      </span>
+                    <td className={`py-3 pr-3 font-mono font-semibold text-right ${trade.rMultiple >= 0 ? "text-profit" : "text-loss"}`}>
+                      {formatRMultiple(trade.rMultiple)}
                     </td>
-                    <td className="py-3 text-right font-mono font-bold">
-                      <span className={trade.pnl >= 0 ? "text-profit" : "text-loss"}>
-                        {formatCurrency(trade.pnl)}
-                      </span>
+                    <td className={`py-3 font-mono font-bold text-right ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
+                      {formatCurrency(trade.pnl)}
                     </td>
                   </tr>
                 ))}
@@ -189,82 +236,34 @@ export function DashboardView() {
           </div>
         </div>
 
-        {/* Trading DNA Sidebar */}
-        <div className="space-y-4">
-          <div className="card p-4 sm:p-5 space-y-3">
+        {/* DNA Snapshot */}
+        <div className="card p-4 sm:p-5 space-y-4 flex flex-col justify-between">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-clean flex items-center gap-2">
-                <Dna className="h-4 w-4 text-accent" /> Trading DNA
+                <Sparkles className="h-4 w-4 text-ai" /> Trading DNA
               </h2>
-              <Link href="/dna" className="text-xs text-accent hover:text-accent-hover font-medium">
+              <Link href="/dna" className="text-xs font-medium text-accent hover:text-accent-hover flex items-center gap-1 cursor-pointer">
                 View →
               </Link>
             </div>
 
-            <DNAItem label="Best Market" value={MOCK_DNA.bestMarket} badge="82% Win" type="profit" />
-            <DNAItem label="Best Setup" value={MOCK_DNA.bestSetup} badge="3.2R Avg" type="profit" />
-            <DNAItem label="Peak Session" value="New York" badge="NY Open" type="accent" />
-            <DNAItem label="Primary Leak" value={MOCK_DNA.biggestWeakness} badge="Fix" type="loss" />
+            <div className="space-y-2.5">
+              <DNAItem label="Best Market" value={MOCK_DNA.bestMarket} badge="82% Win" type="profit" />
+              <DNAItem label="Best Setup" value={MOCK_DNA.bestSetup} badge="3.2R Avg" type="accent" />
+              <DNAItem label="Peak Session" value={MOCK_DNA.bestSession} badge="NY Open" type="profit" />
+            </div>
           </div>
 
-          {/* Quick CTA */}
-          <div className="card p-5 text-center space-y-3">
-            <div className="h-10 w-10 rounded-xl bg-accent-muted flex items-center justify-center mx-auto">
-              <Target className="h-5 w-5 text-accent" />
+          <div className="pt-3 border-t border-border/20">
+            <div className="flex items-center justify-between text-xs text-muted">
+              <span>Monthly Win Rate</span>
+              <span className="font-mono font-bold text-profit">68.4%</span>
             </div>
-            <h3 className="text-sm font-semibold text-clean">Pre-trade Checklist</h3>
-            <p className="text-xs text-muted leading-relaxed">
-              Log your plan before executing to ensure 100% rule compliance.
-            </p>
-            <Link href="/trades/new" className="btn-primary w-full">
-              <Plus className="h-4 w-4" /> Start Trade Log
-            </Link>
+            <div className="w-full bg-elevated rounded-full h-2 mt-1.5 overflow-hidden">
+              <div className="bg-profit h-full rounded-full transition-all duration-500" style={{ width: "68.4%" }} />
+            </div>
           </div>
-        </div>
-      </div>
-
-      {/* ── Calendar Heatmap ── */}
-      <div className="card p-4 sm:p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-clean flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-accent" /> Monthly Heatmap
-          </h2>
-          <span className="text-xs text-dim">July 2026</span>
-        </div>
-
-        {/* Day Headers */}
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-          {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
-            <div key={`${day}-${i}`} className="text-center text-[10px] font-semibold text-dim pb-1">
-              {day}
-            </div>
-          ))}
-
-          {Array.from({ length: 31 }).map((_, i) => {
-            const dayNum = i + 1;
-            const isProfitable = dayNum % 3 === 0 || dayNum % 5 === 0;
-            const isLoss = dayNum % 4 === 0 && !isProfitable;
-            const isBlank = dayNum > 28;
-
-            return (
-              <div
-                key={i}
-                className={`aspect-square rounded-lg sm:rounded-xl flex flex-col items-center justify-center p-0.5 sm:p-1 transition-all cursor-pointer text-[9px] sm:text-[10px] ${
-                  isProfitable
-                    ? "bg-profit/15 text-profit border border-profit/20 hover:bg-profit/25"
-                    : isLoss
-                    ? "bg-loss/15 text-loss border border-loss/20 hover:bg-loss/25"
-                    : isBlank
-                    ? "bg-transparent opacity-20"
-                    : "bg-elevated/50 text-dim hover:bg-elevated"
-                }`}
-              >
-                <span className="font-mono font-medium leading-none">{dayNum}</span>
-                {isProfitable && <span className="font-bold font-mono hidden sm:block mt-0.5">+1.2k</span>}
-                {isLoss && <span className="font-bold font-mono hidden sm:block mt-0.5">-450</span>}
-              </div>
-            );
-          })}
         </div>
       </div>
     </div>
@@ -295,7 +294,7 @@ function KPICard({
   }[color];
 
   return (
-    <div className="card p-3.5 sm:p-4 space-y-1.5">
+    <div className="card p-3.5 sm:p-4 space-y-1.5 hover:scale-[1.01] transition-transform">
       <span className="label !mb-0">{label}</span>
       <div className={`stat-value !text-lg sm:!text-xl ${valueColor}`}>{value}</div>
       <div className="flex items-center gap-1 text-[10px] text-dim font-medium">
