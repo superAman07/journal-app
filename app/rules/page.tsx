@@ -31,7 +31,7 @@ export default function RulesPage() {
       {/* Add Rule */}
       <div className="card p-4 flex flex-col sm:flex-row gap-2">
         <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Add new rule..." className="input-field flex-1" />
-        <select value={newCategory} onChange={(e) => setNewCategory(e.target.value as typeof newCategory)} className="input-field !w-auto">
+        <select value={newCategory} onChange={(e) => setNewCategory(e.target.value as typeof newCategory)} className="input-field w-auto!">
           <option value="RISK">Risk</option>
           <option value="EXECUTION">Execution</option>
           <option value="PSYCHOLOGY">Psychology</option>

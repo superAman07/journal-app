@@ -217,7 +217,7 @@ export function DashboardView({ userName, isAuthed }: DashboardViewProps) {
                       <span className="text-[10px] text-dim">{trade.session}</span>
                     </td>
                     <td className="py-3 pr-3 font-bold font-mono text-clean">{trade.instrument}</td>
-                    <td className="py-3 pr-3 text-soft max-w-[180px] truncate">{trade.setup}</td>
+                    <td className="py-3 pr-3 text-soft max-w-45 truncate">{trade.setup}</td>
                     <td className="py-3 pr-3">
                       <span className={`badge ${trade.outcome === "WIN" ? "badge-profit" : trade.outcome === "LOSS" ? "badge-loss" : "badge-neutral"}`}>
                         {trade.outcome}
@@ -295,8 +295,8 @@ function KPICard({
 
   return (
     <div className="card p-3.5 sm:p-4 space-y-1.5 hover:scale-[1.01] transition-transform">
-      <span className="label !mb-0">{label}</span>
-      <div className={`stat-value !text-lg sm:!text-xl ${valueColor}`}>{value}</div>
+      <span className="label mb-0!">{label}</span>
+      <div className={`stat-value text-lg! sm:text-xl! ${valueColor}`}>{value}</div>
       <div className="flex items-center gap-1 text-[10px] text-dim font-medium">
         {icon}
         <span>{sub}</span>

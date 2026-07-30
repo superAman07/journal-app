@@ -40,11 +40,11 @@ export default function ReviewsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="card-elevated p-4 rounded-xl">
             <span className="label">Net Profit</span>
-            <div className="stat-value !text-xl text-profit">+$4,290</div>
+            <div className="stat-value text-xl! text-profit">+$4,290</div>
           </div>
           <div className="card-elevated p-4 rounded-xl">
             <span className="label">Win Rate</span>
-            <div className="stat-value !text-xl text-clean">71.4%</div>
+            <div className="stat-value text-xl! text-clean">71.4%</div>
           </div>
           <div className="card-elevated p-4 rounded-xl">
             <span className="label">Best Setup</span>

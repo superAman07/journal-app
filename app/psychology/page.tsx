@@ -32,13 +32,13 @@ export default function PsychologyPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="card-elevated p-4 rounded-xl text-center min-w-[80px]">
+          <div className="card-elevated p-4 rounded-xl text-center min-w-20">
             <span className="text-[10px] text-dim block">Calm</span>
-            <span className="stat-value !text-lg text-profit">24</span>
+            <span className="stat-value text-lg! text-profit">24</span>
           </div>
-          <div className="card-elevated p-4 rounded-xl text-center min-w-[80px]">
+          <div className="card-elevated p-4 rounded-xl text-center min-w-20">
             <span className="text-[10px] text-dim block">FOMO</span>
-            <span className="stat-value !text-lg text-loss">8</span>
+            <span className="stat-value text-lg! text-loss">8</span>
           </div>
         </div>
       </div>

@@ -134,7 +134,7 @@ export default function TradesPage() {
                   <td className="py-3 pr-3"><span className="badge badge-neutral">{trade.market}</span></td>
                   <td className="py-3 pr-3 font-mono font-bold text-clean">{trade.instrument}</td>
                   <td className="py-3 pr-3 text-muted">{trade.session}</td>
-                  <td className="py-3 pr-3 text-subtle max-w-[160px] truncate">{trade.setup}</td>
+                  <td className="py-3 pr-3 text-subtle max-w-40 truncate">{trade.setup}</td>
                   <td className="py-3 pr-3 font-mono text-[11px]">
                     <span className="text-soft">{trade.actualEntry}</span> / <span className="text-loss">{trade.stopLoss}</span> / <span className="text-profit">{trade.target}</span>
                   </td>

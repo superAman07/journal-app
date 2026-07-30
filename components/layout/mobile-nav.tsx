@@ -55,7 +55,7 @@ export function MobileNav() {
 
       {/* More Sheet */}
       {moreOpen && (
-        <div className="fixed bottom-0 left-0 right-0 z-[100] lg:hidden animate-slide-up">
+        <div className="fixed bottom-0 left-0 right-0 z-100 lg:hidden animate-slide-up">
           <div className="mx-3 mb-[calc(72px+env(safe-area-inset-bottom,0px)+8px)] rounded-2xl bg-card overflow-hidden shadow-2xl shadow-black/50">
             {/* Sheet Header */}
             <div className="flex items-center justify-between px-5 py-4">
@@ -95,9 +95,9 @@ export function MobileNav() {
       )}
 
       {/* Bottom Tab Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-[80] lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-80 lg:hidden">
         <div className="bg-surface/95 backdrop-blur-xl shadow-[0_-1px_0_var(--color-border)]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-          <div className="flex items-center justify-around h-[64px] px-2">
+          <div className="flex items-center justify-around h-16 px-2">
             {MAIN_TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = !tab.isMore && !tab.isAction && pathname === tab.href;
@@ -123,7 +123,7 @@ export function MobileNav() {
                   <Link
                     key={tab.href}
                     href={tab.href}
-                    className="flex items-center justify-center -mt-4 h-[52px] w-[52px] rounded-2xl bg-accent shadow-lg shadow-accent/25 text-white transition-all active:scale-95"
+                    className="flex items-center justify-center -mt-4 h-13 w-13 rounded-2xl bg-accent shadow-lg shadow-accent/25 text-white transition-all active:scale-95"
                   >
                     <Icon className="h-6 w-6" />
                   </Link>

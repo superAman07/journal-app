@@ -64,7 +64,7 @@ export function Sidebar() {
   return (
     <aside
       className={`hidden lg:flex flex-col h-screen sticky top-0 z-40 bg-surface shadow-[1px_0_0_var(--color-border)] transition-all duration-200 select-none ${
-        collapsed ? "w-[68px]" : "w-[240px]"
+        collapsed ? "w-17" : "w-60"
       }`}
     >
       {/* Brand — Clean Text, No Icon Box */}
@@ -93,7 +93,7 @@ export function Sidebar() {
           <div key={section.title} className={sIdx > 0 ? "mt-5" : ""}>
             {!collapsed && (
               <div className="px-5 mb-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-dim">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-dim">
                   {section.title}
                 </span>
               </div>
@@ -123,7 +123,7 @@ export function Sidebar() {
                         : "text-muted hover:text-soft hover:bg-elevated"
                     }`}
                   >
-                    <Icon className={`h-[18px] w-[18px] shrink-0 ${isActive ? "text-accent" : item.highlight ? "text-white" : ""}`} />
+                    <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? "text-accent" : item.highlight ? "text-white" : ""}`} />
                     {!collapsed && (
                       <span className="text-[13px] truncate">{item.label}</span>
                     )}
