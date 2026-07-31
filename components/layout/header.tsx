@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, Sparkles } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
+import { Plus, Sparkles, User, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export function Header() {
+  const { data: session } = useSession();
+
   return (
     <header className="h-14 bg-surface/80 backdrop-blur-xl sticky top-0 z-30 px-4 lg:px-6 flex items-center justify-between gap-3 shadow-[0_1px_0_var(--color-border)]">
       {/* Left: Mobile brand + Desktop ticker */}
@@ -59,6 +62,38 @@ export function Header() {
             ⌘K
           </kbd>
         </Link>
+
+        {/* User Session Auth Button */}
+        {session?.user ? (
+          <div className="flex items-center gap-2 pl-1 border-l border-border/20">
+            {session.user.image ? (
+              <img
+                src={session.user.image}
+                alt={session.user.name || "User"}
+                className="h-8 w-8 rounded-full shrink-0"
+              />
+            ) : (
+              <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold shrink-0">
+                {session.user.name?.charAt(0) || "U"}
+              </div>
+            )}
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              title="Sign Out"
+              className="p-1.5 rounded-lg hover:bg-elevated text-dim hover:text-loss transition-colors cursor-pointer"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <Link
+            href="/login"
+            className="btn-primary !bg-accent/20 !text-accent hover:!bg-accent hover:!text-white !py-1.5 !px-3 !text-xs !rounded-lg cursor-pointer flex items-center gap-1.5"
+          >
+            <User className="h-3.5 w-3.5" />
+            <span>Sign In</span>
+          </Link>
+        )}
       </div>
     </header>
   );

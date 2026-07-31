@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
 import {
   LayoutDashboard,
@@ -18,6 +19,7 @@ import {
   Settings,
   Image as ImageIcon,
   LogOut,
+  User as UserIcon,
 } from "lucide-react";
 
 const MAIN_TABS = [
@@ -41,6 +43,7 @@ const MORE_ITEMS = [
 export function MobileNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const { data: session } = useSession();
   const [moreOpen, setMoreOpen] = useState(false);
 
   return (
@@ -58,11 +61,32 @@ export function MobileNav() {
         <div className="fixed bottom-0 left-0 right-0 z-100 lg:hidden animate-slide-up">
           <div className="mx-3 mb-[calc(72px+env(safe-area-inset-bottom,0px)+8px)] rounded-2xl bg-card overflow-hidden shadow-2xl shadow-black/50">
             {/* Sheet Header */}
-            <div className="flex items-center justify-between px-5 py-4">
-              <span className="text-sm font-semibold text-clean">More Options</span>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border/20">
+              <div className="flex items-center gap-2">
+                {session?.user ? (
+                  <div className="flex items-center gap-2 min-w-0">
+                    {session.user.image ? (
+                      <img src={session.user.image} alt="" className="h-6 w-6 rounded-full shrink-0" />
+                    ) : (
+                      <div className="h-6 w-6 rounded-full bg-accent flex items-center justify-center text-white text-[10px] font-bold">
+                        {session.user.name?.charAt(0) || "U"}
+                      </div>
+                    )}
+                    <span className="text-xs font-bold text-clean truncate">{session.user.name || "Trader"}</span>
+                  </div>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setMoreOpen(false)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-accent hover:underline cursor-pointer"
+                  >
+                    <UserIcon className="h-4 w-4" /> Sign In with Google
+                  </Link>
+                )}
+              </div>
               <button
                 onClick={() => setMoreOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-elevated text-muted"
+                className="p-1.5 rounded-lg hover:bg-elevated text-muted cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -78,7 +102,7 @@ export function MobileNav() {
                     key={item.href}
                     href={item.href}
                     onClick={() => setMoreOpen(false)}
-                    className={`flex flex-col items-center gap-1.5 p-4 rounded-xl transition-all ${
+                    className={`flex flex-col items-center gap-1.5 p-4 rounded-xl transition-all cursor-pointer ${
                       isActive
                         ? "bg-accent-muted text-accent"
                         : "text-muted hover:bg-elevated hover:text-soft"
@@ -89,6 +113,28 @@ export function MobileNav() {
                   </Link>
                 );
               })}
+
+              {session?.user ? (
+                <button
+                  onClick={() => {
+                    setMoreOpen(false);
+                    signOut({ callbackUrl: "/login" });
+                  }}
+                  className="flex flex-col items-center gap-1.5 p-4 rounded-xl text-loss hover:bg-loss/10 transition-all cursor-pointer col-span-3"
+                >
+                  <LogOut className="h-5 w-5" />
+                  <span className="text-[11px] font-semibold">Sign Out</span>
+                </button>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setMoreOpen(false)}
+                  className="flex flex-col items-center gap-1.5 p-4 rounded-xl text-accent hover:bg-accent/10 transition-all cursor-pointer col-span-3"
+                >
+                  <UserIcon className="h-5 w-5" />
+                  <span className="text-[11px] font-semibold">Sign In with Google</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -108,7 +154,7 @@ export function MobileNav() {
                   <button
                     key="more"
                     onClick={() => setMoreOpen(!moreOpen)}
-                    className={`flex flex-col items-center justify-center gap-0.5 w-14 h-12 rounded-xl transition-all ${
+                    className={`flex flex-col items-center justify-center gap-0.5 w-14 h-12 rounded-xl transition-all cursor-pointer ${
                       moreOpen ? "text-accent" : "text-muted"
                     }`}
                   >
@@ -123,7 +169,7 @@ export function MobileNav() {
                   <Link
                     key={tab.href}
                     href={tab.href}
-                    className="flex items-center justify-center -mt-4 h-13 w-13 rounded-2xl bg-accent shadow-lg shadow-accent/25 text-white transition-all active:scale-95"
+                    className="flex items-center justify-center -mt-4 h-13 w-13 rounded-2xl bg-accent shadow-lg shadow-accent/25 text-white transition-all active:scale-95 cursor-pointer"
                   >
                     <Icon className="h-6 w-6" />
                   </Link>
@@ -134,7 +180,7 @@ export function MobileNav() {
                 <Link
                   key={tab.href}
                   href={tab.href}
-                  className={`flex flex-col items-center justify-center gap-0.5 w-14 h-12 rounded-xl transition-all ${
+                  className={`flex flex-col items-center justify-center gap-0.5 w-14 h-12 rounded-xl transition-all cursor-pointer ${
                     isActive || isJournalActive
                       ? "text-accent"
                       : "text-muted"

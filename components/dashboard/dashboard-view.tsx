@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -9,13 +9,10 @@ import {
   Sparkles,
   Zap,
   ChevronRight,
-  Database,
-  CheckCircle2,
   BookOpen,
   Dna,
 } from "lucide-react";
 import { formatCurrency, formatPercent, formatRMultiple } from "@/lib/utils";
-import { seedDemoTrades, clearAllUserTrades } from "@/lib/actions/trade-actions";
 import { TradeItem, DashboardMetrics } from "@/types";
 
 interface DashboardViewProps {
@@ -31,9 +28,6 @@ export function DashboardView({
   initialTrades = [],
   initialMetrics = null,
 }: DashboardViewProps) {
-  const [isPending, startTransition] = useTransition();
-  const [statusMsg, setStatusMsg] = useState<string | null>(null);
-
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good Morning" : hour < 18 ? "Good Afternoon" : "Good Evening";
   const firstName = userName ? userName.split(" ")[0] : "Trader";
@@ -46,14 +40,6 @@ export function DashboardView({
   const ruleFollowRate = initialMetrics?.ruleFollowRate ?? 100;
   const psychologyScore = initialMetrics?.psychologyScore ?? 100;
 
-  const handleSeedData = () => {
-    setStatusMsg(null);
-    startTransition(async () => {
-      const res = await seedDemoTrades();
-      setStatusMsg(res.message);
-    });
-  };
-
   return (
     <div className="space-y-6">
       {/* ── Welcome Header ── */}
@@ -65,40 +51,16 @@ export function DashboardView({
           <p className="text-sm text-muted mt-0.5">
             {isAuthed
               ? "Welcome to your personal trading journal & analytics engine."
-              : "Here's your performance snapshot for today."}
+              : "Sign in with Google to start logging trades and tracking performance."}
           </p>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          {isAuthed && !hasTrades && (
-            <button
-              onClick={handleSeedData}
-              disabled={isPending}
-              className="btn-secondary text-xs cursor-pointer"
-              title="Populate your database with sample trades to test"
-            >
-              <Database className="h-3.5 w-3.5 text-accent" />
-              {isPending ? "Loading..." : "Load Sample Trades"}
-            </button>
-          )}
           <Link href="/trades/new" className="btn-primary self-start sm:self-auto cursor-pointer">
             <Plus className="h-4 w-4" /> Log Trade
           </Link>
         </div>
       </div>
-
-      {/* Notification Toast */}
-      {statusMsg && (
-        <div className="card p-3 bg-accent-muted/30 border border-accent/20 rounded-xl flex items-center justify-between text-xs text-clean">
-          <span className="flex items-center gap-2 font-medium">
-            <CheckCircle2 className="h-4 w-4 text-profit shrink-0" />
-            {statusMsg}
-          </span>
-          <button onClick={() => setStatusMsg(null)} className="text-dim hover:text-clean font-bold px-2 cursor-pointer">
-            ✕
-          </button>
-        </div>
-      )}
 
       {/* ── AI Coach Insight Banner ── */}
       <div className="card-glow p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -118,7 +80,7 @@ export function DashboardView({
             <p className="text-xs text-muted mt-1 line-clamp-2">
               {hasTrades
                 ? "Your logged trades are actively analyzed by AI Coach for risk management and strategy refinement."
-                : "Log your first trade or load sample trades to generate AI-powered execution insights and setup win rates."}
+                : "Log your first trade to generate AI-powered execution insights and setup win rates."}
             </p>
           </div>
         </div>
@@ -199,11 +161,6 @@ export function DashboardView({
                 <Link href="/trades/new" className="btn-primary text-xs cursor-pointer inline-flex items-center gap-1.5">
                   <Plus className="h-4 w-4" /> Log Your First Trade
                 </Link>
-                {isAuthed && (
-                  <button onClick={handleSeedData} disabled={isPending} className="btn-secondary text-xs cursor-pointer inline-flex items-center gap-1.5">
-                    <Database className="h-3.5 w-3.5 text-accent" /> Load Sample Trades
-                  </button>
-                )}
               </div>
             </div>
           ) : (
