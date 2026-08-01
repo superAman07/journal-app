@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import {
   X, Target, TrendingUp, CheckCircle2, Brain, Camera,
-  ArrowUpRight, ArrowDownRight, Clock, Shield, AlertTriangle,
+  ArrowUpRight, ArrowDownRight, Clock, Shield, AlertTriangle, ZoomIn
 } from "lucide-react";
 import { formatCurrency, formatRMultiple } from "@/lib/utils";
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 
 type TradeData = {
   id: string;
@@ -77,81 +78,85 @@ export function TradeDetailModal({
   onEdit?: () => void;
 }) {
   const [tab, setTab] = useState("plan");
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
   const isOptions = trade.market.includes("Options");
   const pnl = Number(trade.pnl);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && lightboxIndex === null) onClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  }, [onClose, lightboxIndex]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+
       <div
-        className="relative bg-base border border-border/30 w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl max-h-[92vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-200"
+        className="relative bg-base border border-border/40 w-full sm:max-w-3xl sm:rounded-2xl rounded-t-2xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 border-b border-border/20 flex items-center justify-between shrink-0">
+        <div className="p-4 border-b border-border/20 flex items-center justify-between shrink-0 bg-surface/50">
           <div className="flex items-center gap-3">
-            <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-sm font-bold ${
-              trade.outcome === "WIN" ? "bg-profit/15 text-profit" : trade.outcome === "LOSS" ? "bg-loss/15 text-loss" : "bg-elevated text-soft"
+            <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm ${
+              trade.outcome === "WIN" ? "bg-profit/20 text-profit border border-profit/30" : trade.outcome === "LOSS" ? "bg-loss/20 text-loss border border-loss/30" : "bg-elevated text-soft border border-border/40"
             }`}>
               {trade.outcome === "WIN" ? <ArrowUpRight className="h-5 w-5" /> : trade.outcome === "LOSS" ? <ArrowDownRight className="h-5 w-5" /> : "BE"}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-sm font-bold text-clean">{trade.instrument}</span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                  trade.outcome === "WIN" ? "bg-profit/15 text-profit" : trade.outcome === "LOSS" ? "bg-loss/15 text-loss" : "bg-elevated text-soft"
+                <span className="font-mono text-base font-bold text-clean">{trade.instrument}</span>
+                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                  trade.outcome === "WIN" ? "bg-profit/20 text-profit border border-profit/30" : trade.outcome === "LOSS" ? "bg-loss/20 text-loss border border-loss/30" : "bg-elevated text-soft"
                 }`}>{trade.outcome}</span>
               </div>
               <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
                 <span>{new Date(trade.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
                 <span>·</span>
-                <span>{trade.session}</span>
+                <span className="font-medium text-clean">{trade.session}</span>
                 <span>·</span>
-                <span>{trade.market}</span>
+                <span className="font-semibold text-accent">{trade.market}</span>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {onEdit && (
-              <button onClick={onEdit} className="px-3 py-1.5 rounded-lg bg-accent-muted text-accent text-[11px] font-bold hover:bg-accent/20 transition-all cursor-pointer">
-                Edit
+              <button onClick={onEdit} className="px-3 py-1.5 rounded-xl bg-accent-muted text-accent text-xs font-bold hover:bg-accent/20 transition-all cursor-pointer border border-accent/20">
+                Edit Trade
               </button>
             )}
-            <button onClick={onClose} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-elevated text-dim hover:text-soft transition-all cursor-pointer">
+            <button onClick={onClose} className="h-8 w-8 rounded-xl flex items-center justify-center hover:bg-elevated text-dim hover:text-clean transition-all cursor-pointer">
               <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
         {/* PnL Banner */}
-        <div className={`px-4 py-3 flex items-center justify-between ${pnl >= 0 ? "bg-profit/5" : "bg-loss/5"}`}>
-          <span className="text-[10px] uppercase font-bold text-dim tracking-wider">Net P&L</span>
-          <span className={`font-mono text-lg font-bold ${pnl >= 0 ? "text-profit" : "text-loss"}`}>
+        <div className={`px-5 py-3.5 flex items-center justify-between border-b border-border/10 ${pnl >= 0 ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss"}`}>
+          <span className="text-xs uppercase font-extrabold tracking-wider">Net Realized P&L</span>
+          <span className={`font-mono text-xl font-black ${pnl >= 0 ? "text-profit" : "text-loss"}`}>
             {fmtCurrency(pnl, trade.market)}
           </span>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-border/20 shrink-0 px-2">
+        <div className="flex border-b border-border/20 shrink-0 px-3 bg-surface/30">
           {TABS.map((t) => {
             const Icon = t.icon;
+            const isSelected = tab === t.key;
             return (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-[11px] font-semibold transition-all border-b-2 cursor-pointer ${
-                  tab === t.key ? "border-accent text-accent" : "border-transparent text-dim hover:text-soft"
+                className={`flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                  isSelected ? "border-accent text-accent bg-accent-muted/20" : "border-transparent text-dim hover:text-clean"
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className="h-4 w-4" />
                 {t.label}
               </button>
             );
@@ -159,36 +164,38 @@ export function TradeDetailModal({
         </div>
 
         {/* Tab Content */}
-        <div className="p-4 overflow-y-auto flex-1">
+        <div className="p-5 overflow-y-auto flex-1 space-y-5">
           {tab === "plan" && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <DetailField label="Market" value={trade.market} />
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <DetailField label="Market Segment" value={trade.market} />
                 <DetailField label="Session" value={trade.session} />
-                <DetailField label="Setup" value={trade.setup} className="col-span-2" />
-                <DetailField label="Bias" value={trade.bias} badge={trade.bias === "BULLISH" ? "profit" : trade.bias === "BEARISH" ? "loss" : "neutral"} />
-                <DetailField label="Date" value={new Date(trade.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })} />
+                <DetailField label="Strategy Setup" value={trade.setup} />
+                <DetailField label="Market Bias" value={trade.bias} badge={trade.bias === "BULLISH" ? "profit" : trade.bias === "BEARISH" ? "loss" : "neutral"} />
+                <DetailField label="Trade Date" value={new Date(trade.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })} />
               </div>
 
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <PriceCard label="Planned Entry" value={Number(trade.plannedEntry)} />
                 <PriceCard label="Stop Loss" value={Number(trade.stopLoss)} color="loss" />
-                <PriceCard label="Target" value={Number(trade.target)} color="profit" />
+                <PriceCard label="Target (TP)" value={Number(trade.target)} color="profit" />
                 <PriceCard label="Expected RR" value={trade.expectedRR} suffix="R" />
               </div>
 
               {isOptions && (
-                <div className="card-elevated p-3 rounded-xl space-y-2">
-                  <span className="text-[10px] uppercase font-bold text-dim tracking-wider">Options Contract</span>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <DetailField label="Action" value={trade.optionAction || "—"} />
-                    <DetailField label="Type" value={trade.optionType || "—"} />
-                    <DetailField label="Strike" value={trade.strikePrice ? `₹${trade.strikePrice}` : "—"} />
+                <div className="card-elevated p-4 rounded-2xl border border-border/30 space-y-3">
+                  <span className="text-xs uppercase font-extrabold text-accent tracking-wider block">
+                    Options Contract Specification
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <DetailField label="Option Action" value={trade.optionAction || "—"} />
+                    <DetailField label="Option Type" value={trade.optionType || "—"} />
+                    <DetailField label="Strike Price" value={trade.strikePrice ? `₹${trade.strikePrice}` : "—"} />
                     <DetailField label="Expiry" value={trade.optionExpiry || "—"} />
                     <DetailField label="Spot Price" value={trade.spotPrice ? `₹${trade.spotPrice}` : "—"} />
-                    <DetailField label="Lot Size" value={trade.lotSize ? String(trade.lotSize) : "—"} />
-                    <DetailField label="Lots" value={trade.numberOfLots ? String(trade.numberOfLots) : "—"} />
-                    <DetailField label="Total Qty" value={trade.lotSize && trade.numberOfLots ? String(trade.lotSize * trade.numberOfLots) : "—"} />
+                    <DetailField label="Lot Size" value={trade.lotSize ? `${trade.lotSize} qty/lot` : "—"} />
+                    <DetailField label="Lots Traded" value={trade.numberOfLots ? `${trade.numberOfLots} lots` : "—"} />
+                    <DetailField label="Total Quantity" value={trade.lotSize && trade.numberOfLots ? `${trade.lotSize * trade.numberOfLots} qty` : "—"} />
                   </div>
                 </div>
               )}
@@ -197,24 +204,28 @@ export function TradeDetailModal({
 
           {tab === "execution" && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <PriceCard label={isOptions ? "Entry Premium" : "Entry"} value={Number(trade.actualEntry)} />
-                <PriceCard label={isOptions ? "Exit Premium" : "Exit"} value={Number(trade.actualExit)} />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <PriceCard label={isOptions ? "Entry Premium" : "Actual Entry"} value={Number(trade.actualEntry)} />
+                <PriceCard label={isOptions ? "Exit Premium" : "Actual Exit"} value={Number(trade.actualExit)} />
                 <PriceCard label="Position Size" value={trade.positionSize} />
-                <PriceCard label="Risk %" value={trade.riskPercent} suffix="%" />
+                <PriceCard label="Risk Percent" value={trade.riskPercent} suffix="%" />
               </div>
 
               {isOptions && trade.optionPoints !== null && (
-                <div className="card-glow p-4 rounded-xl flex items-center justify-between">
+                <div className="card-glow p-4 rounded-2xl border border-accent/30 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-dim tracking-wider block">Points Captured</span>
-                    <span className={`text-lg font-mono font-bold ${trade.optionPoints >= 0 ? "text-profit" : "text-loss"}`}>
+                    <span className="text-[10px] uppercase font-bold text-dim tracking-wider block">
+                      Option Points Captured / Lost
+                    </span>
+                    <span className={`text-xl font-mono font-black mt-0.5 block ${trade.optionPoints >= 0 ? "text-profit" : "text-loss"}`}>
                       {trade.optionPoints >= 0 ? "+" : ""}{trade.optionPoints} pts
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] uppercase font-bold text-dim tracking-wider block">Actual RR</span>
-                    <span className={`text-lg font-mono font-bold ${trade.actualRR >= 0 ? "text-profit" : "text-loss"}`}>
+                    <span className="text-[10px] uppercase font-bold text-dim tracking-wider block">
+                      Actual Achieved R-Multiple
+                    </span>
+                    <span className={`text-xl font-mono font-black mt-0.5 block ${trade.actualRR >= 0 ? "text-profit" : "text-loss"}`}>
                       {formatRMultiple(trade.actualRR)}
                     </span>
                   </div>
@@ -223,38 +234,62 @@ export function TradeDetailModal({
 
               <div className="flex flex-wrap gap-2">
                 {trade.isLateEntry && (
-                  <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-loss/10 text-loss text-[11px] font-medium">
-                    <Clock className="h-3 w-3" /> Late Entry
+                  <span className="flex items-center gap-1 px-3 py-1 rounded-xl bg-loss/15 text-loss border border-loss/30 text-xs font-bold">
+                    <Clock className="h-3.5 w-3.5" /> Late Entry (Chased)
                   </span>
                 )}
                 {trade.isEarlyEntry && (
-                  <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-loss/10 text-loss text-[11px] font-medium">
-                    <AlertTriangle className="h-3 w-3" /> Early Entry
+                  <span className="flex items-center gap-1 px-3 py-1 rounded-xl bg-loss/15 text-loss border border-loss/30 text-xs font-bold">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Early Entry (Pre-trigger)
                   </span>
                 )}
                 {(trade.slippage ?? 0) > 0 && (
-                  <span className="px-2.5 py-1 rounded-lg bg-elevated text-soft text-[11px] font-medium">
+                  <span className="px-3 py-1 rounded-xl bg-elevated text-clean border border-border/40 text-xs font-bold">
                     Slippage: {trade.slippage} pts
                   </span>
                 )}
               </div>
 
-              {trade.screenshots.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5">
-                    <Camera className="h-3.5 w-3.5 text-accent" />
-                    <span className="text-[10px] uppercase font-bold text-dim tracking-wider">Screenshots</span>
+              {/* Interactive Screenshots Gallery */}
+              {trade.screenshots.length > 0 ? (
+                <div className="space-y-2.5 pt-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Camera className="h-4 w-4 text-accent" />
+                      <span className="text-xs uppercase font-extrabold text-clean tracking-wider">
+                        Chart Screenshots ({trade.screenshots.length})
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-accent font-medium">Click image to open full zoom lightbox</span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {trade.screenshots.map((ss) => (
-                      <div key={ss.id} className="rounded-xl overflow-hidden border border-border/20 relative group">
-                        <img src={ss.url} alt={ss.stage} className="w-full h-28 object-cover" />
-                        <span className="absolute bottom-1 left-1.5 text-[9px] font-bold text-white/90 bg-black/50 px-1.5 py-0.5 rounded">
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {trade.screenshots.map((ss, idx) => (
+                      <div
+                        key={ss.id}
+                        onClick={() => setLightboxIndex(idx)}
+                        className="relative group rounded-2xl overflow-hidden border-2 border-border/40 bg-surface cursor-pointer hover:border-accent hover:shadow-lg transition-all"
+                      >
+                        <img
+                          src={ss.url}
+                          alt={ss.stage}
+                          className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-200"
+                        />
+                        <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                          <div className="h-10 w-10 rounded-full bg-accent text-white flex items-center justify-center shadow-lg">
+                            <ZoomIn className="h-5 w-5" />
+                          </div>
+                        </div>
+                        <span className="absolute bottom-2 left-2 text-[9px] font-extrabold text-white bg-black/70 px-2 py-0.5 rounded-lg backdrop-blur-sm uppercase tracking-wider border border-white/20">
                           {ss.stage.replace(/_/g, " ")}
                         </span>
                       </div>
                     ))}
                   </div>
+                </div>
+              ) : (
+                <div className="card p-4 text-center text-xs text-dim">
+                  No chart screenshots attached to this trade.
                 </div>
               )}
             </div>
@@ -262,47 +297,52 @@ export function TradeDetailModal({
 
           {tab === "result" && (
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-2">
-                <div className={`p-3 rounded-xl text-center border ${
-                  trade.outcome === "WIN" ? "bg-profit/10 border-profit/20" : trade.outcome === "LOSS" ? "bg-loss/10 border-loss/20" : "bg-elevated border-border/20"
+              <div className="grid grid-cols-3 gap-3">
+                <div className={`p-4 rounded-2xl text-center border ${
+                  trade.outcome === "WIN" ? "bg-profit/10 border-profit/30" : trade.outcome === "LOSS" ? "bg-loss/10 border-loss/30" : "bg-elevated border-border/30"
                 }`}>
                   <span className="text-[10px] uppercase font-bold text-dim block">Outcome</span>
-                  <span className={`text-sm font-bold ${
-                    trade.outcome === "WIN" ? "text-profit" : trade.outcome === "LOSS" ? "text-loss" : "text-soft"
+                  <span className={`text-base font-black ${
+                    trade.outcome === "WIN" ? "text-profit" : trade.outcome === "LOSS" ? "text-loss" : "text-clean"
                   }`}>{trade.outcome}</span>
                 </div>
-                <div className="p-3 rounded-xl text-center bg-elevated border border-border/20">
+
+                <div className="p-4 rounded-2xl text-center bg-elevated border border-border/30">
                   <span className="text-[10px] uppercase font-bold text-dim block">Exit Reason</span>
-                  <span className="text-[11px] font-semibold text-soft">{trade.exitReason.replace(/_/g, " ")}</span>
+                  <span className="text-xs font-bold text-clean">{trade.exitReason.replace(/_/g, " ")}</span>
                 </div>
-                <div className={`p-3 rounded-xl text-center border ${pnl >= 0 ? "bg-profit/10 border-profit/20" : "bg-loss/10 border-loss/20"}`}>
-                  <span className="text-[10px] uppercase font-bold text-dim block">Net P&L</span>
-                  <span className={`text-sm font-mono font-bold ${pnl >= 0 ? "text-profit" : "text-loss"}`}>
+
+                <div className={`p-4 rounded-2xl text-center border ${pnl >= 0 ? "bg-profit/10 border-profit/30" : "bg-loss/10 border-loss/30"}`}>
+                  <span className="text-[10px] uppercase font-bold text-dim block">Net Realized P&L</span>
+                  <span className={`text-base font-mono font-black ${pnl >= 0 ? "text-profit" : "text-loss"}`}>
                     {fmtCurrency(pnl, trade.market)}
                   </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <PriceCard label="Actual RR" value={trade.actualRR} suffix="R" />
                 <PriceCard label="R-Multiple" value={trade.rMultiple} suffix="R" />
               </div>
 
-              <div className={`flex items-center justify-between p-3 rounded-xl border ${
-                trade.rulesFollowed ? "bg-profit/5 border-profit/20" : "bg-loss/5 border-loss/20"
+              <div className={`flex items-center justify-between p-4 rounded-2xl border ${
+                trade.rulesFollowed ? "bg-profit/10 border-profit/30" : "bg-loss/10 border-loss/30"
               }`}>
-                <div className="flex items-center gap-2">
-                  <Shield className={`h-4 w-4 ${trade.rulesFollowed ? "text-profit" : "text-loss"}`} />
-                  <span className="text-xs font-semibold text-clean">Rules Followed</span>
+                <div className="flex items-center gap-2.5">
+                  <Shield className={`h-5 w-5 ${trade.rulesFollowed ? "text-profit" : "text-loss"}`} />
+                  <span className="text-xs font-bold text-clean">Trading Rules Adherence</span>
                 </div>
-                <span className={`text-xs font-bold ${trade.rulesFollowed ? "text-profit" : "text-loss"}`}>
-                  {trade.rulesFollowed ? "Yes" : "No"}
+                <span className={`text-xs font-extrabold px-3 py-1 rounded-full ${
+                  trade.rulesFollowed ? "bg-profit/20 text-profit border border-profit/30" : "bg-loss/20 text-loss border border-loss/30"
+                }`}>
+                  {trade.rulesFollowed ? "Disciplined (Rules Followed)" : "Rule Violation"}
                 </span>
               </div>
+
               {!trade.rulesFollowed && trade.ruleBreakReason && (
-                <div className="p-3 rounded-xl bg-loss/5 border border-loss/20">
-                  <span className="text-[10px] uppercase font-bold text-loss block mb-1">Violation</span>
-                  <span className="text-xs text-soft">{trade.ruleBreakReason}</span>
+                <div className="p-4 rounded-2xl bg-loss/10 border border-loss/30 space-y-1">
+                  <span className="text-[10px] uppercase font-extrabold text-loss tracking-wider block">Rule Violation Reason</span>
+                  <p className="text-xs font-medium text-clean">{trade.ruleBreakReason}</p>
                 </div>
               )}
             </div>
@@ -311,11 +351,11 @@ export function TradeDetailModal({
           {tab === "mindset" && (
             <div className="space-y-4">
               {trade.emotions.length > 0 && (
-                <div className="space-y-1.5">
-                  <span className="text-[10px] uppercase font-bold text-dim tracking-wider">Emotions</span>
-                  <div className="flex flex-wrap gap-1.5">
+                <div className="space-y-2">
+                  <span className="text-xs uppercase font-extrabold text-clean tracking-wider block">Emotions Experienced</span>
+                  <div className="flex flex-wrap gap-2">
                     {trade.emotions.map((e) => (
-                      <span key={e.id} className="px-2.5 py-1 rounded-lg bg-accent-muted text-accent text-[11px] font-medium">
+                      <span key={e.id} className="px-3 py-1.5 rounded-xl bg-accent-muted text-accent border border-accent/20 text-xs font-bold">
                         {e.emotion}
                       </span>
                     ))}
@@ -325,16 +365,16 @@ export function TradeDetailModal({
 
               <div className="space-y-3">
                 {trade.mindsetBefore && (
-                  <MindsetCard label="Before Entry" text={trade.mindsetBefore} />
+                  <MindsetCard label="Mindset Before Entry" text={trade.mindsetBefore} />
                 )}
                 {trade.mindsetDuring && (
-                  <MindsetCard label="During Trade" text={trade.mindsetDuring} />
+                  <MindsetCard label="Mindset During Trade" text={trade.mindsetDuring} />
                 )}
                 {trade.mindsetAfter && (
-                  <MindsetCard label="After Exit" text={trade.mindsetAfter} />
+                  <MindsetCard label="Mindset After Exit" text={trade.mindsetAfter} />
                 )}
                 {!trade.mindsetBefore && !trade.mindsetDuring && !trade.mindsetAfter && trade.emotions.length === 0 && (
-                  <div className="text-center py-6 text-dim text-xs">
+                  <div className="card p-6 text-center text-dim text-xs">
                     No mindset notes recorded for this trade.
                   </div>
                 )}
@@ -343,20 +383,29 @@ export function TradeDetailModal({
           )}
         </div>
       </div>
+
+      {/* Lightbox Trigger */}
+      {lightboxIndex !== null && (
+        <ImageLightbox
+          images={trade.screenshots}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </div>
   );
 }
 
 function DetailField({ label, value, className, badge }: { label: string; value: string; className?: string; badge?: "profit" | "loss" | "neutral" }) {
   return (
-    <div className={className}>
+    <div className={`p-3 rounded-2xl bg-surface border border-border/20 ${className || ""}`}>
       <span className="text-[10px] uppercase font-bold text-dim tracking-wider block">{label}</span>
       {badge ? (
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-md inline-block mt-0.5 ${
-          badge === "profit" ? "bg-profit/15 text-profit" : badge === "loss" ? "bg-loss/15 text-loss" : "bg-elevated text-soft"
+        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-lg inline-block mt-1 ${
+          badge === "profit" ? "bg-profit/15 text-profit border border-profit/20" : badge === "loss" ? "bg-loss/15 text-loss border border-loss/20" : "bg-elevated text-soft"
         }`}>{value}</span>
       ) : (
-        <span className="text-xs font-semibold text-clean mt-0.5 block">{value}</span>
+        <span className="text-xs font-bold text-clean mt-0.5 block truncate">{value}</span>
       )}
     </div>
   );
@@ -364,9 +413,9 @@ function DetailField({ label, value, className, badge }: { label: string; value:
 
 function PriceCard({ label, value, color, suffix }: { label: string; value: number; color?: "profit" | "loss"; suffix?: string }) {
   return (
-    <div className="p-2.5 rounded-xl bg-surface border border-border/10 text-center">
+    <div className="p-3 rounded-2xl bg-surface border border-border/20 text-center">
       <span className="text-[9px] uppercase font-bold text-dim tracking-wider block">{label}</span>
-      <span className={`font-mono text-sm font-bold block mt-0.5 ${
+      <span className={`font-mono text-sm font-bold block mt-1 ${
         color === "profit" ? "text-profit" : color === "loss" ? "text-loss" : "text-clean"
       }`}>
         {isNaN(value) ? "—" : value}{suffix || ""}
@@ -377,9 +426,9 @@ function PriceCard({ label, value, color, suffix }: { label: string; value: numb
 
 function MindsetCard({ label, text }: { label: string; text: string }) {
   return (
-    <div className="p-3 rounded-xl bg-surface border border-border/10">
-      <span className="text-[10px] uppercase font-bold text-dim tracking-wider block mb-1">{label}</span>
-      <p className="text-xs text-soft leading-relaxed">{text}</p>
+    <div className="p-4 rounded-2xl bg-surface border border-border/20 space-y-1">
+      <span className="text-[10px] uppercase font-extrabold text-accent tracking-wider block">{label}</span>
+      <p className="text-xs text-clean font-medium leading-relaxed">{text}</p>
     </div>
   );
 }
