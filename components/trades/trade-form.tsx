@@ -91,14 +91,14 @@ export function TradeForm() {
   const [strikePrice, setStrikePrice] = useState("24500");
   const [spotPrice, setSpotPrice] = useState("24520");
   const [optionExpiry, setOptionExpiry] = useState<"WEEKLY" | "MONTHLY" | "0DTE">("WEEKLY");
-  const [lotSize, setLotSize] = useState(25); // Default Nifty lot size
+  const [lotSize, setLotSize] = useState(65); // Nifty current lot size (65)
   const [numberOfLots, setNumberOfLots] = useState("2");
   const [optionPoints, setOptionPoints] = useState(0);
 
   // Execution State
   const [actualEntry, setActualEntry] = useState("150.00");
   const [actualExit, setActualExit] = useState("210.00");
-  const [positionSize, setPositionSize] = useState("50");
+  const [positionSize, setPositionSize] = useState("130");
   const [riskPercent, setRiskPercent] = useState("1.0");
   const [actualRR, setActualRR] = useState(2.0);
   const [isLateEntry, setIsLateEntry] = useState(false);
@@ -108,7 +108,7 @@ export function TradeForm() {
   // Result State
   const [outcome, setOutcome] = useState<TradeOutcome>("WIN");
   const [exitReason, setExitReason] = useState<ExitReason>("TARGET_HIT");
-  const [pnl, setPnl] = useState("3000.00");
+  const [pnl, setPnl] = useState("7800.00");
   const [rulesFollowed, setRulesFollowed] = useState(true);
   const [ruleBreakReason, setRuleBreakReason] = useState("");
 
@@ -118,10 +118,10 @@ export function TradeForm() {
   const [mindsetDuring, setMindsetDuring] = useState("");
   const [mindsetAfter, setMindsetAfter] = useState("");
 
-  // Auto-fill lot sizes and format instrument when Options Market or Strikes change
+  // Auto-fill default lot sizes when Market segment switches
   useEffect(() => {
     if (market === "Nifty Options") {
-      setLotSize(25);
+      setLotSize(65); // Current Nifty lot size
       if (!strikePrice || strikePrice === "52000" || strikePrice === "80000") setStrikePrice("24500");
     } else if (market === "BankNifty Options") {
       setLotSize(15);
@@ -508,12 +508,31 @@ export function TradeForm() {
                     />
                   </FormField>
                   <FormField label="Lot Size (Qty / Lot)">
-                    <input
-                      type="number"
-                      value={lotSize}
-                      onChange={(e) => setLotSize(parseInt(e.target.value) || 1)}
-                      className="input-field font-mono"
-                    />
+                    <div className="space-y-1.5">
+                      <input
+                        type="number"
+                        value={lotSize}
+                        onChange={(e) => setLotSize(parseInt(e.target.value) || 1)}
+                        className="input-field font-mono font-bold text-clean"
+                      />
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-dim pr-1">Presets:</span>
+                        {[65, 25, 15, 10].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setLotSize(preset)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                              lotSize === preset
+                                ? "bg-accent text-white"
+                                : "bg-elevated text-dim hover:text-clean"
+                            }`}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </FormField>
                 </div>
               </div>
