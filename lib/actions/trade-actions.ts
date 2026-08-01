@@ -22,8 +22,36 @@ export async function createTrade(
   }
 
   try {
+    const sessionUserId = session.user.id;
+    const sessionUserEmail = session.user.email;
+
+    // Ensure user record exists in PostgreSQL users table to satisfy trades_userId_fkey
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: sessionUserId },
+          ...(sessionUserEmail ? [{ email: sessionUserEmail }] : []),
+        ],
+      },
+    });
+
+    let targetUserId = sessionUserId;
+    if (existingUser) {
+      targetUserId = existingUser.id;
+    } else {
+      const newUser = await prisma.user.create({
+        data: {
+          id: sessionUserId,
+          email: sessionUserEmail || `${sessionUserId}@user.local`,
+          name: session.user.name || "Trader",
+          image: session.user.image || null,
+        },
+      });
+      targetUserId = newUser.id;
+    }
+
     const data = {
-      userId: session.user.id,
+      userId: targetUserId,
       market: formData.get("market") as string,
       instrument: (formData.get("instrument") as string).toUpperCase(),
       session: formData.get("session") as string,
