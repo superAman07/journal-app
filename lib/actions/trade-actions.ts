@@ -12,6 +12,21 @@ export type TradeFormState = {
   errors?: Record<string, string>;
 };
 
+export function calculateRR(entry: number, sl: number, exit: number, outcome: string): number {
+  if (isNaN(entry) || isNaN(sl) || isNaN(exit) || entry === sl) return 0;
+  const risk = Math.abs(entry - sl);
+  if (risk === 0) return 0;
+
+  if (outcome === "LOSS") {
+    const loss = Math.abs(entry - exit);
+    return parseFloat((-Math.max(loss, risk) / risk).toFixed(2));
+  }
+  if (outcome === "BREAKEVEN") return 0;
+
+  const reward = Math.abs(exit - entry);
+  return parseFloat((reward / risk).toFixed(2));
+}
+
 export async function createTrade(
   _prevState: TradeFormState,
   formData: FormData
@@ -22,6 +37,13 @@ export async function createTrade(
   }
 
   try {
+    const actualEntry = parseFloat(formData.get("actualEntry") as string);
+    const stopLoss = parseFloat(formData.get("stopLoss") as string);
+    const actualExit = parseFloat(formData.get("actualExit") as string);
+    const outcome = formData.get("outcome") as string;
+
+    const computedRR = calculateRR(actualEntry, stopLoss, actualExit, outcome);
+
     const data = {
       userId: session.user.id,
       market: formData.get("market") as string,
@@ -32,23 +54,23 @@ export async function createTrade(
       bias: formData.get("bias") as string,
 
       plannedEntry: formData.get("plannedEntry") ? parseFloat(formData.get("plannedEntry") as string) : null,
-      stopLoss: parseFloat(formData.get("stopLoss") as string),
+      stopLoss: stopLoss,
       target: parseFloat(formData.get("target") as string),
       expectedRR: parseFloat(formData.get("expectedRR") as string) || 0,
 
-      actualEntry: parseFloat(formData.get("actualEntry") as string),
-      actualExit: parseFloat(formData.get("actualExit") as string),
+      actualEntry: actualEntry,
+      actualExit: actualExit,
       positionSize: parseFloat(formData.get("positionSize") as string) || 1,
       riskPercent: parseFloat(formData.get("riskPercent") as string) || 1,
-      actualRR: parseFloat(formData.get("actualRR") as string) || 0,
+      actualRR: computedRR,
       isLateEntry: formData.get("isLateEntry") === "true",
       isEarlyEntry: formData.get("isEarlyEntry") === "true",
       slippage: parseFloat(formData.get("slippage") as string) || 0,
 
-      outcome: formData.get("outcome") as string,
+      outcome: outcome,
       exitReason: formData.get("exitReason") as string,
       pnl: parseFloat(formData.get("pnl") as string) || 0,
-      rMultiple: parseFloat(formData.get("rMultiple") as string) || 0,
+      rMultiple: computedRR,
       rulesFollowed: formData.get("rulesFollowed") !== "false",
       ruleBreakReason: formData.get("ruleBreakReason") as string || null,
 
@@ -158,7 +180,7 @@ export async function getTradeById(tradeId: string) {
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  return prisma.trade.findFirst({
+  const trade = await prisma.trade.findFirst({
     where: { id: tradeId, userId: session.user.id },
     include: {
       emotions: true,
@@ -166,6 +188,14 @@ export async function getTradeById(tradeId: string) {
       mistakes: true,
     },
   });
+
+  if (!trade) return null;
+  const computedRR = calculateRR(Number(trade.actualEntry), Number(trade.stopLoss), Number(trade.actualExit), trade.outcome);
+  return {
+    ...trade,
+    actualRR: computedRR,
+    rMultiple: computedRR,
+  };
 }
 
 export async function updateTrade(
@@ -179,6 +209,13 @@ export async function updateTrade(
   }
 
   try {
+    const actualEntry = parseFloat(formData.get("actualEntry") as string);
+    const stopLoss = parseFloat(formData.get("stopLoss") as string);
+    const actualExit = parseFloat(formData.get("actualExit") as string);
+    const outcome = formData.get("outcome") as string;
+
+    const computedRR = calculateRR(actualEntry, stopLoss, actualExit, outcome);
+
     const data = {
       market: formData.get("market") as string,
       instrument: (formData.get("instrument") as string).toUpperCase(),
@@ -188,23 +225,23 @@ export async function updateTrade(
       bias: formData.get("bias") as string,
 
       plannedEntry: formData.get("plannedEntry") ? parseFloat(formData.get("plannedEntry") as string) : null,
-      stopLoss: parseFloat(formData.get("stopLoss") as string),
+      stopLoss: stopLoss,
       target: parseFloat(formData.get("target") as string),
       expectedRR: parseFloat(formData.get("expectedRR") as string) || 0,
 
-      actualEntry: parseFloat(formData.get("actualEntry") as string),
-      actualExit: parseFloat(formData.get("actualExit") as string),
+      actualEntry: actualEntry,
+      actualExit: actualExit,
       positionSize: parseFloat(formData.get("positionSize") as string) || 1,
       riskPercent: parseFloat(formData.get("riskPercent") as string) || 1,
-      actualRR: parseFloat(formData.get("actualRR") as string) || 0,
+      actualRR: computedRR,
       isLateEntry: formData.get("isLateEntry") === "true",
       isEarlyEntry: formData.get("isEarlyEntry") === "true",
       slippage: parseFloat(formData.get("slippage") as string) || 0,
 
-      outcome: formData.get("outcome") as string,
+      outcome: outcome,
       exitReason: formData.get("exitReason") as string,
       pnl: parseFloat(formData.get("pnl") as string) || 0,
-      rMultiple: parseFloat(formData.get("rMultiple") as string) || 0,
+      rMultiple: computedRR,
       rulesFollowed: formData.get("rulesFollowed") !== "false",
       ruleBreakReason: formData.get("ruleBreakReason") as string || null,
 
@@ -271,7 +308,14 @@ export async function getUserTrades() {
     orderBy: { date: "desc" },
   });
 
-  return trades;
+  return trades.map((t) => {
+    const computedRR = calculateRR(Number(t.actualEntry), Number(t.stopLoss), Number(t.actualExit), t.outcome);
+    return {
+      ...t,
+      actualRR: computedRR,
+      rMultiple: computedRR,
+    };
+  });
 }
 
 export async function getDashboardMetrics() {

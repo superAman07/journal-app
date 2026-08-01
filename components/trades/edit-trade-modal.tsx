@@ -115,6 +115,26 @@ export function EditTradeModal({
   const removeScreenshot = (id: string) => setScreenshots((prev) => prev.filter((s) => s.id !== id));
 
   useEffect(() => {
+    const e = parseFloat(actualEntry),
+      sl = parseFloat(stopLoss),
+      ex = parseFloat(actualExit);
+    if (!isNaN(e) && !isNaN(sl) && !isNaN(ex) && e !== sl) {
+      const risk = Math.abs(e - sl);
+      if (risk > 0) {
+        if (outcome === "LOSS") {
+          const loss = Math.abs(e - ex);
+          setActualRR(parseFloat((-Math.max(loss, risk) / risk).toFixed(2)));
+        } else if (outcome === "BREAKEVEN") {
+          setActualRR(0);
+        } else {
+          const reward = Math.abs(ex - e);
+          setActualRR(parseFloat((reward / risk).toFixed(2)));
+        }
+      }
+    }
+  }, [actualEntry, stopLoss, actualExit, outcome]);
+
+  useEffect(() => {
     if (state?.success) {
       onClose();
     }
