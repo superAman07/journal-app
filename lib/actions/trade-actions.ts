@@ -154,6 +154,109 @@ export async function deleteTrade(tradeId: string): Promise<TradeFormState> {
   }
 }
 
+export async function getTradeById(tradeId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+
+  return prisma.trade.findFirst({
+    where: { id: tradeId, userId: session.user.id },
+    include: {
+      emotions: true,
+      screenshots: true,
+      mistakes: true,
+    },
+  });
+}
+
+export async function updateTrade(
+  tradeId: string,
+  _prevState: TradeFormState,
+  formData: FormData
+): Promise<TradeFormState> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, message: "Unauthorized." };
+  }
+
+  try {
+    const data = {
+      market: formData.get("market") as string,
+      instrument: (formData.get("instrument") as string).toUpperCase(),
+      session: formData.get("session") as string,
+      date: new Date(formData.get("date") as string),
+      setup: formData.get("setup") as string,
+      bias: formData.get("bias") as string,
+
+      plannedEntry: formData.get("plannedEntry") ? parseFloat(formData.get("plannedEntry") as string) : null,
+      stopLoss: parseFloat(formData.get("stopLoss") as string),
+      target: parseFloat(formData.get("target") as string),
+      expectedRR: parseFloat(formData.get("expectedRR") as string) || 0,
+
+      actualEntry: parseFloat(formData.get("actualEntry") as string),
+      actualExit: parseFloat(formData.get("actualExit") as string),
+      positionSize: parseFloat(formData.get("positionSize") as string) || 1,
+      riskPercent: parseFloat(formData.get("riskPercent") as string) || 1,
+      actualRR: parseFloat(formData.get("actualRR") as string) || 0,
+      isLateEntry: formData.get("isLateEntry") === "true",
+      isEarlyEntry: formData.get("isEarlyEntry") === "true",
+      slippage: parseFloat(formData.get("slippage") as string) || 0,
+
+      outcome: formData.get("outcome") as string,
+      exitReason: formData.get("exitReason") as string,
+      pnl: parseFloat(formData.get("pnl") as string) || 0,
+      rMultiple: parseFloat(formData.get("rMultiple") as string) || 0,
+      rulesFollowed: formData.get("rulesFollowed") !== "false",
+      ruleBreakReason: formData.get("ruleBreakReason") as string || null,
+
+      mindsetBefore: formData.get("mindsetBefore") as string || null,
+      mindsetDuring: formData.get("mindsetDuring") as string || null,
+      mindsetAfter: formData.get("mindsetAfter") as string || null,
+
+      optionType: formData.get("optionType") as string || null,
+      optionAction: formData.get("optionAction") as string || null,
+      strikePrice: formData.get("strikePrice") ? parseFloat(formData.get("strikePrice") as string) : null,
+      spotPrice: formData.get("spotPrice") ? parseFloat(formData.get("spotPrice") as string) : null,
+      optionExpiry: formData.get("optionExpiry") as string || null,
+      lotSize: formData.get("lotSize") ? parseInt(formData.get("lotSize") as string) : null,
+      numberOfLots: formData.get("numberOfLots") ? parseInt(formData.get("numberOfLots") as string) : null,
+      optionPoints: formData.get("optionPoints") ? parseFloat(formData.get("optionPoints") as string) : null,
+    };
+
+    await prisma.trade.update({
+      where: { id: tradeId, userId: session.user.id },
+      data,
+    });
+
+    const emotionsRaw = formData.get("emotions") as string;
+    await prisma.emotionTag.deleteMany({ where: { tradeId } });
+    if (emotionsRaw) {
+      const emotions = emotionsRaw.split(",").filter(Boolean);
+      if (emotions.length > 0) {
+        await prisma.emotionTag.createMany({
+          data: emotions.map((emotion) => ({
+            tradeId,
+            stage: "DURING",
+            emotion: emotion.trim(),
+          })),
+        });
+      }
+    }
+
+    revalidatePath("/");
+    revalidatePath("/trades");
+    revalidatePath("/analytics");
+    revalidatePath("/dna");
+
+    return { success: true, message: "Trade updated successfully!" };
+  } catch (error: any) {
+    console.error("[updateTrade] Error:", error);
+    return {
+      success: false,
+      message: error?.message ? `Failed to update: ${error.message}` : "Failed to update trade.",
+    };
+  }
+}
+
 export async function getUserTrades() {
   const session = await auth();
   if (!session?.user?.id) return [];
