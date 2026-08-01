@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useActionState } from "react";
+import { useState, useEffect, useActionState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Target,
@@ -27,6 +27,7 @@ import {
   ScreenshotStage,
 } from "@/types";
 import { createTrade, TradeFormState } from "@/lib/actions/trade-actions";
+import { ScreenshotPaste } from "./screenshot-paste";
 
 const MARKETS: MarketType[] = [
   "Nifty Options",
@@ -112,11 +113,19 @@ export function TradeForm() {
   const [rulesFollowed, setRulesFollowed] = useState(true);
   const [ruleBreakReason, setRuleBreakReason] = useState("");
 
-  // Mindset State
   const [selectedEmotions, setSelectedEmotions] = useState<EmotionType[]>(["Calm"]);
   const [mindsetBefore, setMindsetBefore] = useState("");
   const [mindsetDuring, setMindsetDuring] = useState("");
   const [mindsetAfter, setMindsetAfter] = useState("");
+
+  type ScreenshotItem = { id: string; dataUrl: string; stage: string };
+  const [screenshots, setScreenshots] = useState<ScreenshotItem[]>([]);
+  const addScreenshot = useCallback((ss: ScreenshotItem) => {
+    setScreenshots((prev) => [...prev, ss]);
+  }, []);
+  const removeScreenshot = useCallback((id: string) => {
+    setScreenshots((prev) => prev.filter((s) => s.id !== id));
+  }, []);
 
   // Auto-fill default lot sizes when Market segment switches
   useEffect(() => {
@@ -278,7 +287,6 @@ export function TradeForm() {
         <input type="hidden" name="mindsetAfter" value={mindsetAfter} />
         <input type="hidden" name="emotions" value={selectedEmotions.join(",")} />
 
-        {/* Options Specific Hidden Inputs */}
         <input type="hidden" name="optionAction" value={optionAction} />
         <input type="hidden" name="optionType" value={optionType} />
         <input type="hidden" name="strikePrice" value={strikePrice} />
@@ -287,6 +295,7 @@ export function TradeForm() {
         <input type="hidden" name="lotSize" value={lotSize} />
         <input type="hidden" name="numberOfLots" value={numberOfLots} />
         <input type="hidden" name="optionPoints" value={optionPoints} />
+        <input type="hidden" name="screenshots" value={JSON.stringify(screenshots.map(s => ({ dataUrl: s.dataUrl, stage: s.stage })))} />
 
         {/* STEP 1: PLAN */}
         {activeStep === 1 && (
@@ -683,6 +692,12 @@ export function TradeForm() {
                 />
               </FormField>
             </div>
+
+            <ScreenshotPaste
+              screenshots={screenshots}
+              onAdd={addScreenshot}
+              onRemove={removeScreenshot}
+            />
 
             <StepNav onPrev={() => setActiveStep(1)} onNext={() => setActiveStep(3)} />
           </div>

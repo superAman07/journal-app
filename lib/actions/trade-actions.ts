@@ -103,6 +103,22 @@ export async function createTrade(
       }
     }
 
+    const screenshotsRaw = formData.get("screenshots") as string;
+    if (screenshotsRaw) {
+      try {
+        const parsed = JSON.parse(screenshotsRaw) as { dataUrl: string; stage: string }[];
+        if (parsed.length > 0) {
+          await prisma.screenshot.createMany({
+            data: parsed.map((ss) => ({
+              tradeId: trade.id,
+              url: ss.dataUrl,
+              stage: ss.stage,
+            })),
+          });
+        }
+      } catch {}
+    }
+
     revalidatePath("/");
     revalidatePath("/trades");
     revalidatePath("/analytics");
