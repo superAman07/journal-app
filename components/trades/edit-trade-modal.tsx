@@ -127,9 +127,9 @@ export function EditTradeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-3xl bg-card border border-border-solid sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto z-10 p-5 space-y-5 animate-in slide-in-from-bottom duration-200">
+      <div className="relative w-full max-w-3xl bg-card border border-border-solid sm:rounded-2xl rounded-t-2xl max-h-[90vh] sm:max-h-[88vh] overflow-y-auto z-10 p-4 sm:p-5 pb-24 sm:pb-6 space-y-5 animate-in slide-in-from-bottom duration-200">
         <div className="flex items-center justify-between border-b border-border-solid pb-3">
           <div>
             <h2 className="text-lg font-bold text-clean">Edit Logged Trade</h2>
@@ -143,8 +143,8 @@ export function EditTradeModal({
           </button>
         </div>
 
-        {/* Steps */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        {/* Steps — Responsive 4-step fit with no horizontal cut-off */}
+        <div className="flex items-center justify-around sm:justify-start gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar pb-1">
           {STEPS.map((s) => {
             const Icon = s.icon;
             const isCurrent = activeStep === s.step;
@@ -153,10 +153,10 @@ export function EditTradeModal({
                 key={s.step}
                 type="button"
                 onClick={() => setActiveStep(s.step)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border whitespace-nowrap cursor-pointer ${
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-semibold transition-all border whitespace-nowrap cursor-pointer ${
                   isCurrent
-                    ? "bg-accent-muted text-accent border-accent/30"
-                    : "bg-transparent text-dim border-transparent hover:text-soft"
+                    ? "bg-accent-muted text-accent border-accent/30 font-bold"
+                    : "bg-transparent text-muted border-transparent hover:text-clean"
                 }`}
               >
                 <Icon className="h-3.5 w-3.5" />

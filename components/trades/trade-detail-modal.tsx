@@ -92,11 +92,11 @@ export function TradeDetailModal({
   }, [onClose, lightboxIndex]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
 
       <div
-        className="relative bg-card border border-border-solid w-full sm:max-w-3xl sm:rounded-2xl rounded-t-2xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-200"
+        className="relative bg-card border border-border-solid w-full sm:max-w-3xl sm:rounded-2xl rounded-t-2xl max-h-[92vh] sm:max-h-[88vh] overflow-hidden flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -143,8 +143,8 @@ export function TradeDetailModal({
           </span>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-border-solid shrink-0 px-3 bg-surface">
+        {/* Tabs — Responsive 4-tab fit with no horizontal cut-off */}
+        <div className="flex items-center justify-around sm:justify-start border-b border-border-solid shrink-0 px-1 sm:px-3 bg-surface overflow-x-auto no-scrollbar">
           {TABS.map((t) => {
             const Icon = t.icon;
             const isSelected = tab === t.key;
@@ -152,19 +152,19 @@ export function TradeDetailModal({
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                className={`flex-1 sm:flex-initial flex items-center justify-center sm:justify-start gap-1 sm:gap-2 px-2 sm:px-4 py-2.5 sm:py-3 text-[11px] sm:text-xs font-bold transition-all border-b-2 cursor-pointer whitespace-nowrap ${
                   isSelected ? "border-accent text-accent bg-accent-muted/20" : "border-transparent text-muted hover:text-clean"
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 {t.label}
               </button>
             );
           })}
         </div>
 
-        {/* Tab Content */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-5 bg-card">
+        {/* Tab Content — Safe Bottom Padding for Mobile */}
+        <div className="p-4 sm:p-5 pb-24 sm:pb-6 overflow-y-auto flex-1 space-y-5 bg-card">
           {tab === "plan" && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
