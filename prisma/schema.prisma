@@ -109,6 +109,16 @@ model Trade {
   isEarlyEntry Boolean @default(false)
   slippage     Float?  @default(0)
 
+  // Options Trading Specific Fields
+  optionType   String? // CALL (CE), PUT (PE)
+  optionAction String? // BUY, SELL
+  strikePrice  Float?  // e.g. 24500, 52000, 80000
+  spotPrice    Float?  // Underlying Index/Spot Price (e.g. 24550)
+  optionExpiry String? // WEEKLY, MONTHLY, 0DTE (Expiry Day)
+  lotSize      Int?    // Qty per lot (e.g. 25 for Nifty, 15 for BankNifty, 10 for Sensex)
+  numberOfLots Int?    // e.g. 2 lots
+  optionPoints Float?  // Points captured / lost (e.g. +45.0 points)
+
   // Result Phase
   outcome          String // WIN, LOSS, BREAKEVEN
   exitReason       String // TARGET_HIT, STOP_HIT, MANUAL_EXIT

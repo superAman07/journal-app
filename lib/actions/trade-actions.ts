@@ -59,6 +59,16 @@ export async function createTrade(
       mindsetBefore: formData.get("mindsetBefore") as string || null,
       mindsetDuring: formData.get("mindsetDuring") as string || null,
       mindsetAfter: formData.get("mindsetAfter") as string || null,
+
+      // Options Specific Fields
+      optionType: formData.get("optionType") as string || null,
+      optionAction: formData.get("optionAction") as string || null,
+      strikePrice: formData.get("strikePrice") ? parseFloat(formData.get("strikePrice") as string) : null,
+      spotPrice: formData.get("spotPrice") ? parseFloat(formData.get("spotPrice") as string) : null,
+      optionExpiry: formData.get("optionExpiry") as string || null,
+      lotSize: formData.get("lotSize") ? parseInt(formData.get("lotSize") as string) : null,
+      numberOfLots: formData.get("numberOfLots") ? parseInt(formData.get("numberOfLots") as string) : null,
+      optionPoints: formData.get("optionPoints") ? parseFloat(formData.get("optionPoints") as string) : null,
     };
 
     // Basic validation

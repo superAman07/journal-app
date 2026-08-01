@@ -1,10 +1,13 @@
 export type MarketType =
+  | "Nifty Options"
+  | "BankNifty Options"
+  | "Sensex Options"
+  | "Stock Options"
+  | "Crypto Options"
   | "Forex"
   | "Gold"
   | "Silver"
   | "Crypto"
-  | "Nifty Options"
-  | "BankNifty"
   | "Stocks"
   | "Futures";
 
@@ -66,6 +69,16 @@ export interface TradeItem {
   isLateEntry: boolean;
   isEarlyEntry: boolean;
   slippage?: number;
+
+  // Options Trading Specific Fields
+  optionType?: "CE" | "PE";
+  optionAction?: "BUY" | "SELL";
+  strikePrice?: number;
+  spotPrice?: number;
+  optionExpiry?: "WEEKLY" | "MONTHLY" | "0DTE";
+  lotSize?: number;
+  numberOfLots?: number;
+  optionPoints?: number;
 
   outcome: TradeOutcome;
   exitReason: ExitReason;
