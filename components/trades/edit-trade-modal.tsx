@@ -129,8 +129,8 @@ export function EditTradeModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-3xl bg-base border border-border/40 sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto z-10 p-5 space-y-5 animate-in slide-in-from-bottom duration-200">
-        <div className="flex items-center justify-between border-b border-border/20 pb-3">
+      <div className="relative w-full max-w-3xl bg-card border border-border-solid sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto z-10 p-5 space-y-5 animate-in slide-in-from-bottom duration-200">
+        <div className="flex items-center justify-between border-b border-border-solid pb-3">
           <div>
             <h2 className="text-lg font-bold text-clean">Edit Logged Trade</h2>
             <p className="text-xs text-muted">Update parameters or psychological notes.</p>

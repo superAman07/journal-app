@@ -3,10 +3,26 @@
 /* ═══════════════════════════════════════════════════
    OBSIDIAN APEX — Trading OS Design System
    Dark / Light mode via next-themes + CSS variables
-   Borderless, clean, no harsh lines
+   Clean, high-contrast, solid mode support
    ═══════════════════════════════════════════════════ */
 
 @theme {
+  --color-base: var(--color-base);
+  --color-surface: var(--color-surface);
+  --color-card: var(--color-card);
+  --color-elevated: var(--color-elevated);
+  --color-overlay: var(--color-overlay);
+
+  --color-border: var(--color-border);
+  --color-border-hover: var(--color-border-hover);
+  --color-border-solid: var(--color-border-solid);
+
+  --color-dim: var(--color-dim);
+  --color-muted: var(--color-muted);
+  --color-subtle: var(--color-subtle);
+  --color-soft: var(--color-soft);
+  --color-clean: var(--color-clean);
+
   /* ── Accent palette (shared across themes) ── */
   --color-accent: #4f6ef7;
   --color-accent-hover: #6b85ff;
@@ -33,52 +49,52 @@
   --color-elevated: #191a26;
   --color-overlay: #222332;
 
-  --color-border: #ffffff08;
-  --color-border-hover: #ffffff12;
-  --color-border-solid: #1e1f33;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-hover: rgba(255, 255, 255, 0.16);
+  --color-border-solid: #202232;
 
-  --color-dim: #494a62;
-  --color-muted: #6b6d85;
-  --color-subtle: #9496ad;
-  --color-soft: #c0c2d4;
-  --color-clean: #e8e9f0;
+  --color-dim: #5c5e7a;
+  --color-muted: #8284a1;
+  --color-subtle: #a6a8c4;
+  --color-soft: #d0d2e8;
+  --color-clean: #f3f4f9;
 
   --skeleton-base: #191a26;
   --skeleton-shine: #222332;
 
-  --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.03);
-  --shadow-card-hover: 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.06);
-  --shadow-elevated: 0 1px 1px rgba(0,0,0,0.2);
-  --shadow-input: inset 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --shadow-card-hover: 0 6px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --shadow-elevated: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-input: inset 0 1px 2px rgba(0, 0, 0, 0.4);
 
   color-scheme: dark;
 }
 
 /* ── LIGHT THEME ── */
 .light {
-  --color-base: #f5f6f8;
-  --color-surface: #fafbfc;
+  --color-base: #f1f3f8;
+  --color-surface: #ffffff;
   --color-card: #ffffff;
-  --color-elevated: #f0f1f5;
-  --color-overlay: #e8e9ef;
+  --color-elevated: #f6f7fb;
+  --color-overlay: #e4e7f0;
 
-  --color-border: #00000008;
-  --color-border-hover: #00000012;
-  --color-border-solid: #e2e4ea;
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-hover: rgba(0, 0, 0, 0.16);
+  --color-border-solid: #d6d9e4;
 
-  --color-dim: #b0b3c0;
-  --color-muted: #6b7280;
-  --color-subtle: #4b5563;
-  --color-soft: #374151;
-  --color-clean: #111827;
+  --color-dim: #71778d;
+  --color-muted: #525866;
+  --color-subtle: #3a3f4d;
+  --color-soft: #1f2433;
+  --color-clean: #0b0f19;
 
   --skeleton-base: #e5e7eb;
   --skeleton-shine: #f3f4f6;
 
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 1px 1px rgba(0,0,0,0.03);
-  --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-elevated: 0 1px 1px rgba(0,0,0,0.04);
-  --shadow-input: inset 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --shadow-card-hover: 0 6px 20px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.08);
+  --shadow-elevated: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-input: inset 0 1px 2px rgba(0, 0, 0, 0.06);
 
   color-scheme: light;
 }
@@ -152,28 +168,29 @@ input[type="radio"] {
    ═══════════════════════════════════════ */
 .card {
   background: var(--color-card);
-  border: none;
+  border: 1px solid var(--color-border-solid);
   border-radius: 16px;
   box-shadow: var(--shadow-card);
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .card:hover {
   box-shadow: var(--shadow-card-hover);
+  border-color: var(--color-border-hover);
 }
 
 .card-elevated {
   background: var(--color-elevated);
-  border: none;
+  border: 1px solid var(--color-border-solid);
   border-radius: 14px;
   box-shadow: var(--shadow-elevated);
 }
 
 .card-glow {
   background: var(--color-card);
-  border: none;
+  border: 1px solid var(--color-accent);
   border-radius: 16px;
-  box-shadow: 0 0 24px -6px var(--color-accent-muted), var(--shadow-card), 0 0 0 1px var(--color-accent);
+  box-shadow: 0 0 24px -6px var(--color-accent-muted), var(--shadow-card);
 }
 
 .surface {
@@ -181,7 +198,7 @@ input[type="radio"] {
 }
 
 /* ═══════════════════════════════════════
-   BUTTONS — Clean, no borders
+   BUTTONS — Clean, solid
    ═══════════════════════════════════════ */
 .btn-primary {
   background: var(--color-accent);
@@ -211,13 +228,13 @@ input[type="radio"] {
 
 .btn-secondary {
   background: var(--color-elevated);
-  color: var(--color-soft);
-  font-weight: 500;
+  color: var(--color-clean);
+  font-weight: 600;
   border-radius: 10px;
   padding: 8px 16px;
   font-size: 13px;
   transition: all 0.15s ease;
-  border: none;
+  border: 1px solid var(--color-border-solid);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -228,15 +245,16 @@ input[type="radio"] {
 .btn-secondary:hover {
   background: var(--color-overlay);
   color: var(--color-clean);
+  border-color: var(--color-border-hover);
 }
 
 /* ═══════════════════════════════════════
-   INPUTS — Borderless, bg contrast only
+   INPUTS — Solid contrast
    ═══════════════════════════════════════ */
 .input-field {
   width: 100%;
   background: var(--color-elevated);
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border-solid);
   border-radius: 10px;
   padding: 9px 14px;
   font-size: 13px;
@@ -263,21 +281,21 @@ input[type="radio"] {
   padding: 3px 10px;
   border-radius: 8px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.01em;
 }
 
-.badge-profit { background: var(--color-profit-muted); color: var(--color-profit); }
-.badge-loss { background: var(--color-loss-muted); color: var(--color-loss); }
-.badge-accent { background: var(--color-accent-muted); color: var(--color-accent); }
-.badge-ai { background: var(--color-ai-muted); color: var(--color-ai); }
-.badge-warn { background: var(--color-warn-muted); color: var(--color-warn); }
-.badge-neutral { background: var(--color-elevated); color: var(--color-muted); }
+.badge-profit { background: var(--color-profit-muted); color: var(--color-profit); border: 1px solid rgba(11, 208, 127, 0.3); }
+.badge-loss { background: var(--color-loss-muted); color: var(--color-loss); border: 1px solid rgba(255, 87, 87, 0.3); }
+.badge-accent { background: var(--color-accent-muted); color: var(--color-accent); border: 1px solid rgba(79, 110, 247, 0.3); }
+.badge-ai { background: var(--color-ai-muted); color: var(--color-ai); border: 1px solid rgba(155, 125, 255, 0.3); }
+.badge-warn { background: var(--color-warn-muted); color: var(--color-warn); border: 1px solid rgba(245, 166, 35, 0.3); }
+.badge-neutral { background: var(--color-elevated); color: var(--color-soft); border: 1px solid var(--color-border-solid); }
 
 /* ── Label ── */
 .label {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -286,7 +304,7 @@ input[type="radio"] {
 }
 
 /* ── Divider ── */
-.divider { border: none; border-top: 1px solid var(--color-border-solid); margin: 0; opacity: 0.5; }
+.divider { border: none; border-top: 1px solid var(--color-border-solid); margin: 0; }
 
 /* ── Stat Value ── */
 .stat-value {

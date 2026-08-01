@@ -59,9 +59,9 @@ export function MobileNav() {
       {/* More Sheet */}
       {moreOpen && (
         <div className="fixed bottom-0 left-0 right-0 z-100 lg:hidden animate-slide-up">
-          <div className="mx-3 mb-[calc(72px+env(safe-area-inset-bottom,0px)+8px)] rounded-2xl bg-card overflow-hidden shadow-2xl shadow-black/50">
+          <div className="mx-3 mb-[calc(72px+env(safe-area-inset-bottom,0px)+8px)] rounded-2xl bg-card border border-border-solid overflow-hidden shadow-2xl shadow-black/70">
             {/* Sheet Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border/20">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border-solid bg-surface">
               <div className="flex items-center gap-2">
                 {session?.user ? (
                   <div className="flex items-center gap-2 min-w-0">
@@ -86,14 +86,14 @@ export function MobileNav() {
               </div>
               <button
                 onClick={() => setMoreOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-elevated text-muted cursor-pointer"
+                className="p-1.5 rounded-lg hover:bg-elevated text-soft cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Sheet Items */}
-            <div className="p-2 grid grid-cols-3 gap-1">
+            <div className="p-2 grid grid-cols-3 gap-1 bg-card">
               {MORE_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href;
@@ -104,8 +104,8 @@ export function MobileNav() {
                     onClick={() => setMoreOpen(false)}
                     className={`flex flex-col items-center gap-1.5 p-4 rounded-xl transition-all cursor-pointer ${
                       isActive
-                        ? "bg-accent-muted text-accent"
-                        : "text-muted hover:bg-elevated hover:text-soft"
+                        ? "bg-accent-muted text-accent font-bold border border-accent/20"
+                        : "text-soft hover:bg-elevated hover:text-clean"
                     }`}
                   >
                     <Icon className="h-5 w-5" />
@@ -120,7 +120,7 @@ export function MobileNav() {
                     setMoreOpen(false);
                     signOut({ callbackUrl: "/login" });
                   }}
-                  className="flex flex-col items-center gap-1.5 p-4 rounded-xl text-loss hover:bg-loss/10 transition-all cursor-pointer col-span-3"
+                  className="flex flex-col items-center gap-1.5 p-4 rounded-xl text-loss hover:bg-loss/10 transition-all cursor-pointer col-span-3 font-semibold"
                 >
                   <LogOut className="h-5 w-5" />
                   <span className="text-[11px] font-semibold">Sign Out</span>
@@ -129,7 +129,7 @@ export function MobileNav() {
                 <Link
                   href="/login"
                   onClick={() => setMoreOpen(false)}
-                  className="flex flex-col items-center gap-1.5 p-4 rounded-xl text-accent hover:bg-accent/10 transition-all cursor-pointer col-span-3"
+                  className="flex flex-col items-center gap-1.5 p-4 rounded-xl text-accent hover:bg-accent/10 transition-all cursor-pointer col-span-3 font-semibold"
                 >
                   <UserIcon className="h-5 w-5" />
                   <span className="text-[11px] font-semibold">Sign In with Google</span>
