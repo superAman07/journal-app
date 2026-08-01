@@ -22,36 +22,8 @@ export async function createTrade(
   }
 
   try {
-    const sessionUserId = session.user.id;
-    const sessionUserEmail = session.user.email;
-
-    // Ensure user record exists in PostgreSQL users table to satisfy trades_userId_fkey
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { id: sessionUserId },
-          ...(sessionUserEmail ? [{ email: sessionUserEmail }] : []),
-        ],
-      },
-    });
-
-    let targetUserId = sessionUserId;
-    if (existingUser) {
-      targetUserId = existingUser.id;
-    } else {
-      const newUser = await prisma.user.create({
-        data: {
-          id: sessionUserId,
-          email: sessionUserEmail || `${sessionUserId}@user.local`,
-          name: session.user.name || "Trader",
-          image: session.user.image || null,
-        },
-      });
-      targetUserId = newUser.id;
-    }
-
     const data = {
-      userId: targetUserId,
+      userId: session.user.id,
       market: formData.get("market") as string,
       instrument: (formData.get("instrument") as string).toUpperCase(),
       session: formData.get("session") as string,
@@ -59,13 +31,11 @@ export async function createTrade(
       setup: formData.get("setup") as string,
       bias: formData.get("bias") as string,
 
-      // Plan
       plannedEntry: formData.get("plannedEntry") ? parseFloat(formData.get("plannedEntry") as string) : null,
       stopLoss: parseFloat(formData.get("stopLoss") as string),
       target: parseFloat(formData.get("target") as string),
       expectedRR: parseFloat(formData.get("expectedRR") as string) || 0,
 
-      // Execution
       actualEntry: parseFloat(formData.get("actualEntry") as string),
       actualExit: parseFloat(formData.get("actualExit") as string),
       positionSize: parseFloat(formData.get("positionSize") as string) || 1,
@@ -75,7 +45,6 @@ export async function createTrade(
       isEarlyEntry: formData.get("isEarlyEntry") === "true",
       slippage: parseFloat(formData.get("slippage") as string) || 0,
 
-      // Result
       outcome: formData.get("outcome") as string,
       exitReason: formData.get("exitReason") as string,
       pnl: parseFloat(formData.get("pnl") as string) || 0,
@@ -83,12 +52,10 @@ export async function createTrade(
       rulesFollowed: formData.get("rulesFollowed") !== "false",
       ruleBreakReason: formData.get("ruleBreakReason") as string || null,
 
-      // Mindset
       mindsetBefore: formData.get("mindsetBefore") as string || null,
       mindsetDuring: formData.get("mindsetDuring") as string || null,
       mindsetAfter: formData.get("mindsetAfter") as string || null,
 
-      // Options Specific Fields
       optionType: formData.get("optionType") as string || null,
       optionAction: formData.get("optionAction") as string || null,
       strikePrice: formData.get("strikePrice") ? parseFloat(formData.get("strikePrice") as string) : null,
