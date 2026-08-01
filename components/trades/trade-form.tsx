@@ -697,6 +697,7 @@ export function TradeForm() {
               screenshots={screenshots}
               onAdd={addScreenshot}
               onRemove={removeScreenshot}
+              isOptions={isOptionsMode}
             />
 
             <StepNav onPrev={() => setActiveStep(1)} onNext={() => setActiveStep(3)} />

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Plus, BookOpen } from "lucide-react";
 import { getUserTrades } from "@/lib/actions/trade-actions";
 import { formatCurrency, formatRMultiple } from "@/lib/utils";
+import { DeleteTradeButton } from "@/components/trades/delete-trade-button";
 
 export const metadata: Metadata = {
   title: "Trade Journal — Trading OS",
@@ -14,7 +15,6 @@ export default async function TradesPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-clean flex items-center gap-2">
@@ -29,7 +29,6 @@ export default async function TradesPage() {
         </div>
       </div>
 
-      {/* Main content: Trades Table or Empty State Guide */}
       {trades.length === 0 ? (
         <div className="card p-8 sm:p-12 text-center space-y-4 max-w-xl mx-auto">
           <div className="mx-auto h-12 w-12 rounded-2xl bg-accent/10 text-accent flex items-center justify-center">
@@ -49,7 +48,6 @@ export default async function TradesPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Mobile Card List */}
           <div className="space-y-2 sm:hidden">
             {trades.map((trade: any) => {
               const pnlNum = Number(trade.pnl);
@@ -63,9 +61,12 @@ export default async function TradesPage() {
                         {trade.outcome}
                       </span>
                     </div>
-                    <span className={`font-mono text-sm font-bold ${pnlNum >= 0 ? "text-profit" : "text-loss"}`}>
-                      {formatCurrency(pnlNum)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`font-mono text-sm font-bold ${pnlNum >= 0 ? "text-profit" : "text-loss"}`}>
+                        {formatCurrency(pnlNum)}
+                      </span>
+                      <DeleteTradeButton tradeId={trade.id} />
+                    </div>
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-muted">{new Date(trade.date).toLocaleDateString()} · {trade.session}</span>
@@ -82,7 +83,6 @@ export default async function TradesPage() {
             })}
           </div>
 
-          {/* Desktop Table */}
           <div className="hidden sm:block card p-4 sm:p-5">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -96,7 +96,8 @@ export default async function TradesPage() {
                     <th className="py-2.5 pr-3 font-semibold">Entry / SL / TP</th>
                     <th className="py-2.5 pr-3 font-semibold">Outcome</th>
                     <th className="py-2.5 pr-3 text-right font-semibold">R-Mult</th>
-                    <th className="py-2.5 text-right font-semibold">PnL</th>
+                    <th className="py-2.5 pr-3 text-right font-semibold">PnL</th>
+                    <th className="py-2.5 w-10"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -108,7 +109,7 @@ export default async function TradesPage() {
                     const rrNum = Number(trade.actualRR);
 
                     return (
-                      <tr key={trade.id} className="hover:bg-elevated/40 transition-colors">
+                      <tr key={trade.id} className="hover:bg-elevated/40 transition-colors group">
                         <td className="py-3 pr-3 text-soft">{new Date(trade.date).toLocaleDateString()}</td>
                         <td className="py-3 pr-3"><span className="badge badge-neutral">{trade.market}</span></td>
                         <td className="py-3 pr-3 font-mono font-bold text-clean">{trade.instrument}</td>
@@ -125,8 +126,11 @@ export default async function TradesPage() {
                         <td className="py-3 pr-3 text-right font-mono font-semibold">
                           <span className={rrNum >= 0 ? "text-profit" : "text-loss"}>{formatRMultiple(rrNum)}</span>
                         </td>
-                        <td className="py-3 text-right font-mono font-bold">
+                        <td className="py-3 pr-3 text-right font-mono font-bold">
                           <span className={pnlNum >= 0 ? "text-profit" : "text-loss"}>{formatCurrency(pnlNum)}</span>
+                        </td>
+                        <td className="py-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <DeleteTradeButton tradeId={trade.id} />
                         </td>
                       </tr>
                     );
