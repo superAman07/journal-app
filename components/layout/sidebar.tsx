@@ -36,7 +36,6 @@ const NAV_SECTIONS = [
     items: [
       { label: "Analytics", href: "/analytics", icon: BarChart3 },
       { label: "Trading DNA", href: "/dna", icon: Dna },
-      { label: "Screenshots", href: "/screenshots", icon: ImageIcon },
     ],
   },
   {

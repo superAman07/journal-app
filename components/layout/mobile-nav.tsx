@@ -36,7 +36,6 @@ const MORE_ITEMS = [
   { label: "Rule Engine", href: "/rules", icon: ShieldCheck },
   { label: "AI Coach", href: "/ai-coach", icon: Sparkles },
   { label: "Reviews", href: "/reviews", icon: CalendarRange },
-  { label: "Screenshots", href: "/screenshots", icon: ImageIcon },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
