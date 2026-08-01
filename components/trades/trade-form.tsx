@@ -91,7 +91,7 @@ export function TradeForm() {
   const [strikePrice, setStrikePrice] = useState("24500");
   const [spotPrice, setSpotPrice] = useState("24520");
   const [optionExpiry, setOptionExpiry] = useState<"WEEKLY" | "MONTHLY" | "0DTE">("WEEKLY");
-  const [lotSize, setLotSize] = useState(65); // Nifty current lot size (65)
+  const [lotSize, setLotSize] = useState(65);
   const [numberOfLots, setNumberOfLots] = useState("2");
   const [optionPoints, setOptionPoints] = useState(0);
 

@@ -112,12 +112,15 @@ export async function createTrade(
     revalidatePath("/trades");
     revalidatePath("/analytics");
     revalidatePath("/dna");
-  } catch (error) {
-    console.error("[createTrade] Error:", error);
-    return { success: false, message: "Failed to save trade. Database error." };
-  }
 
-  redirect("/trades");
+    return { success: true, message: "Trade saved successfully!" };
+  } catch (error: any) {
+    console.error("[createTrade] Error:", error);
+    return {
+      success: false,
+      message: error?.message ? `Failed to save trade: ${error.message}` : "Failed to save trade. Database error.",
+    };
+  }
 }
 
 export async function deleteTrade(tradeId: string): Promise<TradeFormState> {
