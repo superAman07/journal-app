@@ -573,7 +573,7 @@ export function TradeForm() {
                   step="any"
                   value={stopLoss}
                   onChange={(e) => setStopLoss(e.target.value)}
-                  className="input-field font-mono !text-loss"
+                  className="input-field font-mono text-loss!"
                 />
               </FormField>
               <FormField label="Target">
@@ -582,7 +582,7 @@ export function TradeForm() {
                   step="any"
                   value={target}
                   onChange={(e) => setTarget(e.target.value)}
-                  className="input-field font-mono !text-profit"
+                  className="input-field font-mono text-profit!"
                 />
               </FormField>
               <FormField label="Expected RR">

@@ -153,7 +153,7 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
             <BookOpen className="h-6 w-6" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-clean">Your Trade Journal is Empty</h3>
+            <h3 className="text-base font-bold">Your Trade Journal is Empty</h3>
             <p className="text-xs text-muted leading-relaxed max-w-md mx-auto">
               Start building your quantitative trading history by logging your first trade entry. All metrics, win rates, and setup insights will calculate automatically.
             </p>
