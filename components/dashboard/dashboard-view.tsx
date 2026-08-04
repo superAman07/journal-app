@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
+  TrendingDown,
   ArrowUpRight,
   Plus,
   Sparkles,
@@ -11,9 +12,11 @@ import {
   ChevronRight,
   BookOpen,
   Dna,
+  LineChart,
 } from "lucide-react";
 import { formatCurrency, formatPercent, formatRMultiple } from "@/lib/utils";
 import { TradeItem, DashboardMetrics } from "@/types";
+import { ChartModal } from "@/components/ui/chart-modal";
 
 interface DashboardViewProps {
   userName?: string | null;
@@ -21,6 +24,14 @@ interface DashboardViewProps {
   initialTrades?: TradeItem[] | any[];
   initialMetrics?: DashboardMetrics | any | null;
 }
+
+type MarketTicker = {
+  symbol: string;
+  label: string;
+  price: string;
+  change: number;
+  isUp: boolean;
+};
 
 export function DashboardView({
   userName,
@@ -40,57 +51,126 @@ export function DashboardView({
   const ruleFollowRate = initialMetrics?.ruleFollowRate ?? 100;
   const psychologyScore = initialMetrics?.psychologyScore ?? 100;
 
+  // Live Market State
+  const [tickers, setTickers] = useState<MarketTicker[]>([
+    { symbol: "NIFTY", label: "NIFTY 50", price: "24,520.15", change: 0.65, isUp: true },
+    { symbol: "BANKNIFTY", label: "BANKNIFTY", price: "52,410.80", change: -0.22, isUp: false },
+    { symbol: "GOLD", label: "Gold Spot", price: "$2,388.50", change: 0.45, isUp: true },
+    { symbol: "BTC", label: "Bitcoin", price: "$65,420.00", change: 1.84, isUp: true },
+  ]);
+
+  const [chartOpen, setChartOpen] = useState(false);
+  const [selectedChart, setSelectedChart] = useState("NIFTY");
+
+  useEffect(() => {
+    const fetchPrices = async () => {
+      try {
+        const [btcRes, paxgRes] = await Promise.all([
+          fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT").then((r) => r.json()),
+          fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=PAXGUSDT").then((r) => r.json()),
+        ]);
+
+        if (btcRes?.lastPrice && paxgRes?.lastPrice) {
+          const btcPrice = parseFloat(btcRes.lastPrice).toLocaleString("en-US", { maximumFractionDigits: 2 });
+          const btcChange = parseFloat(btcRes.priceChangePercent);
+          const goldPrice = parseFloat(paxgRes.lastPrice).toLocaleString("en-US", { maximumFractionDigits: 2 });
+          const goldChange = parseFloat(paxgRes.priceChangePercent);
+
+          setTickers([
+            { symbol: "NIFTY", label: "NIFTY 50", price: "24,520.15", change: 0.65, isUp: true },
+            { symbol: "BANKNIFTY", label: "BANKNIFTY", price: "52,410.80", change: -0.22, isUp: false },
+            { symbol: "GOLD", label: "Gold Spot", price: `$${goldPrice}`, change: goldChange, isUp: goldChange >= 0 },
+            { symbol: "BTC", label: "Bitcoin", price: `$${btcPrice}`, change: btcChange, isUp: btcChange >= 0 },
+          ]);
+        }
+      } catch {
+        // Keep initial state
+      }
+    };
+
+    fetchPrices();
+    const interval = setInterval(fetchPrices, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const openLiveChart = (sym: string) => {
+    setSelectedChart(sym);
+    setChartOpen(true);
+  };
+
   return (
-    <div className="space-y-6">
-      {/* ── Welcome Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+    <div className="space-y-5">
+      {/* ── Welcome Header + Compact AI Coach Pill ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-clean tracking-tight">
             {greeting}, {firstName} 👋
           </h1>
-          <p className="text-sm text-muted mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             {isAuthed
               ? "Welcome to your personal trading journal & analytics engine."
               : "Sign in with Google to start logging trades and tracking performance."}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          <Link href="/trades/new" className="btn-primary self-start sm:self-auto cursor-pointer">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {/* Compressed AI Coach Quick Chip */}
+          <Link
+            href="/ai-coach"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-ai-muted text-ai border border-ai/20 text-xs font-semibold hover:bg-ai/20 transition-all cursor-pointer"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>AI Coach</span>
+            <ArrowUpRight className="h-3 w-3 opacity-70" />
+          </Link>
+
+          <Link href="/trades/new" className="btn-primary self-start sm:self-auto cursor-pointer py-1.5! text-xs!">
             <Plus className="h-4 w-4" /> New Trade
           </Link>
         </div>
       </div>
 
-      {/* ── AI Coach Insight Banner ── */}
-      <div className="card-glow p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3 min-w-0">
-          <div className="h-9 w-9 rounded-xl bg-ai-muted flex items-center justify-center shrink-0">
-            <Sparkles className="h-4 w-4 text-ai" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="badge badge-ai">AI Coach</span>
-            </div>
-            <h3 className="text-sm font-semibold text-clean mt-1 leading-snug">
-              {hasTrades
-                ? "Execution Analysis Active"
-                : "Welcome to TradingOS"}
-            </h3>
-            <p className="text-xs text-muted mt-1 line-clamp-2">
-              {hasTrades
-                ? "Your logged trades are actively analyzed by AI Coach for risk management and strategy refinement."
-                : "Log your first trade to generate AI-powered execution insights and setup win rates."}
-            </p>
-          </div>
+      {/* ── Live Market Watch Strip (Prominent on Mobile & Desktop) ── */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-dim flex items-center gap-1.5">
+            <LineChart className="h-3.5 w-3.5 text-accent" /> Live Market Overview
+          </span>
+          <span className="text-[10px] text-muted font-medium">Click any asset to launch chart</span>
         </div>
-        <Link href="/ai-coach" className="btn-secondary shrink-0 self-start sm:self-center cursor-pointer">
-          Ask Coach <ArrowUpRight className="h-3.5 w-3.5" />
-        </Link>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+          {tickers.map((t) => (
+            <div
+              key={t.symbol}
+              onClick={() => openLiveChart(t.symbol)}
+              className="card-elevated p-3 rounded-xl flex items-center justify-between gap-2 cursor-pointer hover:border-accent/40 hover:bg-surface transition-all select-none group"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-extrabold text-clean tracking-tight">{t.label}</span>
+                  <span className={`text-[10px] font-bold flex items-center ${t.isUp ? "text-profit" : "text-loss"}`}>
+                    {t.isUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                    {Math.abs(t.change).toFixed(2)}%
+                  </span>
+                </div>
+                <div className="text-sm font-mono font-bold text-soft mt-0.5">{t.price}</div>
+              </div>
+
+              <button
+                type="button"
+                className="h-7 w-7 rounded-lg bg-accent/10 text-accent flex items-center justify-center opacity-80 group-hover:opacity-100 group-hover:bg-accent group-hover:text-white transition-all shrink-0"
+                title={`Open ${t.label} Chart`}
+              >
+                <LineChart className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
         <KPICard
           label="Net PnL"
           value={formatCurrency(netPnL)}
@@ -274,6 +354,13 @@ export function DashboardView({
           </div>
         </div>
       </div>
+
+      {/* Standalone Interactive Chart Modal */}
+      <ChartModal
+        isOpen={chartOpen}
+        onClose={() => setChartOpen(false)}
+        initialSymbol={selectedChart}
+      />
     </div>
   );
 }
@@ -302,9 +389,9 @@ function KPICard({
   }[color];
 
   return (
-    <div className="card p-3.5 sm:p-4 space-y-1.5 hover:scale-[1.01] transition-transform">
+    <div className="card p-3 sm:p-3.5 space-y-1 hover:scale-[1.01] transition-transform">
       <span className="label mb-0!">{label}</span>
-      <div className={`stat-value text-lg! sm:text-xl! ${valueColor}`}>{value}</div>
+      <div className={`stat-value text-base! sm:text-lg! ${valueColor}`}>{value}</div>
       <div className="flex items-center gap-1 text-[10px] text-dim font-medium">
         {icon}
         <span>{sub}</span>
