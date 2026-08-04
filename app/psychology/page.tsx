@@ -26,7 +26,7 @@ export default async function PsychologyPage() {
             <BrainCircuit className="h-6 w-6" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-clean">No Emotional Data Logged Yet</h3>
+            <h3 className="text-base font-bold">No Emotional Data Logged Yet</h3>
             <p className="text-xs text-muted leading-relaxed max-w-md mx-auto">
               Select your mindset tag (e.g. Calm, FOMO, Greed, Anxiety) when logging trades to track how your emotional state directly impacts your win rate.
             </p>

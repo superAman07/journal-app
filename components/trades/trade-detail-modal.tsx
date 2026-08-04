@@ -92,7 +92,7 @@ export function TradeDetailModal({
   }, [onClose, lightboxIndex]);
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-120 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
 
       <div
@@ -109,7 +109,7 @@ export function TradeDetailModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-base font-bold text-clean">{trade.instrument}</span>
+                <span className="font-mono text-base font-bold">{trade.instrument}</span>
                 <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                   trade.outcome === "WIN" ? "bg-profit/20 text-profit border border-profit/30" : trade.outcome === "LOSS" ? "bg-loss/20 text-loss border border-loss/30" : "bg-elevated text-soft border border-border-solid"
                 }`}>{trade.outcome}</span>

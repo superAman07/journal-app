@@ -152,7 +152,7 @@ export function DashboardView({
                 <BookOpen className="h-6 w-6" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-base font-bold text-clean">No Trades Logged Yet</h3>
+                <h3 className="text-base font-bold">No Trades Logged Yet</h3>
                 <p className="text-xs text-muted max-w-sm mx-auto leading-relaxed">
                   Start tracking your trading journey by logging your first trade setup. Your performance metrics, win rate, and analytics will calculate automatically.
                 </p>

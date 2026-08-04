@@ -98,7 +98,7 @@ export default function AICoachPage() {
             placeholder={`Ask via ${provider}...`}
             className="input-field flex-1"
           />
-          <button onClick={handleSend} className="btn-primary !rounded-xl shrink-0 cursor-pointer">
+          <button onClick={handleSend} className="btn-primary rounded-xl! shrink-0 cursor-pointer">
             <Send className="h-4 w-4" />
           </button>
         </div>

@@ -70,7 +70,7 @@ export function Sidebar() {
       <div className={`flex items-center h-16 shrink-0 ${collapsed ? "justify-center px-2" : "px-5"}`}>
         <Link href="/" className="flex items-center gap-2 group cursor-pointer">
           {collapsed ? (
-            <span className="font-bold text-base text-clean tracking-tight">
+            <span className="font-bold text-base tracking-tight">
               T<span className="text-accent">OS</span>
             </span>
           ) : (

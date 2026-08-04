@@ -26,7 +26,7 @@ export default async function DNAPage() {
             <Sparkles className="h-6 w-6" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-clean">Trading DNA Requires Trade Logs</h3>
+            <h3 className="text-base font-bold">Trading DNA Requires Trade Logs</h3>
             <p className="text-xs text-muted leading-relaxed">
               Your DNA fingerprint automatically identifies your highest expectancy setups, peak sessions, and emotional leaks. Log at least 5 trades to unlock your personalized analysis.
             </p>
@@ -65,7 +65,7 @@ export default async function DNAPage() {
           <span className="badge badge-profit">Peak Strength</span>
           <div>
             <span className="text-[11px] text-dim font-medium">Most Traded Market</span>
-            <p className="text-base sm:text-lg font-bold text-clean mt-0.5">{topMarket}</p>
+            <p className="text-base sm:text-lg font-bold mt-0.5">{topMarket}</p>
           </div>
           <p className="text-xs text-muted leading-relaxed">{trades.length} total logged trades in your database.</p>
         </div>
@@ -74,7 +74,7 @@ export default async function DNAPage() {
           <span className="badge badge-accent">Win Ratio</span>
           <div>
             <span className="text-[11px] text-dim font-medium">Winning Trades</span>
-            <p className="text-base sm:text-lg font-bold text-profit mt-0.5">{wins.length} Wins</p>
+            <p className="sm:text-lg font-bold text-profit mt-0.5">{wins.length} Wins</p>
           </div>
           <p className="text-xs text-muted leading-relaxed">Out of {trades.length} total recorded entries.</p>
         </div>
@@ -83,7 +83,7 @@ export default async function DNAPage() {
           <span className="badge badge-loss">Risk Warning</span>
           <div>
             <span className="text-[11px] text-dim font-medium">Losing Trades</span>
-            <p className="text-base sm:text-lg font-bold text-loss mt-0.5">{losses.length} Losses</p>
+            <p className="sm:text-lg font-bold text-loss mt-0.5">{losses.length} Losses</p>
           </div>
           <p className="text-xs text-muted leading-relaxed">Review exit reasons to minimize drawdown.</p>
         </div>

@@ -147,7 +147,7 @@ export function EditTradeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-120 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-3xl bg-card border border-border-solid sm:rounded-2xl rounded-t-2xl max-h-[90vh] sm:max-h-[88vh] overflow-y-auto z-10 p-4 sm:p-5 pb-24 sm:pb-6 space-y-5 animate-in slide-in-from-bottom duration-200">
         <div className="flex items-center justify-between border-b border-border-solid pb-3">
@@ -453,7 +453,7 @@ export function EditTradeModal({
                     value={pnl}
                     onChange={(e) => setPnl(e.target.value)}
                     className={`input-field font-mono font-bold text-sm ${
-                      parseFloat(pnl) >= 0 ? "!text-profit" : "!text-loss"
+                      parseFloat(pnl) >= 0 ? "text-profit!" : "text-loss!"
                     }`}
                   />
                 </div>
@@ -545,7 +545,7 @@ export function EditTradeModal({
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="btn-primary text-xs cursor-pointer flex items-center gap-1.5 !px-6"
+                  className="btn-primary text-xs cursor-pointer flex items-center gap-1.5 px-6!"
                 >
                   <Check className="h-4 w-4" />
                   {isPending ? "Updating Trade..." : "Save Changes"}

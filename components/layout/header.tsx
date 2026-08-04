@@ -14,7 +14,7 @@ export function Header() {
       {/* Left: Mobile brand + Desktop ticker */}
       <div className="flex items-center gap-3 min-w-0">
         <Link href="/" className="lg:hidden flex items-center gap-1.5 cursor-pointer shrink-0">
-          <span className="font-bold text-base text-clean tracking-tight">
+          <span className="font-bold text-base tracking-tight">
             Trading<span className="text-accent">OS</span>
           </span>
         </Link>

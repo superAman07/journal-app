@@ -50,7 +50,7 @@ export function MobileNav() {
       {/* Bottom Sheet Overlay */}
       {moreOpen && (
         <div
-          className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-90 bg-black/60 backdrop-blur-sm lg:hidden"
           onClick={() => setMoreOpen(false)}
         />
       )}

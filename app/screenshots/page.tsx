@@ -46,7 +46,7 @@ export default function ScreenshotsPage() {
             <ImageIcon className="h-6 w-6" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-clean">Screenshot Vault is Empty</h3>
+            <h3 className="text-base font-bold">Screenshot Vault is Empty</h3>
             <p className="text-xs text-muted leading-relaxed max-w-md mx-auto">
               Attach TradingView chart URLs when logging trades (during Plan, Execution, or Result phase) to build your visual setup archive.
             </p>

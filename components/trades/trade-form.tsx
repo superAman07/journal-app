@@ -586,7 +586,7 @@ export function TradeForm() {
                 />
               </FormField>
               <FormField label="Expected RR">
-                <div className="h-[42px] rounded-xl bg-accent-muted border border-accent/20 flex items-center justify-center font-mono font-bold text-accent text-sm">
+                <div className="h-10.5 rounded-xl bg-accent-muted border border-accent/20 flex items-center justify-center font-mono font-bold text-accent text-sm">
                   1:{expectedRR}R
                 </div>
               </FormField>
@@ -763,7 +763,7 @@ export function TradeForm() {
                   value={pnl}
                   onChange={(e) => setPnl(e.target.value)}
                   className={`input-field font-mono font-bold text-sm ${
-                    parseFloat(pnl) >= 0 ? "!text-profit" : "!text-loss"
+                    parseFloat(pnl) >= 0 ? "text-profit!" : "text-loss!"
                   }`}
                 />
               </FormField>
@@ -792,7 +792,7 @@ export function TradeForm() {
                     value={ruleBreakReason}
                     onChange={(e) => setRuleBreakReason(e.target.value)}
                     placeholder="e.g. Moved SL during trade, overleveraged"
-                    className="input-field !text-loss"
+                    className="input-field text-loss!"
                   />
                 </FormField>
               )}
@@ -876,7 +876,7 @@ export function TradeForm() {
               <button
                 type="submit"
                 disabled={isPending}
-                className="btn-primary text-xs cursor-pointer flex items-center gap-1.5 !px-6"
+                className="btn-primary text-xs cursor-pointer flex items-center gap-1.5 px-6!"
               >
                 <Check className="h-4 w-4" />
                 {isPending ? "Saving Trade..." : "Save Trade to Journal"}

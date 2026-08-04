@@ -132,7 +132,7 @@ export function LiveTicker() {
       {/* ═══ TradingView Live Chart Modal ═══ */}
       {chartOpen && (
         <div
-          className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-lg flex items-center justify-center animate-in fade-in duration-150"
+          className="fixed inset-0 z-200 bg-black/90 backdrop-blur-lg flex items-center justify-center animate-in fade-in duration-150"
           onClick={() => setChartOpen(false)}
         >
           <div

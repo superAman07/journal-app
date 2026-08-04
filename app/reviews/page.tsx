@@ -26,7 +26,7 @@ export default async function ReviewsPage() {
             <CalendarRange className="h-6 w-6" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-clean">No Review Periods Completed</h3>
+            <h3 className="text-base font-bold">No Review Periods Completed</h3>
             <p className="text-xs text-muted leading-relaxed max-w-md mx-auto">
               Weekly and monthly execution audits compile your total realized profit, setup expectancy, and risk compliance over time. Log trades to view your periodic audit cards.
             </p>
@@ -57,7 +57,7 @@ export default async function ReviewsPage() {
       <div className="card p-5 sm:p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
           <div>
-            <h2 className="text-base font-bold text-clean">Current Audit Summary</h2>
+            <h2 className="text-base font-bold">Current Audit Summary</h2>
             <span className="text-xs text-muted">{trades.length} Total Trades Recorded</span>
           </div>
         </div>

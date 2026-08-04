@@ -69,7 +69,7 @@ export default async function LoginPage() {
             {/* Demo Mode */}
             <Link
               href="/"
-              className="btn-primary w-full !py-3 cursor-pointer"
+              className="btn-primary w-full py-3! cursor-pointer"
             >
               Explore Demo Mode <ArrowRight className="h-4 w-4" />
             </Link>

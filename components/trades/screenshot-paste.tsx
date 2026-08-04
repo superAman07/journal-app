@@ -177,7 +177,7 @@ export function ScreenshotPaste({
                         alt={stage.label}
                         className="w-full h-24 object-cover"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                       <button
                         type="button"
                         onClick={() => onRemove(ss.id)}

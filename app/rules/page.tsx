@@ -53,7 +53,7 @@ export default function RulesPage() {
             <ShieldCheck className="h-6 w-6" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-clean">No Trading Rules Defined</h3>
+            <h3 className="text-base font-bold">No Trading Rules Defined</h3>
             <p className="text-xs text-muted max-w-md mx-auto leading-relaxed">
               Define your personal trading guidelines above (e.g. &quot;Never trade during high-impact red folder news&quot; or &quot;Stop trading after 2 consecutive losses&quot;).
             </p>

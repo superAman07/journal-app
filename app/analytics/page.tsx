@@ -26,7 +26,7 @@ export default async function AnalyticsPage() {
             <TrendingUp className="h-6 w-6" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-clean">No Analytics Data Available</h3>
+            <h3 className="font-bold text-clean">No Analytics Data Available</h3>
             <p className="text-xs text-muted leading-relaxed max-w-md mx-auto">
               Your cumulative equity growth curve, R-multiple distributions, and session-level PnL breakdowns will generate automatically once you record trades.
             </p>
