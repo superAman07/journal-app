@@ -28,7 +28,7 @@ const NAV_SECTIONS = [
     items: [
       { label: "Dashboard", href: "/", icon: LayoutDashboard },
       { label: "Trade Journal", href: "/trades", icon: BookOpen },
-      { label: "Log Trade", href: "/trades/new", icon: PlusCircle, highlight: true },
+      { label: "New Trade", href: "/trades/new", icon: PlusCircle, highlight: true },
     ],
   },
   {

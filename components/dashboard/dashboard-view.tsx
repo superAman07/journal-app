@@ -57,7 +57,7 @@ export function DashboardView({
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           <Link href="/trades/new" className="btn-primary self-start sm:self-auto cursor-pointer">
-            <Plus className="h-4 w-4" /> Log Trade
+            <Plus className="h-4 w-4" /> New Trade
           </Link>
         </div>
       </div>
