@@ -60,7 +60,7 @@ export function LiveTicker() {
 
   return (
     <>
-      {/* Desktop Navbar Ticker Pills */}
+      {/* Desktop Navbar Ticker Pills (Hidden on Mobile for Ultra-Clean Header) */}
       <div className="hidden md:flex items-center gap-2 text-[11px]">
         {tickers.map((t) => (
           <button
@@ -82,18 +82,6 @@ export function LiveTicker() {
           onClick={() => openChart("NIFTY")}
           className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-accent-muted text-accent border border-accent/30 font-bold hover:bg-accent/20 transition-all cursor-pointer"
           title="Open Free Live TradingView Chart"
-        >
-          <LineChart className="h-3.5 w-3.5" />
-          <span>Chart</span>
-        </button>
-      </div>
-
-      {/* Mobile Navbar: Clean compact Chart Trigger Button (No Price Pills cluttering top bar) */}
-      <div className="flex md:hidden items-center ml-1">
-        <button
-          onClick={() => openChart("NIFTY")}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-accent/10 text-accent border border-accent/20 font-bold text-xs cursor-pointer active:scale-95 transition-transform"
-          title="Open Live Chart"
         >
           <LineChart className="h-3.5 w-3.5" />
           <span>Chart</span>

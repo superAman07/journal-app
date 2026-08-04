@@ -11,10 +11,10 @@ export function Header() {
 
   return (
     <header className="h-14 bg-surface/80 backdrop-blur-xl sticky top-0 z-30 px-4 lg:px-6 flex items-center justify-between gap-3 shadow-[0_1px_0_var(--color-border)]">
-      {/* Left: Mobile brand + Desktop ticker */}
+      {/* Left: Mobile brand mark + Desktop live ticker */}
       <div className="flex items-center gap-3 min-w-0">
         <Link href="/" className="lg:hidden flex items-center gap-1.5 cursor-pointer shrink-0">
-          <span className="font-bold text-base tracking-tight">
+          <span className="font-bold text-base text-clean tracking-tight">
             Trading<span className="text-accent">OS</span>
           </span>
         </Link>
@@ -28,7 +28,7 @@ export function Header() {
 
         <Link
           href="/ai-coach"
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-ai-muted text-ai text-xs font-semibold transition-all hover:bg-ai/20 cursor-pointer"
+          className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-ai-muted text-ai text-xs font-semibold transition-all hover:bg-ai/20 cursor-pointer"
         >
           <Sparkles className="h-3.5 w-3.5" />
           <span>AI Coach</span>
@@ -38,7 +38,7 @@ export function Header() {
           <>
             <Link
               href="/trades/new"
-              className="hidden sm:flex btn-primary py-2! px-4! text-xs! rounded-lg! cursor-pointer"
+              className="hidden lg:flex btn-primary py-2! px-4! text-xs! rounded-lg! cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               <span>+ New Trade</span>

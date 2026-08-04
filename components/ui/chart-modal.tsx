@@ -41,7 +41,7 @@ export function ChartModal({ isOpen, onClose, initialSymbol = "NIFTY" }: ChartMo
 
   return (
     <div
-      className="fixed inset-0 z-300 bg-black/90 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-150 p-2 sm:p-4 md:p-6"
+      className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-150 p-2 sm:p-4 md:p-6"
       onClick={onClose}
     >
       <div
