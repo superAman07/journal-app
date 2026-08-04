@@ -101,13 +101,13 @@ export function ImageLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex flex-col justify-between select-none animate-in fade-in duration-200"
+      className="fixed inset-0 z-100 bg-black/90 backdrop-blur-md flex flex-col justify-between select-none animate-in fade-in duration-200"
       onWheel={handleWheel}
       onClick={onClose}
     >
       {/* Top Bar */}
       <div
-        className="p-4 flex items-center justify-between z-10 bg-gradient-to-b from-black/80 to-transparent"
+        className="p-4 flex items-center justify-between z-10 bg-linear-to-b from-black/80 to-transparent"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3">
@@ -210,7 +210,7 @@ export function ImageLightbox({
 
       {/* Bottom Caption Bar */}
       <div
-        className="p-4 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between text-xs text-white/80 z-10"
+        className="p-4 bg-linear-to-t from-black/80 to-transparent flex items-center justify-between text-xs text-white/80 z-10"
         onClick={(e) => e.stopPropagation()}
       >
         <span>

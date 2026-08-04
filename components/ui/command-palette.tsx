@@ -73,12 +73,12 @@ export function CommandPalette() {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 z-200 bg-black/50 backdrop-blur-sm"
         onClick={() => { setOpen(false); setQuery(""); }}
       />
 
       {/* Palette */}
-      <div className="fixed inset-x-0 top-[15vh] z-[210] flex justify-center px-4">
+      <div className="fixed inset-x-0 top-[15vh] z-210 flex justify-center px-4">
         <div className="w-full max-w-lg card overflow-hidden shadow-2xl shadow-black/30">
           {/* Search Input */}
           <div className="flex items-center gap-3 px-4 py-3 shadow-[0_1px_0_var(--color-border)]">
