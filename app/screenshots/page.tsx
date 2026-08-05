@@ -61,7 +61,7 @@ export default function ScreenshotsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((sc) => (
             <div key={sc.id} className="card overflow-hidden group">
-              <div className="relative aspect-video bg-base">
+              <div className="relative aspect-video bg-bg-base">
                 <img src={sc.url} alt={sc.caption || "Chart"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                 <div className="absolute top-2.5 left-2.5">
                   <span className="badge badge-accent text-[9px]">{sc.stage.replace(/_/g, " ")}</span>
