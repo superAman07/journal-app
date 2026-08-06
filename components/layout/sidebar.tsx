@@ -21,6 +21,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useState } from "react";
+import { Logo } from "@/components/ui/logo";
 
 const NAV_SECTIONS = [
   {
@@ -66,22 +67,13 @@ export function Sidebar() {
         collapsed ? "w-17" : "w-60"
       }`}
     >
-      {/* Brand — Clean Text, No Icon Box */}
+      {/* Brand — Logo Image */}
       <div className={`flex items-center h-16 shrink-0 ${collapsed ? "justify-center px-2" : "px-5"}`}>
-        <Link href="/" className="flex items-center gap-2 group cursor-pointer">
+        <Link href="/" className="flex items-center gap-2 group cursor-pointer overflow-hidden">
           {collapsed ? (
-            <span className="font-bold text-base tracking-tight">
-              T<span className="text-accent">OS</span>
-            </span>
+            <Logo className="h-8 w-auto object-contain" collapsed={true} />
           ) : (
-            <div className="overflow-hidden">
-              <span className="font-bold text-[16px] text-clean tracking-tight leading-none block">
-                Trading<span className="text-accent">OS</span>
-              </span>
-              <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-dim leading-none block mt-1">
-                Performance Engine
-              </span>
-            </div>
+            <Logo className="h-9 max-w-[170px] w-auto object-contain object-left" />
           )}
         </Link>
       </div>

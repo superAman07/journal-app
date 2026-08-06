@@ -3,6 +3,7 @@ import { ShieldCheck, ArrowRight } from "lucide-react";
 import { auth, signIn } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { Logo } from "@/components/ui/logo";
 
 export const metadata: Metadata = {
   title: "Sign In — Trading OS",
@@ -29,14 +30,9 @@ export default async function LoginPage() {
           {/* Glow */}
           <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-accent/10 rounded-full blur-[80px] pointer-events-none" />
 
-          {/* Brand — Clean Text, No Icon Box */}
-          <div className="space-y-1">
-            <h1 className="text-3xl font-bold text-clean tracking-tight">
-              Trading<span className="text-accent">OS</span>
-            </h1>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-dim">
-              Performance Engine
-            </p>
+          {/* Brand Logo */}
+          <div className="flex flex-col items-center justify-center space-y-1">
+            <Logo className="h-12 max-w-[200px] w-auto object-contain mx-auto" />
           </div>
 
           <p className="text-xs text-muted leading-relaxed max-w-xs mx-auto">

@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { Plus, Sparkles, User, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { LiveTicker } from "@/components/layout/live-ticker";
+import { Logo } from "@/components/ui/logo";
 
 export function Header() {
   const { data: session } = useSession();
@@ -13,9 +14,7 @@ export function Header() {
     <header className="h-14 bg-surface/80 backdrop-blur-xl sticky top-0 z-30 px-4 lg:px-6 flex items-center justify-between gap-3 shadow-[0_1px_0_var(--color-border)]">
       <div className="flex items-center gap-3 min-w-0">
         <Link href="/" className="lg:hidden flex items-center gap-1.5 cursor-pointer shrink-0">
-          <span className="font-bold text-base text-clean tracking-tight">
-            Trading<span className="text-accent">OS</span>
-          </span>
+          <Logo className="h-7 max-w-35 w-auto object-contain" />
         </Link>
 
         <LiveTicker />

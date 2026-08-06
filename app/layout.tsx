@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   description:
     "Production-grade trading journal with performance analytics, trading DNA profiling, psychology tracker, AI coach, and rule enforcement for discretionary traders.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+  icons: {
+    icon: "/favicon.ico",
+  },
   openGraph: {
     title: "Trading OS — Advanced Journal & Performance Engine",
     description: "Your personal trading journal, analytics engine, and AI performance coach.",
