@@ -11,7 +11,6 @@ export function Header() {
 
   return (
     <header className="h-14 bg-surface/80 backdrop-blur-xl sticky top-0 z-30 px-4 lg:px-6 flex items-center justify-between gap-3 shadow-[0_1px_0_var(--color-border)]">
-      {/* Left: Mobile brand mark + Desktop live ticker */}
       <div className="flex items-center gap-3 min-w-0">
         <Link href="/" className="lg:hidden flex items-center gap-1.5 cursor-pointer shrink-0">
           <span className="font-bold text-base text-clean tracking-tight">
@@ -21,8 +20,6 @@ export function Header() {
 
         <LiveTicker />
       </div>
-
-      {/* Right: Actions */}
       <div className="flex items-center gap-2 shrink-0">
         <ThemeToggle />
 
@@ -41,7 +38,7 @@ export function Header() {
               className="hidden lg:flex btn-primary py-2! px-4! text-xs! rounded-lg! cursor-pointer"
             >
               <Plus className="h-4 w-4" />
-              <span>+ New Trade</span>
+              <span>New Trade</span>
             </Link>
 
             <div className="flex items-center gap-2 pl-1 border-l border-border/20">
