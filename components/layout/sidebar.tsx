@@ -71,9 +71,9 @@ export function Sidebar() {
       <div className={`flex items-center h-16 shrink-0 ${collapsed ? "justify-center px-2" : "px-5"}`}>
         <Link href="/" className="flex items-center gap-2 group cursor-pointer overflow-hidden">
           {collapsed ? (
-            <Logo className="h-8 w-auto object-contain" collapsed={true} />
+            <Logo className="h-9 w-auto object-contain" collapsed={true} />
           ) : (
-            <Logo className="h-9 max-w-[170px] w-auto object-contain object-left" />
+            <Logo className="h-11 max-w-[210px] w-auto object-contain object-left" />
           )}
         </Link>
       </div>
