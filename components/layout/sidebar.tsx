@@ -19,6 +19,7 @@ import {
   ChevronRight,
   User as UserIcon,
   LogOut,
+  Layers,
 } from "lucide-react";
 import { useState } from "react";
 import { Logo } from "@/components/ui/logo";
@@ -42,6 +43,7 @@ const NAV_SECTIONS = [
   {
     title: "Discipline",
     items: [
+      { label: "Strategies", href: "/strategies", icon: Layers },
       { label: "Psychology", href: "/psychology", icon: BrainCircuit },
       { label: "Rule Engine", href: "/rules", icon: ShieldCheck },
       { label: "AI Coach", href: "/ai-coach", icon: Sparkles },

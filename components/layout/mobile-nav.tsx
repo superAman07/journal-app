@@ -20,6 +20,7 @@ import {
   Image as ImageIcon,
   LogOut,
   User as UserIcon,
+  Layers,
 } from "lucide-react";
 
 const MAIN_TABS = [
@@ -31,6 +32,7 @@ const MAIN_TABS = [
 ];
 
 const MORE_ITEMS = [
+  { label: "Strategies", href: "/strategies", icon: Layers },
   { label: "Trading DNA", href: "/dna", icon: Dna },
   { label: "Psychology", href: "/psychology", icon: BrainCircuit },
   { label: "Rule Engine", href: "/rules", icon: ShieldCheck },

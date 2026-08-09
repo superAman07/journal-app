@@ -30,6 +30,9 @@ export async function createTrade(
 
     const computedRR = calculateRR(actualEntry, stopLoss, actualExit, outcome);
 
+    const strategyIdRaw = formData.get("strategyId") as string;
+    const strategyId = strategyIdRaw && strategyIdRaw.trim() ? strategyIdRaw.trim() : null;
+
     const data = {
       userId: session.user.id,
       market: formData.get("market") as string,
@@ -37,6 +40,7 @@ export async function createTrade(
       session: formData.get("session") as string,
       date: new Date(formData.get("date") as string),
       setup: formData.get("setup") as string,
+      strategyId,
       bias: formData.get("bias") as string,
 
       plannedEntry: formData.get("plannedEntry") ? parseFloat(formData.get("plannedEntry") as string) : null,
@@ -131,6 +135,7 @@ export async function createTrade(
     revalidatePath("/trades");
     revalidatePath("/analytics");
     revalidatePath("/dna");
+    revalidatePath("/strategies");
 
     return { success: true, message: "Trade saved successfully!" };
   } catch (error: any) {
@@ -202,12 +207,16 @@ export async function updateTrade(
 
     const computedRR = calculateRR(actualEntry, stopLoss, actualExit, outcome);
 
+    const strategyIdRaw = formData.get("strategyId") as string;
+    const strategyId = strategyIdRaw && strategyIdRaw.trim() ? strategyIdRaw.trim() : null;
+
     const data = {
       market: formData.get("market") as string,
       instrument: (formData.get("instrument") as string).toUpperCase(),
       session: formData.get("session") as string,
       date: new Date(formData.get("date") as string),
       setup: formData.get("setup") as string,
+      strategyId,
       bias: formData.get("bias") as string,
 
       plannedEntry: formData.get("plannedEntry") ? parseFloat(formData.get("plannedEntry") as string) : null,
@@ -269,6 +278,7 @@ export async function updateTrade(
     revalidatePath("/trades");
     revalidatePath("/analytics");
     revalidatePath("/dna");
+    revalidatePath("/strategies");
 
     return { success: true, message: "Trade updated successfully!" };
   } catch (error: any) {

@@ -64,7 +64,12 @@ model Strategy {
   id          String   @id @default(cuid())
   userId      String
   name        String
-  description String?
+  description String?  @db.Text
+  timeframe   String?
+  market      String?
+  targetRR    Float?   @default(2.0)
+  rules       String?  @db.Text
+  isArchived  Boolean  @default(false)
   winRate     Float?   @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

@@ -28,6 +28,8 @@ import {
 } from "@/types";
 import { createTrade, TradeFormState } from "@/lib/actions/trade-actions";
 import { ScreenshotPaste } from "./screenshot-paste";
+import { StrategySelector, StrategyOption } from "./strategy-selector";
+import { getActiveStrategies } from "@/lib/actions/strategy-actions";
 
 const MARKETS: MarketType[] = [
   "Nifty Options",
@@ -79,7 +81,14 @@ export function TradeForm() {
   const [session, setSession] = useState<SessionType>("Asian");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [setup, setSetup] = useState("Break & Retest + FVG");
+  const [strategyId, setStrategyId] = useState("");
+  const [strategies, setStrategies] = useState<StrategyOption[]>([]);
   const [bias, setBias] = useState<TradeBias>("BULLISH");
+
+  // Fetch user's saved strategies for the dropdown
+  useEffect(() => {
+    getActiveStrategies().then(setStrategies);
+  }, []);
   const [plannedEntry, setPlannedEntry] = useState("150.00");
   const [stopLoss, setStopLoss] = useState("120.00");
   const [target, setTarget] = useState("210.00");
@@ -269,6 +278,7 @@ export function TradeForm() {
         <input type="hidden" name="session" value={session} />
         <input type="hidden" name="date" value={date} />
         <input type="hidden" name="setup" value={setup} />
+        <input type="hidden" name="strategyId" value={strategyId} />
         <input type="hidden" name="bias" value={bias} />
         <input type="hidden" name="plannedEntry" value={plannedEntry} />
         <input type="hidden" name="stopLoss" value={stopLoss} />
@@ -363,11 +373,12 @@ export function TradeForm() {
               </FormField>
 
               <FormField label="Strategy Setup">
-                <input
+                <StrategySelector
+                  strategies={strategies}
                   value={setup}
-                  onChange={(e) => setSetup(e.target.value)}
-                  placeholder="e.g. Order Block + FVG"
-                  className="input-field"
+                  strategyId={strategyId}
+                  onSetupChange={setSetup}
+                  onStrategyIdChange={setStrategyId}
                 />
               </FormField>
 

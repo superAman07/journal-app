@@ -5,6 +5,8 @@ import { X, Check, ArrowLeft, ArrowRight, Target, TrendingUp, CheckCircle2, Brai
 import { MarketType, SessionType, TradeOutcome, ExitReason, TradeBias, EmotionType } from "@/types";
 import { updateTrade, TradeFormState } from "@/lib/actions/trade-actions";
 import { ScreenshotPaste } from "./screenshot-paste";
+import { StrategySelector, StrategyOption } from "./strategy-selector";
+import { getActiveStrategies } from "@/lib/actions/strategy-actions";
 
 const MARKETS: MarketType[] = [
   "Nifty Options",
@@ -64,7 +66,14 @@ export function EditTradeModal({
     trade.date ? new Date(trade.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]
   );
   const [setup, setSetup] = useState(trade.setup || "");
+  const [strategyId, setStrategyId] = useState(trade.strategyId || "");
+  const [strategies, setStrategies] = useState<StrategyOption[]>([]);
   const [bias, setBias] = useState<TradeBias>(trade.bias || "BULLISH");
+
+  // Fetch user's saved strategies for the dropdown
+  useEffect(() => {
+    getActiveStrategies().then(setStrategies);
+  }, []);
   const [plannedEntry, setPlannedEntry] = useState(trade.plannedEntry ? String(trade.plannedEntry) : "");
   const [stopLoss, setStopLoss] = useState(trade.stopLoss ? String(trade.stopLoss) : "");
   const [target, setTarget] = useState(trade.target ? String(trade.target) : "");
@@ -198,6 +207,7 @@ export function EditTradeModal({
           <input type="hidden" name="session" value={session} />
           <input type="hidden" name="date" value={date} />
           <input type="hidden" name="setup" value={setup} />
+          <input type="hidden" name="strategyId" value={strategyId} />
           <input type="hidden" name="bias" value={bias} />
           <input type="hidden" name="plannedEntry" value={plannedEntry} />
           <input type="hidden" name="stopLoss" value={stopLoss} />
@@ -291,10 +301,12 @@ export function EditTradeModal({
 
                 <div>
                   <label className="label">Strategy Setup</label>
-                  <input
+                  <StrategySelector
+                    strategies={strategies}
                     value={setup}
-                    onChange={(e) => setSetup(e.target.value)}
-                    className="input-field font-semibold"
+                    strategyId={strategyId}
+                    onSetupChange={setSetup}
+                    onStrategyIdChange={setStrategyId}
                   />
                 </div>
 

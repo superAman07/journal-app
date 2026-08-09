@@ -11,7 +11,6 @@ export const metadata: Metadata = {
 };
 
 export default async function LoginPage() {
-  // If already signed in, redirect to dashboard
   const session = await auth();
   if (session?.user) {
     redirect("/");
@@ -19,7 +18,6 @@ export default async function LoginPage() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "linear-gradient(180deg, #0e0f1a 0%, #06060a 100%)" }}>
-      {/* Subtle background grid */}
       <div className="absolute inset-0 opacity-[0.03]" style={{
         backgroundImage: `linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px)`,
         backgroundSize: "48px 48px"
@@ -27,21 +25,17 @@ export default async function LoginPage() {
 
       <div className="relative w-full max-w-sm">
         <div className="card p-8 space-y-7 text-center relative overflow-hidden">
-          {/* Glow */}
           <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-accent/10 rounded-full blur-[80px] pointer-events-none" />
 
-          {/* Brand Logo */}
           <div className="flex flex-col items-center justify-center space-y-1">
-            <Logo className="h-12 max-w-[200px] w-auto object-contain mx-auto" />
+            <Logo className="h-12 max-w-50 w-auto object-contain mx-auto" />
           </div>
 
           <p className="text-xs text-muted leading-relaxed max-w-xs mx-auto">
             Your personal trading journal, analytics engine, and AI performance coach.
           </p>
 
-          {/* Actions */}
           <div className="space-y-3 pt-1">
-            {/* Google Sign In — Server Action form */}
             <form
               action={async () => {
                 "use server";
@@ -62,7 +56,6 @@ export default async function LoginPage() {
               </button>
             </form>
 
-            {/* Demo Mode */}
             <Link
               href="/"
               className="btn-primary w-full py-3! cursor-pointer"
@@ -71,7 +64,6 @@ export default async function LoginPage() {
             </Link>
           </div>
 
-          {/* Footer */}
           <div className="flex items-center justify-center gap-1.5 text-[11px] text-dim pt-1">
             <ShieldCheck className="h-3.5 w-3.5 text-accent" />
             <span>Private &amp; Secure · User-isolated database</span>
