@@ -183,7 +183,7 @@ export function StrategyModal({
 
           {/* Strategy Name */}
           <div>
-            <label className="label flex items-center gap-1.5">
+            <label className="label inline-flex! items-center gap-1.5">
               <Target className="h-3 w-3" /> Strategy Name
             </label>
             <input
@@ -197,7 +197,7 @@ export function StrategyModal({
 
           {/* Description */}
           <div>
-            <label className="label flex items-center gap-1.5">
+            <label className="label inline-flex! items-center gap-1.5">
               <FileText className="h-3 w-3" /> Description
             </label>
             <textarea
@@ -212,7 +212,7 @@ export function StrategyModal({
           {/* Market & Timeframe Row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label flex items-center gap-1.5">
+              <label className="label inline-flex! items-center gap-1.5">
                 <BarChart3 className="h-3 w-3" /> Market
               </label>
               <select
@@ -230,7 +230,7 @@ export function StrategyModal({
             </div>
 
             <div>
-              <label className="label flex items-center gap-1.5">
+              <label className="label inline-flex! items-center gap-1.5">
                 <Clock className="h-3 w-3" /> Target R:R
               </label>
               <input
@@ -246,7 +246,7 @@ export function StrategyModal({
 
           {/* Timeframe Chips */}
           <div>
-            <label className="label flex items-center gap-1.5">
+            <label className="label inline-flex! items-center gap-1.5">
               <Clock className="h-3 w-3" /> Timeframe
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -271,7 +271,7 @@ export function StrategyModal({
 
           {/* Entry Rules Checklist */}
           <div>
-            <label className="label flex items-center gap-1.5">
+            <label className="label inline-flex! items-center gap-1.5">
               <CheckCircle2 className="h-3 w-3" /> Entry Rules Checklist
             </label>
 
@@ -300,6 +300,8 @@ export function StrategyModal({
 
             <div className="flex gap-2">
               <input
+                type="text"
+                autoComplete="off"
                 value={newRule}
                 onChange={(e) => setNewRule(e.target.value)}
                 onKeyDown={handleRuleKeyDown}
@@ -310,7 +312,7 @@ export function StrategyModal({
                 type="button"
                 onClick={addRule}
                 disabled={!newRule.trim()}
-                className="btn-secondary px-3 py-2 text-xs cursor-pointer disabled:opacity-40"
+                className="btn-secondary px-3 py-2 text-xs disabled:opacity-40 disabled:cursor-default"
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>

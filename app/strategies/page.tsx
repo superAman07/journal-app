@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { createPortal } from "react-dom";
 import {
   Layers,
   Plus,
@@ -20,6 +21,7 @@ import {
   Crown,
   Medal,
   Award,
+  X,
 } from "lucide-react";
 import {
   getUserStrategies,
@@ -42,6 +44,9 @@ export default function StrategiesPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editStrategy, setEditStrategy] = useState<StrategyWithMetrics | null>(
+    null
+  );
+  const [viewStrategy, setViewStrategy] = useState<StrategyWithMetrics | null>(
     null
   );
   const [showArchived, setShowArchived] = useState(false);
@@ -310,6 +315,7 @@ export default function StrategiesPage() {
               rank={
                 ranked.findIndex((r) => r.id === s.id) + 1 || null
               }
+              onView={() => setViewStrategy(s)}
               onEdit={() => openEdit(s)}
               onArchive={() => handleArchive(s.id)}
             />
@@ -374,6 +380,7 @@ export default function StrategiesPage() {
       )}
 
       <StrategyModal
+        key={modalOpen ? (editStrategy?.id || "create") : "closed"}
         isOpen={modalOpen}
         onClose={() => {
           setModalOpen(false);
@@ -381,6 +388,17 @@ export default function StrategiesPage() {
         }}
         strategy={editStrategy}
       />
+
+      {viewStrategy && (
+        <StrategyDetailView
+          strategy={viewStrategy}
+          onClose={() => setViewStrategy(null)}
+          onEdit={() => {
+            setViewStrategy(null);
+            openEdit(viewStrategy);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -388,11 +406,13 @@ export default function StrategiesPage() {
 function StrategyCard({
   strategy: s,
   rank,
+  onView,
   onEdit,
   onArchive,
 }: {
   strategy: StrategyWithMetrics;
   rank: number | null;
+  onView: () => void;
   onEdit: () => void;
   onArchive: () => void;
 }) {
@@ -404,7 +424,7 @@ function StrategyCard({
   }
 
   return (
-    <div className="card p-4 sm:p-5 space-y-3 group relative overflow-hidden">
+    <div className="card p-4 sm:p-5 space-y-3 group relative overflow-hidden cursor-pointer" onClick={onView}>
       {rank && rank <= 3 && (
         <div className="absolute top-3 right-3">
           <div
@@ -523,7 +543,7 @@ function StrategyCard({
         />
       </div>
 
-      <div className="flex gap-1.5 pt-1">
+      <div className="flex gap-1.5 pt-1" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={onEdit}
           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold text-muted hover:text-accent hover:bg-accent/10 border border-transparent hover:border-accent/20 transition-all cursor-pointer"
@@ -615,5 +635,164 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         <Plus className="h-4 w-4" /> Create Your First Strategy
       </button>
     </div>
+  );
+}
+
+function StrategyDetailView({
+  strategy: s,
+  onClose,
+  onEdit,
+}: {
+  strategy: StrategyWithMetrics;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  let rules: string[] = [];
+  try {
+    rules = JSON.parse(s.rules || "[]");
+  } catch {
+    rules = [];
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative w-full max-w-lg bg-card border border-border-solid rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-border-solid">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xl bg-accent/10 text-accent flex items-center justify-center">
+              <Layers className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-clean">{s.name}</h2>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {s.market && (
+                  <span className="badge badge-accent text-[9px]">{s.market}</span>
+                )}
+                {s.timeframe && (
+                  <span className="badge badge-neutral text-[9px]">
+                    <Clock className="h-2.5 w-2.5" /> {s.timeframe}
+                  </span>
+                )}
+                {s.targetRR && (
+                  <span className="badge badge-neutral text-[9px]">
+                    <Target className="h-2.5 w-2.5" /> {s.targetRR}R target
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-elevated text-dim hover:text-clean transition-colors cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          {/* Description */}
+          {s.description && (
+            <div>
+              <span className="text-[10px] font-bold text-dim uppercase tracking-wider">Description</span>
+              <p className="text-xs text-soft leading-relaxed mt-1">{s.description}</p>
+            </div>
+          )}
+
+          {/* Entry Rules Checklist */}
+          {rules.length > 0 && (
+            <div>
+              <span className="text-[10px] font-bold text-dim uppercase tracking-wider">Entry Checklist</span>
+              <div className="space-y-1.5 mt-1.5">
+                {rules.map((rule, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 px-3 py-2 bg-elevated rounded-lg"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 text-profit shrink-0" />
+                    <span className="text-xs text-clean">{rule}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Performance Stats */}
+          <div>
+            <span className="text-[10px] font-bold text-dim uppercase tracking-wider">Performance</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
+              <div className="card-elevated p-3 text-center rounded-xl">
+                <p className={`text-sm font-bold font-mono ${
+                  s.winRate >= 60 ? "text-profit" : s.winRate >= 40 ? "text-warn" : s.totalTrades > 0 ? "text-loss" : "text-dim"
+                }`}>
+                  {s.totalTrades > 0 ? `${s.winRate}%` : "—"}
+                </p>
+                <p className="text-[9px] text-dim mt-0.5">Win Rate</p>
+              </div>
+              <div className="card-elevated p-3 text-center rounded-xl">
+                <p className="text-sm font-bold text-soft font-mono">{s.totalTrades}</p>
+                <p className="text-[9px] text-dim mt-0.5">Total Trades</p>
+              </div>
+              <div className="card-elevated p-3 text-center rounded-xl">
+                <p className={`text-sm font-bold font-mono ${
+                  s.netPnL > 0 ? "text-profit" : s.netPnL < 0 ? "text-loss" : "text-dim"
+                }`}>
+                  {s.totalTrades > 0 ? `${s.netPnL >= 0 ? "+" : ""}₹${Math.abs(s.netPnL).toLocaleString("en-IN", { maximumFractionDigits: 0 })}` : "—"}
+                </p>
+                <p className="text-[9px] text-dim mt-0.5">Net PnL</p>
+              </div>
+              <div className="card-elevated p-3 text-center rounded-xl">
+                <p className="text-sm font-bold text-soft font-mono">
+                  {s.totalTrades > 0 ? `${s.avgRR}R` : "—"}
+                </p>
+                <p className="text-[9px] text-dim mt-0.5">Avg R:R</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Profit Factor + Win/Loss */}
+          {s.totalTrades > 0 && (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="card-elevated p-3 text-center rounded-xl">
+                <p className="text-sm font-bold text-profit font-mono">{s.wins}</p>
+                <p className="text-[9px] text-dim mt-0.5">Wins</p>
+              </div>
+              <div className="card-elevated p-3 text-center rounded-xl">
+                <p className="text-sm font-bold text-loss font-mono">{s.losses}</p>
+                <p className="text-[9px] text-dim mt-0.5">Losses</p>
+              </div>
+              <div className="card-elevated p-3 text-center rounded-xl">
+                <p className="text-sm font-bold text-accent font-mono">
+                  {s.profitFactor >= 999 ? "∞" : s.profitFactor.toFixed(1)}
+                </p>
+                <p className="text-[9px] text-dim mt-0.5">Profit Factor</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-5 border-t border-border-solid flex gap-2">
+          <button
+            onClick={onClose}
+            className="btn-secondary flex-1 justify-center cursor-pointer"
+          >
+            Close
+          </button>
+          <button
+            onClick={onEdit}
+            className="btn-primary flex-1 justify-center cursor-pointer"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Edit Strategy
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
