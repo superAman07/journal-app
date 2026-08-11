@@ -58,6 +58,7 @@ export function formatTradeForExport(trade: {
   target: number | string;
   rulesFollowed?: boolean;
 }) {
+  const isIndian = ["Nifty Options", "BankNifty Options", "Sensex Options", "Stock Options"].includes(trade.market);
   return {
     Date: trade.date,
     Market: trade.market,
@@ -66,7 +67,8 @@ export function formatTradeForExport(trade: {
     Setup: trade.setup,
     Bias: trade.bias,
     Outcome: trade.outcome,
-    "PnL ($)": trade.pnl,
+    Currency: isIndian ? "INR" : "USD",
+    PnL: trade.pnl,
     "R-Multiple": trade.rMultiple,
     Entry: trade.actualEntry,
     Exit: trade.actualExit,
@@ -75,3 +77,4 @@ export function formatTradeForExport(trade: {
     "Rules Followed": trade.rulesFollowed ? "Yes" : "No",
   };
 }
+

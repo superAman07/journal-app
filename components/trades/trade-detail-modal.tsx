@@ -5,7 +5,8 @@ import {
   X, Target, TrendingUp, CheckCircle2, Brain, Camera,
   ArrowUpRight, ArrowDownRight, Clock, Shield, AlertTriangle, ZoomIn
 } from "lucide-react";
-import { formatCurrency, formatRMultiple } from "@/lib/utils";
+import { formatRMultiple } from "@/lib/utils";
+import { formatPnlWithCurrency } from "@/lib/utils/currency";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 
 type TradeData = {
@@ -57,16 +58,7 @@ const TABS = [
   { key: "mindset", label: "Mindset", icon: Brain },
 ];
 
-function isIndianMarket(market: string) {
-  return ["Nifty Options", "BankNifty Options", "Sensex Options"].includes(market);
-}
 
-function fmtCurrency(val: number, market: string) {
-  if (isIndianMarket(market)) {
-    return `₹${val.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  }
-  return formatCurrency(val);
-}
 
 export function TradeDetailModal({
   trade,
@@ -139,7 +131,7 @@ export function TradeDetailModal({
         <div className={`px-5 py-3.5 flex items-center justify-between border-b border-border-solid ${pnl >= 0 ? "bg-profit/15 text-profit" : "bg-loss/15 text-loss"}`}>
           <span className="text-xs uppercase font-extrabold tracking-wider">Net Realized P&L</span>
           <span className={`font-mono text-xl font-black ${pnl >= 0 ? "text-profit" : "text-loss"}`}>
-            {fmtCurrency(pnl, trade.market)}
+            {formatPnlWithCurrency(pnl, trade.market)}
           </span>
         </div>
 
@@ -315,7 +307,7 @@ export function TradeDetailModal({
                 <div className={`p-4 rounded-2xl text-center border ${pnl >= 0 ? "bg-profit/10 border-profit/30" : "bg-loss/10 border-loss/30"}`}>
                   <span className="text-[10px] uppercase font-bold text-muted block">Net Realized P&L</span>
                   <span className={`text-base font-mono font-black ${pnl >= 0 ? "text-profit" : "text-loss"}`}>
-                    {fmtCurrency(pnl, trade.market)}
+                    {formatPnlWithCurrency(pnl, trade.market)}
                   </span>
                 </div>
               </div>

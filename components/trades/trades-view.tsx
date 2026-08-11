@@ -2,25 +2,26 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Plus, BookOpen, ChevronDown, ChevronRight, Edit2, Eye, Calendar, TrendingUp } from "lucide-react";
-import { formatCurrency, formatRMultiple } from "@/lib/utils";
+import { Plus, BookOpen, ChevronDown, ChevronRight, Edit2, Eye, RefreshCw } from "lucide-react";
+import { formatRMultiple } from "@/lib/utils";
 import { DeleteTradeButton } from "@/components/trades/delete-trade-button";
 import { TradeDetailModal } from "@/components/trades/trade-detail-modal";
 import { EditTradeModal } from "@/components/trades/edit-trade-modal";
 import { TradeFilters, TradeFilterState } from "@/components/trades/trade-filters";
-
-function formatIndianCurrency(val: number) {
-  return `₹${val.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function isIndianMarket(market: string) {
-  return ["Nifty Options", "BankNifty Options", "Sensex Options"].includes(market);
-}
+import { useExchangeRate } from "@/lib/hooks/use-exchange-rate";
+import {
+  isIndianMarket,
+  formatPnlWithCurrency,
+  formatAggregatedPnl,
+  convertPnlToInr,
+  getCurrencySymbol,
+} from "@/lib/utils/currency";
 
 export function TradesView({ initialTrades }: { initialTrades: any[] }) {
   const [selectedTradeForDetail, setSelectedTradeForDetail] = useState<any | null>(null);
   const [selectedTradeForEdit, setSelectedTradeForEdit] = useState<any | null>(null);
   const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
+  const { rate, loading: rateLoading } = useExchangeRate();
 
   const [filters, setFilters] = useState<TradeFilterState>({
     search: "",
@@ -29,7 +30,6 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
     month: "ALL",
   });
 
-  // Extract available unique months from trades (e.g., "2026-08")
   const availableMonths = useMemo(() => {
     const set = new Set<string>();
     initialTrades.forEach((t) => {
@@ -50,7 +50,6 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
       });
   }, [initialTrades]);
 
-  // Apply search, market, outcome, and month filters
   const filteredTrades = useMemo(() => {
     return initialTrades.filter((trade) => {
       if (filters.search) {
@@ -73,14 +72,14 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
     });
   }, [initialTrades, filters]);
 
-  // Group filtered trades by Month ("YYYY-MM")
   const groupedByMonth = useMemo(() => {
     const groups: Record<
       string,
       {
         monthLabel: string;
         trades: any[];
-        totalPnL: number;
+        totalPnlInr: number;
+        hasMultiCurrency: boolean;
         winCount: number;
         winRate: number;
       }
@@ -95,24 +94,31 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
         groups[key] = {
           monthLabel: label,
           trades: [],
-          totalPnL: 0,
+          totalPnlInr: 0,
+          hasMultiCurrency: false,
           winCount: 0,
           winRate: 0,
         };
       }
 
+      const pnl = Number(trade.pnl || 0);
+      const pnlInInr = convertPnlToInr(pnl, trade.market, rate);
+
       groups[key].trades.push(trade);
-      groups[key].totalPnL += Number(trade.pnl || 0);
+      groups[key].totalPnlInr += pnlInInr;
       if (trade.outcome === "WIN") groups[key].winCount++;
     });
 
     Object.keys(groups).forEach((key) => {
-      const total = groups[key].trades.length;
-      groups[key].winRate = total > 0 ? (groups[key].winCount / total) * 100 : 0;
+      const g = groups[key];
+      g.winRate = g.trades.length > 0 ? (g.winCount / g.trades.length) * 100 : 0;
+
+      const currencies = new Set(g.trades.map((t: any) => isIndianMarket(t.market) ? "INR" : "USD"));
+      g.hasMultiCurrency = currencies.size > 1;
     });
 
     return groups;
-  }, [filteredTrades]);
+  }, [filteredTrades, rate]);
 
   const sortedMonthKeys = useMemo(() => {
     return Object.keys(groupedByMonth).sort((a, b) => b.localeCompare(a));
@@ -124,7 +130,6 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-clean flex items-center gap-2">
@@ -141,12 +146,17 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
         </div>
       </div>
 
-      {/* Filter Bar */}
+      {!rateLoading && rate !== 85 && (
+        <div className="flex items-center gap-1.5 text-[10px] text-dim">
+          <RefreshCw className="h-3 w-3" />
+          <span>USD/INR: <strong className="text-soft font-mono">₹{rate.toFixed(2)}</strong></span>
+        </div>
+      )}
+
       {initialTrades.length > 0 && (
         <TradeFilters filters={filters} onChange={setFilters} availableMonths={availableMonths} />
       )}
 
-      {/* Main Trades List or Zero State */}
       {initialTrades.length === 0 ? (
         <div className="card p-8 sm:p-12 text-center space-y-4 max-w-xl mx-auto">
           <div className="mx-auto h-12 w-12 rounded-2xl bg-accent/10 text-accent flex items-center justify-center">
@@ -182,7 +192,6 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
 
             return (
               <div key={monthKey} className="space-y-3">
-                {/* Month Group Header */}
                 <div
                   onClick={() => toggleMonthCollapse(monthKey)}
                   className="card p-3 sm:px-4 flex items-center justify-between cursor-pointer hover:border-accent/30 transition-all select-none"
@@ -206,22 +215,26 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="text-[10px] uppercase font-bold text-dim">Net PnL:</span>
-                      <span className={`font-mono font-bold ${group.totalPnL >= 0 ? "text-profit" : "text-loss"}`}>
-                        {formatCurrency(group.totalPnL)}
+                      <span className={`font-mono font-bold ${group.totalPnlInr >= 0 ? "text-profit" : "text-loss"}`}>
+                        {formatAggregatedPnl(group.totalPnlInr)}
                       </span>
+                      {group.hasMultiCurrency && (
+                        <span className="text-[9px] text-dim font-medium" title={`Converted at ₹${rate.toFixed(2)}/USD`}>
+                          (converted)
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Trades under this Month */}
                 {!isCollapsed && (
                   <div className="space-y-2">
-                    {/* Mobile View */}
                     <div className="space-y-2 sm:hidden">
                       {group.trades.map((trade) => {
                         const pnlNum = Number(trade.pnl);
                         const rrNum = Number(trade.actualRR);
-                        const isInd = isIndianMarket(trade.market);
+                        const isInr = isIndianMarket(trade.market);
+                        const pnlInInr = convertPnlToInr(pnlNum, trade.market, rate);
 
                         return (
                           <div
@@ -244,9 +257,16 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
                                   {trade.outcome}
                                 </span>
                               </div>
-                              <span className={`font-mono text-sm font-bold ${pnlNum >= 0 ? "text-profit" : "text-loss"}`}>
-                                {isInd ? formatIndianCurrency(pnlNum) : formatCurrency(pnlNum)}
-                              </span>
+                              <div className="text-right">
+                                <span className={`font-mono text-sm font-bold block ${pnlNum >= 0 ? "text-profit" : "text-loss"}`}>
+                                  {formatPnlWithCurrency(pnlNum, trade.market)}
+                                </span>
+                                {!isInr && (
+                                  <span className="text-[10px] text-dim font-mono block">
+                                    ≈ {formatAggregatedPnl(pnlInInr)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
                             <div className="flex items-center justify-between text-[11px]">
@@ -281,7 +301,6 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
                       })}
                     </div>
 
-                    {/* Desktop View */}
                     <div className="hidden sm:block card p-4">
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">
@@ -306,7 +325,8 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
                               const tpNum = Number(trade.target);
                               const pnlNum = Number(trade.pnl);
                               const rrNum = Number(trade.actualRR);
-                              const isInd = isIndianMarket(trade.market);
+                              const isInr = isIndianMarket(trade.market);
+                              const pnlInInr = convertPnlToInr(pnlNum, trade.market, rate);
 
                               return (
                                 <tr
@@ -351,8 +371,13 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
                                   </td>
                                   <td className="py-3 pr-3 text-right font-mono font-bold whitespace-nowrap">
                                     <span className={pnlNum >= 0 ? "text-profit" : "text-loss"}>
-                                      {isInd ? formatIndianCurrency(pnlNum) : formatCurrency(pnlNum)}
+                                      {formatPnlWithCurrency(pnlNum, trade.market)}
                                     </span>
+                                    {!isInr && (
+                                      <span className="block text-[10px] text-dim font-medium">
+                                        ≈ {formatAggregatedPnl(pnlInInr)}
+                                      </span>
+                                    )}
                                   </td>
                                   <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -388,7 +413,6 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
         </div>
       )}
 
-      {/* Trade Detail Modal */}
       {selectedTradeForDetail && (
         <TradeDetailModal
           trade={selectedTradeForDetail}
@@ -401,7 +425,6 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
         />
       )}
 
-      {/* Edit Trade Modal */}
       {selectedTradeForEdit && (
         <EditTradeModal
           trade={selectedTradeForEdit}

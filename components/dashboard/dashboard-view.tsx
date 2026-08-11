@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -14,9 +14,11 @@ import {
   Dna,
   LineChart,
 } from "lucide-react";
-import { formatCurrency, formatPercent, formatRMultiple } from "@/lib/utils";
+import { formatPercent, formatRMultiple } from "@/lib/utils";
 import { TradeItem, DashboardMetrics } from "@/types";
 import { ChartModal } from "@/components/ui/chart-modal";
+import { useExchangeRate } from "@/lib/hooks/use-exchange-rate";
+import { formatPnlWithCurrency, formatAggregatedPnl, convertPnlToInr } from "@/lib/utils/currency";
 
 interface DashboardViewProps {
   userName?: string | null;
@@ -44,12 +46,19 @@ export function DashboardView({
   const firstName = userName ? userName.split(" ")[0] : "Trader";
 
   const hasTrades = initialTrades && initialTrades.length > 0;
-  const netPnL = initialMetrics?.netPnL ?? 0;
+  const { rate } = useExchangeRate();
   const winRate = initialMetrics?.winRate ?? 0;
   const averageRR = initialMetrics?.averageRR ?? 0;
   const totalTrades = initialMetrics?.totalTrades ?? initialTrades.length;
   const ruleFollowRate = initialMetrics?.ruleFollowRate ?? 100;
   const psychologyScore = initialMetrics?.psychologyScore ?? 100;
+
+  const netPnL = useMemo(() => {
+    if (!initialTrades || initialTrades.length === 0) return 0;
+    return initialTrades.reduce((sum: number, t: any) => {
+      return sum + convertPnlToInr(Number(t.pnl || 0), t.market || "", rate);
+    }, 0);
+  }, [initialTrades, rate]);
 
   // Live Market State
   const [tickers, setTickers] = useState<MarketTicker[]>([
@@ -173,8 +182,8 @@ export function DashboardView({
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
         <KPICard
           label="Net PnL"
-          value={formatCurrency(netPnL)}
-          sub={hasTrades ? "realized PnL" : "0 trades"}
+          value={formatAggregatedPnl(netPnL)}
+          sub={hasTrades ? "realized (INR)" : "0 trades"}
           color={netPnL >= 0 ? "profit" : "loss"}
           icon={<TrendingUp className="h-3.5 w-3.5" />}
         />
@@ -258,7 +267,7 @@ export function DashboardView({
                         </span>
                       </div>
                       <span className={`font-mono text-sm font-bold ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
-                        {formatCurrency(trade.pnl)}
+                        {formatPnlWithCurrency(Number(trade.pnl), trade.market || "")}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-muted">
@@ -303,7 +312,7 @@ export function DashboardView({
                           {formatRMultiple(trade.actualRR ?? trade.rMultiple ?? 0)}
                         </td>
                         <td className={`py-3 font-mono font-bold text-right ${trade.pnl >= 0 ? "text-profit" : "text-loss"}`}>
-                          {formatCurrency(trade.pnl)}
+                          {formatPnlWithCurrency(Number(trade.pnl), trade.market || "")}
                         </td>
                       </tr>
                     ))}
