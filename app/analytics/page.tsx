@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BarChart3, Plus, TrendingUp } from "lucide-react";
 import { getUserTrades } from "@/lib/actions/trade-actions";
+import { convertPnlToInr, formatAggregatedPnl, fetchUsdToInrRate } from "@/lib/utils/currency";
 
 export const metadata: Metadata = {
   title: "Performance Analytics — Trading OS",
@@ -41,9 +42,10 @@ export default async function AnalyticsPage() {
     );
   }
 
+  const rate = await fetchUsdToInrRate();
   const wins = trades.filter((t) => t.outcome === "WIN");
   const losses = trades.filter((t) => t.outcome === "LOSS");
-  const totalPnL = trades.reduce((sum, t) => sum + t.pnl, 0);
+  const totalPnL = trades.reduce((sum, t) => sum + convertPnlToInr(Number(t.pnl || 0), t.market || "", rate), 0);
 
   return (
     <div className="space-y-6">
@@ -60,7 +62,7 @@ export default async function AnalyticsPage() {
             <TrendingUp className="h-4 w-4 text-accent" /> Realized PnL Overview
           </h2>
           <span className={`stat-value text-base! ${totalPnL >= 0 ? "text-profit" : "text-loss"}`}>
-            ${totalPnL.toLocaleString()}
+            {formatAggregatedPnl(totalPnL)}
           </span>
         </div>
 

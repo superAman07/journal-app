@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarRange, Plus } from "lucide-react";
 import { getUserTrades } from "@/lib/actions/trade-actions";
+import { convertPnlToInr, formatAggregatedPnl, fetchUsdToInrRate } from "@/lib/utils/currency";
 
 export const metadata: Metadata = {
   title: "Performance Reviews — Trading OS",
@@ -41,8 +42,9 @@ export default async function ReviewsPage() {
     );
   }
 
+  const rate = await fetchUsdToInrRate();
   const wins = trades.filter((t) => t.outcome === "WIN");
-  const netPnL = trades.reduce((sum, t) => sum + t.pnl, 0);
+  const netPnL = trades.reduce((sum, t) => sum + convertPnlToInr(Number(t.pnl || 0), t.market || "", rate), 0);
   const winRate = trades.length > 0 ? ((wins.length / trades.length) * 100).toFixed(1) : "0.0";
 
   return (
@@ -66,7 +68,7 @@ export default async function ReviewsPage() {
           <div className="card-elevated p-4 rounded-xl">
             <span className="label">Realized PnL</span>
             <div className={`stat-value text-xl! ${netPnL >= 0 ? "text-profit" : "text-loss"}`}>
-              ${netPnL.toLocaleString()}
+              {formatAggregatedPnl(netPnL)}
             </div>
           </div>
           <div className="card-elevated p-4 rounded-xl">

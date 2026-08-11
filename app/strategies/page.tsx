@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   Layers,
@@ -31,6 +31,8 @@ import {
 } from "@/lib/actions/strategy-actions";
 import type { StrategyWithMetrics } from "@/lib/actions/strategy-actions";
 import { StrategyModal } from "@/components/strategies/strategy-modal";
+import { useExchangeRate } from "@/lib/hooks/use-exchange-rate";
+import { formatAggregatedPnl, convertPnlToInr } from "@/lib/utils/currency";
 
 const RANK_ICONS = [Crown, Medal, Award];
 const RANK_COLORS = [
@@ -51,6 +53,7 @@ export default function StrategiesPage() {
   );
   const [showArchived, setShowArchived] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const { rate } = useExchangeRate();
 
   const fetchStrategies = async () => {
     const data = await getUserStrategies();
@@ -86,13 +89,25 @@ export default function StrategiesPage() {
 
   const totalActive = active.length;
   const bestStrategy = ranked[0] || null;
-  const totalPnL = active.reduce((sum, s) => sum + s.netPnL, 0);
   const overallWinRate =
     active.reduce((sum, s) => sum + s.totalTrades, 0) > 0
       ? (active.reduce((sum, s) => sum + s.wins, 0) /
           active.reduce((sum, s) => sum + s.totalTrades, 0)) *
         100
       : 0;
+
+  const getStrategyPnlInr = useMemo(() => {
+    return (s: StrategyWithMetrics) => {
+      if (!s.trades || s.trades.length === 0) return s.netPnL;
+      return s.trades.reduce((sum: number, t: any) => {
+        return sum + convertPnlToInr(Number(t.pnl || 0), t.market || "", rate);
+      }, 0);
+    };
+  }, [rate]);
+
+  const totalPnL = useMemo(() => {
+    return active.reduce((sum, s) => sum + getStrategyPnlInr(s), 0);
+  }, [active, getStrategyPnlInr]);
 
   const handleArchive = (id: string) => {
     startTransition(async () => {
@@ -197,7 +212,7 @@ export default function StrategiesPage() {
           />
           <KPICard
             label="Total Strategy PnL"
-            value={`${totalPnL >= 0 ? "+" : ""}₹${Math.abs(totalPnL).toLocaleString("en-IN", { minimumFractionDigits: 0 })}`}
+            value={`${totalPnL >= 0 ? "+" : ""}${formatAggregatedPnl(totalPnL)}`}
             icon={
               totalPnL >= 0 ? (
                 <TrendingUp className="h-4 w-4" />
@@ -288,13 +303,10 @@ export default function StrategiesPage() {
                       </td>
                       <td
                         className={`py-2.5 text-right pr-4 sm:pr-5 font-bold font-mono ${
-                          s.netPnL >= 0 ? "text-profit" : "text-loss"
+                          getStrategyPnlInr(s) >= 0 ? "text-profit" : "text-loss"
                         }`}
                       >
-                        {s.netPnL >= 0 ? "+" : ""}₹
-                        {Math.abs(s.netPnL).toLocaleString("en-IN", {
-                          minimumFractionDigits: 0,
-                        })}
+                        {getStrategyPnlInr(s) >= 0 ? "+" : ""}{formatAggregatedPnl(getStrategyPnlInr(s))}
                       </td>
                     </tr>
                   );
@@ -369,8 +381,7 @@ export default function StrategiesPage() {
                     </div>
                   </div>
                   <p className="text-[11px] text-dim">
-                    {s.totalTrades} trades · {s.winRate}% WR · ₹
-                    {Math.abs(s.netPnL).toLocaleString("en-IN")} PnL
+                    {s.totalTrades} trades · {s.winRate}% WR · {formatAggregatedPnl(s.netPnL)} PnL
                   </p>
                 </div>
               ))}
@@ -521,11 +532,7 @@ function StrategyCard({
           label="Net PnL"
           value={
             s.totalTrades > 0
-              ? `${s.netPnL >= 0 ? "+" : ""}₹${Math.abs(
-                  s.netPnL
-                ).toLocaleString("en-IN", {
-                  maximumFractionDigits: 0,
-                })}`
+              ? `${s.netPnL >= 0 ? "+" : ""}${formatAggregatedPnl(s.netPnL)}`
               : "—"
           }
           color={
@@ -742,7 +749,7 @@ function StrategyDetailView({
                 <p className={`text-sm font-bold font-mono ${
                   s.netPnL > 0 ? "text-profit" : s.netPnL < 0 ? "text-loss" : "text-dim"
                 }`}>
-                  {s.totalTrades > 0 ? `${s.netPnL >= 0 ? "+" : ""}₹${Math.abs(s.netPnL).toLocaleString("en-IN", { maximumFractionDigits: 0 })}` : "—"}
+                  {s.totalTrades > 0 ? `${s.netPnL >= 0 ? "+" : ""}${formatAggregatedPnl(s.netPnL)}` : "—"}
                 </p>
                 <p className="text-[9px] text-dim mt-0.5">Net PnL</p>
               </div>

@@ -201,6 +201,7 @@ export type StrategyWithMetrics = {
   avgRR: number;
   profitFactor: number;
   rank: number;
+  trades: { pnl: number; market: string; outcome: string; actualRR: number }[];
 };
 
 export async function getUserStrategies(): Promise<StrategyWithMetrics[]> {
@@ -215,6 +216,7 @@ export async function getUserStrategies(): Promise<StrategyWithMetrics[]> {
           outcome: true,
           pnl: true,
           actualRR: true,
+          market: true,
         },
       },
     },
@@ -259,6 +261,7 @@ export async function getUserStrategies(): Promise<StrategyWithMetrics[]> {
       avgRR: parseFloat(avgRR.toFixed(2)),
       profitFactor: profitFactor === Infinity ? 999 : parseFloat(profitFactor.toFixed(2)),
       rank: 0,
+      trades: s.trades.map((t) => ({ pnl: t.pnl, market: t.market, outcome: t.outcome, actualRR: t.actualRR })),
     };
   });
 
