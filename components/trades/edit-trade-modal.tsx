@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useActionState, useEffect } from "react";
-import { X, Check, ArrowLeft, ArrowRight, Target, TrendingUp, CheckCircle2, Brain } from "lucide-react";
+import { X, Check, ArrowLeft, ArrowRight, Target, TrendingUp, CheckCircle2, Brain, Sparkles } from "lucide-react";
 import { MarketType, SessionType, TradeOutcome, ExitReason, TradeBias, EmotionType } from "@/types";
 import { updateTrade, TradeFormState } from "@/lib/actions/trade-actions";
 import { ScreenshotPaste } from "./screenshot-paste";
@@ -42,10 +42,21 @@ const STEPS = [
   { step: 4, label: "Mindset", icon: Brain },
 ];
 
+const INDIAN_MARKETS = ["Nifty Options", "BankNifty Options", "Sensex Options", "Stock Options"];
+
 const initialState: TradeFormState = {
   success: false,
   message: "",
 };
+
+function formatPnlValue(value: number, isIndian: boolean): string {
+  const sym = isIndian ? "₹" : "$";
+  const abs = Math.abs(value);
+  const formatted = isIndian
+    ? abs.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : abs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${value >= 0 ? "+" : "-"}${sym}${formatted}`;
+}
 
 export function EditTradeModal({
   trade,
@@ -58,7 +69,6 @@ export function EditTradeModal({
   const updateActionWithId = updateTrade.bind(null, trade.id);
   const [state, formAction, isPending] = useActionState(updateActionWithId, initialState);
 
-  // Plan State
   const [market, setMarket] = useState<MarketType>(trade.market || "Nifty Options");
   const [instrument, setInstrument] = useState(trade.instrument || "");
   const [session, setSession] = useState<SessionType>(trade.session || "Asian");
@@ -70,46 +80,42 @@ export function EditTradeModal({
   const [strategies, setStrategies] = useState<StrategyOption[]>([]);
   const [bias, setBias] = useState<TradeBias>(trade.bias || "BULLISH");
 
-  // Fetch user's saved strategies for the dropdown
   useEffect(() => {
     getActiveStrategies().then(setStrategies);
   }, []);
+
   const [plannedEntry, setPlannedEntry] = useState(trade.plannedEntry ? String(trade.plannedEntry) : "");
   const [stopLoss, setStopLoss] = useState(trade.stopLoss ? String(trade.stopLoss) : "");
   const [target, setTarget] = useState(trade.target ? String(trade.target) : "");
   const [expectedRR, setExpectedRR] = useState(trade.expectedRR || 0);
 
-  // Options State
   const isOptionsMode = market.includes("Options");
   const [optionAction, setOptionAction] = useState<"BUY" | "SELL">(trade.optionAction || "BUY");
   const [optionType, setOptionType] = useState<"CE" | "PE">(trade.optionType || "CE");
-  const [strikePrice, setStrikePrice] = useState(trade.strikePrice ? String(trade.strikePrice) : "24500");
+  const [strikePrice, setStrikePrice] = useState(trade.strikePrice ? String(trade.strikePrice) : "");
   const [spotPrice, setSpotPrice] = useState(trade.spotPrice ? String(trade.spotPrice) : "");
   const [optionExpiry, setOptionExpiry] = useState<"WEEKLY" | "MONTHLY" | "0DTE">(trade.optionExpiry || "WEEKLY");
   const [lotSize, setLotSize] = useState(trade.lotSize || 65);
   const [numberOfLots, setNumberOfLots] = useState(trade.numberOfLots ? String(trade.numberOfLots) : "1");
   const [optionPoints, setOptionPoints] = useState(trade.optionPoints || 0);
 
-  // Execution State
   const [actualEntry, setActualEntry] = useState(trade.actualEntry ? String(trade.actualEntry) : "");
   const [actualExit, setActualExit] = useState(trade.actualExit ? String(trade.actualExit) : "");
-  const [positionSize, setPositionSize] = useState(trade.positionSize ? String(trade.positionSize) : "1");
-  const [riskPercent, setRiskPercent] = useState(trade.riskPercent ? String(trade.riskPercent) : "1.0");
+  const [positionSize, setPositionSize] = useState(trade.positionSize ? String(trade.positionSize) : "");
+  const [riskPercent, setRiskPercent] = useState(trade.riskPercent ? String(trade.riskPercent) : "0");
   const [actualRR, setActualRR] = useState(trade.actualRR || 0);
   const [isLateEntry, setIsLateEntry] = useState(Boolean(trade.isLateEntry));
   const [isEarlyEntry, setIsEarlyEntry] = useState(Boolean(trade.isEarlyEntry));
-  const [slippage, setSlippage] = useState(trade.slippage ? String(trade.slippage) : "0.0");
+  const [slippage, setSlippage] = useState(trade.slippage ? String(trade.slippage) : "0");
 
-  // Result State
   const [outcome, setOutcome] = useState<TradeOutcome>(trade.outcome || "WIN");
   const [exitReason, setExitReason] = useState<ExitReason>(trade.exitReason || "TARGET_HIT");
-  const [pnl, setPnl] = useState(trade.pnl ? String(trade.pnl) : "0.00");
+  const [pnl, setPnl] = useState(trade.pnl != null ? String(trade.pnl) : "");
   const [rulesFollowed, setRulesFollowed] = useState(trade.rulesFollowed !== false);
   const [ruleBreakReason, setRuleBreakReason] = useState(trade.ruleBreakReason || "");
 
-  // Mindset State
   const [selectedEmotions, setSelectedEmotions] = useState<EmotionType[]>(
-    trade.emotions ? trade.emotions.map((e: any) => e.emotion) : ["Calm"]
+    trade.emotions ? trade.emotions.map((e: any) => e.emotion) : []
   );
   const [mindsetBefore, setMindsetBefore] = useState(trade.mindsetBefore || "");
   const [mindsetDuring, setMindsetDuring] = useState(trade.mindsetDuring || "");
@@ -123,25 +129,44 @@ export function EditTradeModal({
   const addScreenshot = (ss: ScreenshotItem) => setScreenshots((prev) => [...prev, ss]);
   const removeScreenshot = (id: string) => setScreenshots((prev) => prev.filter((s) => s.id !== id));
 
+  const isLong = isOptionsMode ? optionAction === "BUY" : bias !== "BEARISH";
+  const isIndianMarket = INDIAN_MARKETS.includes(market);
+  const currency = isIndianMarket ? "₹" : "$";
+  const parsedPnl = parseFloat(pnl) || 0;
+
   useEffect(() => {
-    const e = parseFloat(actualEntry),
-      sl = parseFloat(stopLoss),
-      ex = parseFloat(actualExit);
-    if (!isNaN(e) && !isNaN(sl) && !isNaN(ex) && e !== sl) {
-      const risk = Math.abs(e - sl);
+    const entry = parseFloat(actualEntry);
+    const sl = parseFloat(stopLoss);
+    const exit = parseFloat(actualExit);
+    const qty = parseFloat(positionSize) || 1;
+
+    if (!isNaN(entry) && !isNaN(sl) && entry > 0) {
+      setRiskPercent(((Math.abs(entry - sl) / entry) * 100).toFixed(2));
+    }
+
+    if (!isNaN(entry) && !isNaN(sl) && !isNaN(exit) && entry !== sl) {
+      const risk = Math.abs(entry - sl);
       if (risk > 0) {
         if (outcome === "LOSS") {
-          const loss = Math.abs(e - ex);
+          const loss = Math.abs(entry - exit);
           setActualRR(parseFloat((-Math.max(loss, risk) / risk).toFixed(2)));
         } else if (outcome === "BREAKEVEN") {
           setActualRR(0);
         } else {
-          const reward = Math.abs(ex - e);
+          const reward = Math.abs(exit - entry);
           setActualRR(parseFloat((reward / risk).toFixed(2)));
         }
       }
     }
-  }, [actualEntry, stopLoss, actualExit, outcome]);
+
+    if (!isNaN(entry) && !isNaN(exit)) {
+      const points = isLong ? exit - entry : entry - exit;
+      if (isOptionsMode) {
+        setOptionPoints(parseFloat(points.toFixed(2)));
+      }
+      setPnl((points * qty).toFixed(2));
+    }
+  }, [actualEntry, stopLoss, actualExit, outcome, isLong, positionSize, isOptionsMode]);
 
   useEffect(() => {
     if (state?.success) {
@@ -166,13 +191,12 @@ export function EditTradeModal({
           </div>
           <button
             onClick={onClose}
-            className="h-8 w-8 rounded-lg flex items-center justify-center text-dim hover:text-clean hover:bg-elevated transition-colors cursor-pointer"
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-dim hover:text-clean hover:bg-elevated transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Steps — Responsive 4-step fit with no horizontal cut-off */}
         <div className="flex items-center justify-around sm:justify-start gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar pb-1">
           {STEPS.map((s) => {
             const Icon = s.icon;
@@ -182,7 +206,7 @@ export function EditTradeModal({
                 key={s.step}
                 type="button"
                 onClick={() => setActiveStep(s.step)}
-                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-semibold transition-all border whitespace-nowrap cursor-pointer ${
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-semibold transition-all border whitespace-nowrap ${
                   isCurrent
                     ? "bg-accent-muted text-accent border-accent/30 font-bold"
                     : "bg-transparent text-muted border-transparent hover:text-clean"
@@ -213,7 +237,6 @@ export function EditTradeModal({
           <input type="hidden" name="stopLoss" value={stopLoss} />
           <input type="hidden" name="target" value={target} />
           <input type="hidden" name="expectedRR" value={expectedRR} />
-
           <input type="hidden" name="actualEntry" value={actualEntry} />
           <input type="hidden" name="actualExit" value={actualExit} />
           <input type="hidden" name="positionSize" value={positionSize} />
@@ -222,19 +245,16 @@ export function EditTradeModal({
           <input type="hidden" name="isLateEntry" value={String(isLateEntry)} />
           <input type="hidden" name="isEarlyEntry" value={String(isEarlyEntry)} />
           <input type="hidden" name="slippage" value={slippage} />
-
           <input type="hidden" name="outcome" value={outcome} />
           <input type="hidden" name="exitReason" value={exitReason} />
           <input type="hidden" name="pnl" value={pnl} />
           <input type="hidden" name="rMultiple" value={actualRR} />
           <input type="hidden" name="rulesFollowed" value={String(rulesFollowed)} />
           <input type="hidden" name="ruleBreakReason" value={ruleBreakReason} />
-
           <input type="hidden" name="mindsetBefore" value={mindsetBefore} />
           <input type="hidden" name="mindsetDuring" value={mindsetDuring} />
           <input type="hidden" name="mindsetAfter" value={mindsetAfter} />
           <input type="hidden" name="emotions" value={selectedEmotions.join(",")} />
-
           <input type="hidden" name="optionAction" value={optionAction} />
           <input type="hidden" name="optionType" value={optionType} />
           <input type="hidden" name="strikePrice" value={strikePrice} />
@@ -242,18 +262,17 @@ export function EditTradeModal({
           <input type="hidden" name="optionExpiry" value={optionExpiry} />
           <input type="hidden" name="lotSize" value={lotSize} />
           <input type="hidden" name="numberOfLots" value={numberOfLots} />
-          <input type="hidden" name="optionPoints" value={optionPoints} />
+          <input type="hidden" name="optionPoints" value={isOptionsMode ? optionPoints : ""} />
 
-          {/* STEP 1: PLAN */}
           {activeStep === 1 && (
-            <div className="space-y-4">
+            <div className="page-enter space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
                   <label className="label">Market Segment</label>
                   <select
                     value={market}
                     onChange={(e) => setMarket(e.target.value as MarketType)}
-                    className="input-field font-semibold cursor-pointer"
+                    className="input-field font-semibold"
                   >
                     {MARKETS.map((m) => (
                       <option key={m} value={m}>
@@ -269,6 +288,7 @@ export function EditTradeModal({
                     value={instrument}
                     onChange={(e) => setInstrument(e.target.value)}
                     className="input-field font-mono uppercase font-bold text-accent"
+                    readOnly={isOptionsMode}
                   />
                 </div>
 
@@ -277,7 +297,7 @@ export function EditTradeModal({
                   <select
                     value={session}
                     onChange={(e) => setSession(e.target.value as SessionType)}
-                    className="input-field font-semibold cursor-pointer"
+                    className="input-field font-semibold"
                   >
                     {SESSIONS.map((s) => (
                       <option key={s} value={s}>
@@ -295,7 +315,7 @@ export function EditTradeModal({
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="input-field font-mono cursor-pointer"
+                    className="input-field font-mono"
                   />
                 </div>
 
@@ -318,7 +338,7 @@ export function EditTradeModal({
                         key={b}
                         type="button"
                         onClick={() => setBias(b)}
-                        className={`py-2 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
+                        className={`py-2 rounded-xl text-[10px] font-bold border transition-all ${
                           bias === b
                             ? b === "BULLISH"
                               ? "bg-profit/15 text-profit border-profit/30"
@@ -335,11 +355,53 @@ export function EditTradeModal({
                 </div>
               </div>
 
+              <div className="card-elevated p-3 rounded-xl grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="label">{isOptionsMode ? "Planned Premium" : "Planned Entry"}</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={plannedEntry}
+                    onChange={(e) => setPlannedEntry(e.target.value)}
+                    placeholder="Entry price"
+                    className="input-field font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="label">Stop Loss</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={stopLoss}
+                    onChange={(e) => setStopLoss(e.target.value)}
+                    placeholder="SL price"
+                    className="input-field font-mono text-loss!"
+                  />
+                </div>
+                <div>
+                  <label className="label">Target</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={target}
+                    onChange={(e) => setTarget(e.target.value)}
+                    placeholder="TP price"
+                    className="input-field font-mono text-profit!"
+                  />
+                </div>
+                <div>
+                  <label className="label">Expected RR</label>
+                  <div className="h-[42px] rounded-xl bg-accent-muted border border-accent/20 flex items-center justify-center font-mono font-bold text-accent text-sm">
+                    {expectedRR > 0 ? `1:${expectedRR}R` : "—"}
+                  </div>
+                </div>
+              </div>
+
               <div className="flex justify-end pt-3">
                 <button
                   type="button"
                   onClick={() => setActiveStep(2)}
-                  className="btn-primary text-xs cursor-pointer flex items-center gap-1.5"
+                  className="btn-primary text-xs flex items-center gap-1.5"
                 >
                   Next <ArrowRight className="h-4 w-4" />
                 </button>
@@ -347,10 +409,19 @@ export function EditTradeModal({
             </div>
           )}
 
-          {/* STEP 2: EXECUTION */}
           {activeStep === 2 && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="page-enter space-y-4">
+              <ContextStrip
+                items={[
+                  { label: "Symbol", value: instrument.toUpperCase() },
+                  { label: "Bias", value: bias, color: bias === "BULLISH" ? "text-profit" : bias === "BEARISH" ? "text-loss" : "text-soft" },
+                  { label: "Plan", value: plannedEntry },
+                  { label: "SL", value: stopLoss, color: "text-loss" },
+                  { label: "TP", value: target, color: "text-profit" },
+                ]}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="label">{isOptionsMode ? "Entry Premium" : "Actual Entry"}</label>
                   <input
@@ -372,7 +443,7 @@ export function EditTradeModal({
                   />
                 </div>
                 <div>
-                  <label className="label">Position Size</label>
+                  <label className="label">{isOptionsMode ? "Total Qty" : "Position Size"}</label>
                   <input
                     type="number"
                     step="any"
@@ -381,14 +452,35 @@ export function EditTradeModal({
                     className="input-field font-mono"
                   />
                 </div>
-                <div>
-                  <label className="label">Risk %</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={riskPercent}
-                    onChange={(e) => setRiskPercent(e.target.value)}
-                    className="input-field font-mono"
+              </div>
+
+              <div className="card-glow p-3 rounded-xl">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Sparkles className="h-3 w-3 text-accent" />
+                  <span className="text-[10px] uppercase font-bold text-accent tracking-wider">Live Metrics</span>
+                </div>
+                <div className={`grid gap-3 ${isOptionsMode ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+                  <MetricCell
+                    label="Risk"
+                    value={parseFloat(riskPercent) > 0 ? `${riskPercent}%` : "—"}
+                    color="text-warn"
+                  />
+                  <MetricCell
+                    label="Actual RR"
+                    value={actualRR !== 0 ? `${actualRR}R` : "—"}
+                    color={actualRR >= 0 ? "text-accent" : "text-loss"}
+                  />
+                  {isOptionsMode && (
+                    <MetricCell
+                      label="Points"
+                      value={optionPoints !== 0 ? `${optionPoints >= 0 ? "+" : ""}${optionPoints}` : "—"}
+                      color={optionPoints >= 0 ? "text-profit" : "text-loss"}
+                    />
+                  )}
+                  <MetricCell
+                    label={`P&L (${currency})`}
+                    value={parsedPnl !== 0 ? formatPnlValue(parsedPnl, isIndianMarket) : "—"}
+                    color={parsedPnl >= 0 ? "text-profit" : "text-loss"}
                   />
                 </div>
               </div>
@@ -404,14 +496,14 @@ export function EditTradeModal({
                 <button
                   type="button"
                   onClick={() => setActiveStep(1)}
-                  className="btn-secondary text-xs cursor-pointer flex items-center gap-1.5"
+                  className="btn-secondary text-xs flex items-center gap-1.5"
                 >
                   <ArrowLeft className="h-4 w-4" /> Previous
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveStep(3)}
-                  className="btn-primary text-xs cursor-pointer flex items-center gap-1.5"
+                  className="btn-primary text-xs flex items-center gap-1.5"
                 >
                   Next <ArrowRight className="h-4 w-4" />
                 </button>
@@ -419,16 +511,24 @@ export function EditTradeModal({
             </div>
           )}
 
-          {/* STEP 3: RESULT */}
           {activeStep === 3 && (
-            <div className="space-y-4">
+            <div className="page-enter space-y-4">
+              <ContextStrip
+                items={[
+                  { label: "Entry", value: actualEntry },
+                  { label: "→ Exit", value: actualExit },
+                  { label: "Qty", value: positionSize },
+                  { label: "RR", value: actualRR !== 0 ? `${actualRR}R` : "", color: "text-accent" },
+                ]}
+              />
+
               <div className="grid grid-cols-3 gap-2">
                 {(["WIN", "LOSS", "BREAKEVEN"] as TradeOutcome[]).map((o) => (
                   <button
                     key={o}
                     type="button"
                     onClick={() => setOutcome(o)}
-                    className={`py-3 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                    className={`py-3 rounded-xl text-xs font-bold transition-all border ${
                       outcome === o
                         ? o === "WIN"
                           ? "bg-profit/15 text-profit border-profit/30"
@@ -449,7 +549,7 @@ export function EditTradeModal({
                   <select
                     value={exitReason}
                     onChange={(e) => setExitReason(e.target.value as ExitReason)}
-                    className="input-field cursor-pointer"
+                    className="input-field"
                   >
                     <option value="TARGET_HIT">Target Hit (TP)</option>
                     <option value="STOP_HIT">Stop Loss Hit (SL)</option>
@@ -458,31 +558,81 @@ export function EditTradeModal({
                 </div>
 
                 <div>
-                  <label className="label">Net PnL</label>
+                  <label className="label">Net P&L ({currency})</label>
                   <input
                     type="number"
                     step="any"
                     value={pnl}
                     onChange={(e) => setPnl(e.target.value)}
+                    placeholder="Auto-calculated"
                     className={`input-field font-mono font-bold text-sm ${
-                      parseFloat(pnl) >= 0 ? "text-profit!" : "text-loss!"
+                      parsedPnl >= 0 ? "text-profit!" : "text-loss!"
                     }`}
                   />
                 </div>
+              </div>
+
+              <div className={`grid gap-3 ${isOptionsMode ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2"}`}>
+                <ResultCard
+                  label="R-Multiple"
+                  value={actualRR !== 0 ? `${actualRR}R` : "—"}
+                  color={actualRR >= 0 ? "text-profit" : "text-loss"}
+                />
+                <ResultCard
+                  label="Risk Exposure"
+                  value={parseFloat(riskPercent) > 0 ? `${riskPercent}%` : "—"}
+                  color="text-warn"
+                />
+                {isOptionsMode && (
+                  <ResultCard
+                    label="Points"
+                    value={optionPoints !== 0 ? `${optionPoints >= 0 ? "+" : ""}${optionPoints} pts` : "—"}
+                    color={optionPoints >= 0 ? "text-profit" : "text-loss"}
+                  />
+                )}
+              </div>
+
+              <div className="card-elevated p-3 rounded-xl space-y-3">
+                <label className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-clean">Followed Trading Rules?</span>
+                  <button
+                    type="button"
+                    onClick={() => setRulesFollowed(!rulesFollowed)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      rulesFollowed
+                        ? "bg-profit/15 text-profit border border-profit/30"
+                        : "bg-loss/15 text-loss border border-loss/30"
+                    }`}
+                  >
+                    {rulesFollowed ? "Yes (Disciplined)" : "No (Rule Violation)"}
+                  </button>
+                </label>
+
+                {!rulesFollowed && (
+                  <div>
+                    <label className="label">Violation Reason</label>
+                    <input
+                      value={ruleBreakReason}
+                      onChange={(e) => setRuleBreakReason(e.target.value)}
+                      placeholder="e.g. Moved SL during trade, overleveraged"
+                      className="input-field text-loss!"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-between pt-3">
                 <button
                   type="button"
                   onClick={() => setActiveStep(2)}
-                  className="btn-secondary text-xs cursor-pointer flex items-center gap-1.5"
+                  className="btn-secondary text-xs flex items-center gap-1.5"
                 >
                   <ArrowLeft className="h-4 w-4" /> Previous
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveStep(4)}
-                  className="btn-primary text-xs cursor-pointer flex items-center gap-1.5"
+                  className="btn-primary text-xs flex items-center gap-1.5"
                 >
                   Next <ArrowRight className="h-4 w-4" />
                 </button>
@@ -490,9 +640,16 @@ export function EditTradeModal({
             </div>
           )}
 
-          {/* STEP 4: MINDSET */}
           {activeStep === 4 && (
-            <div className="space-y-4">
+            <div className="page-enter space-y-4">
+              <ContextStrip
+                items={[
+                  { label: "Result", value: outcome, color: outcome === "WIN" ? "text-profit" : outcome === "LOSS" ? "text-loss" : "text-soft" },
+                  { label: "P&L", value: pnl ? formatPnlValue(parsedPnl, isIndianMarket) : "", color: parsedPnl >= 0 ? "text-profit" : "text-loss" },
+                  { label: "Exit", value: exitReason.replace(/_/g, " ") },
+                ]}
+              />
+
               <div>
                 <label className="label">Emotions Experienced</label>
                 <div className="flex flex-wrap gap-1.5">
@@ -503,7 +660,7 @@ export function EditTradeModal({
                         key={emo}
                         type="button"
                         onClick={() => toggleEmotion(emo)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                           isSelected
                             ? "bg-accent-muted text-accent border-accent/30"
                             : "bg-surface text-dim border-transparent hover:bg-elevated"
@@ -550,14 +707,14 @@ export function EditTradeModal({
                 <button
                   type="button"
                   onClick={() => setActiveStep(3)}
-                  className="btn-secondary text-xs cursor-pointer flex items-center gap-1.5"
+                  className="btn-secondary text-xs flex items-center gap-1.5"
                 >
                   <ArrowLeft className="h-4 w-4" /> Previous
                 </button>
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="btn-primary text-xs cursor-pointer flex items-center gap-1.5 px-6!"
+                  className="btn-primary text-xs flex items-center gap-1.5 px-6!"
                 >
                   <Check className="h-4 w-4" />
                   {isPending ? "Updating Trade..." : "Save Changes"}
@@ -567,6 +724,39 @@ export function EditTradeModal({
           )}
         </form>
       </div>
+    </div>
+  );
+}
+
+function ContextStrip({ items }: { items: { label: string; value: string; color?: string }[] }) {
+  const filtered = items.filter((i) => i.value);
+  if (filtered.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3.5 py-2.5 rounded-xl bg-surface border border-border text-[11px]">
+      {filtered.map((item, i) => (
+        <span key={i} className="flex items-center gap-1.5">
+          <span className="text-dim font-medium">{item.label}</span>
+          <span className={`font-mono font-bold ${item.color || "text-clean"}`}>{item.value}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function MetricCell({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div>
+      <span className="text-[10px] uppercase font-bold text-dim tracking-wider block">{label}</span>
+      <span className={`text-base font-mono font-bold mt-0.5 block ${color}`}>{value}</span>
+    </div>
+  );
+}
+
+function ResultCard({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="bg-elevated rounded-xl p-3 text-center border border-border">
+      <span className="text-[10px] uppercase font-bold text-dim tracking-wider block">{label}</span>
+      <span className={`text-lg font-mono font-bold mt-1 block ${color}`}>{value}</span>
     </div>
   );
 }

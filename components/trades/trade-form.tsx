@@ -10,10 +10,7 @@ import {
   Plus,
   ArrowRight,
   ArrowLeft,
-  DollarSign,
   Check,
-  Image as ImageIcon,
-  X,
   Layers,
   Sparkles,
 } from "lucide-react";
@@ -24,7 +21,6 @@ import {
   ExitReason,
   TradeBias,
   EmotionType,
-  ScreenshotStage,
 } from "@/types";
 import { createTrade, TradeFormState } from "@/lib/actions/trade-actions";
 import { ScreenshotPaste } from "./screenshot-paste";
@@ -46,6 +42,7 @@ const MARKETS: MarketType[] = [
 ];
 
 const SESSIONS: SessionType[] = ["London", "New York", "Asian", "London/NY Overlap"];
+
 const EMOTIONS: EmotionType[] = [
   "Calm",
   "Fear",
@@ -65,64 +62,64 @@ const STEPS = [
   { step: 4, label: "Mindset", icon: Brain },
 ];
 
-const initialState: TradeFormState = {
-  success: false,
-  message: "",
-};
+const INDIAN_MARKETS = ["Nifty Options", "BankNifty Options", "Sensex Options", "Stock Options"];
+
+const initialState: TradeFormState = { success: false, message: "" };
+
+function formatPnlValue(value: number, isIndian: boolean): string {
+  const sym = isIndian ? "₹" : "$";
+  const abs = Math.abs(value);
+  const formatted = isIndian
+    ? abs.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : abs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${value >= 0 ? "+" : "-"}${sym}${formatted}`;
+}
 
 export function TradeForm() {
   const router = useRouter();
   const [activeStep, setActiveStep] = useState(1);
   const [state, formAction, isPending] = useActionState(createTrade, initialState);
 
-  // Plan State
   const [market, setMarket] = useState<MarketType>("Nifty Options");
-  const [instrument, setInstrument] = useState("NIFTY 24500 CE");
+  const [instrument, setInstrument] = useState("");
   const [session, setSession] = useState<SessionType>("Asian");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [setup, setSetup] = useState("Break & Retest + FVG");
+  const [setup, setSetup] = useState("");
   const [strategyId, setStrategyId] = useState("");
   const [strategies, setStrategies] = useState<StrategyOption[]>([]);
   const [bias, setBias] = useState<TradeBias>("BULLISH");
 
-  // Fetch user's saved strategies for the dropdown
-  useEffect(() => {
-    getActiveStrategies().then(setStrategies);
-  }, []);
-  const [plannedEntry, setPlannedEntry] = useState("150.00");
-  const [stopLoss, setStopLoss] = useState("120.00");
-  const [target, setTarget] = useState("210.00");
-  const [expectedRR, setExpectedRR] = useState(2.0);
+  const [plannedEntry, setPlannedEntry] = useState("");
+  const [stopLoss, setStopLoss] = useState("");
+  const [target, setTarget] = useState("");
+  const [expectedRR, setExpectedRR] = useState(0);
 
-  // Options Trading Specific State
   const isOptionsMode = market.includes("Options");
   const [optionAction, setOptionAction] = useState<"BUY" | "SELL">("BUY");
   const [optionType, setOptionType] = useState<"CE" | "PE">("CE");
-  const [strikePrice, setStrikePrice] = useState("24500");
-  const [spotPrice, setSpotPrice] = useState("24520");
+  const [strikePrice, setStrikePrice] = useState("");
+  const [spotPrice, setSpotPrice] = useState("");
   const [optionExpiry, setOptionExpiry] = useState<"WEEKLY" | "MONTHLY" | "0DTE">("WEEKLY");
   const [lotSize, setLotSize] = useState(65);
-  const [numberOfLots, setNumberOfLots] = useState("2");
+  const [numberOfLots, setNumberOfLots] = useState("1");
   const [optionPoints, setOptionPoints] = useState(0);
 
-  // Execution State
-  const [actualEntry, setActualEntry] = useState("150.00");
-  const [actualExit, setActualExit] = useState("210.00");
-  const [positionSize, setPositionSize] = useState("130");
-  const [riskPercent, setRiskPercent] = useState("1.0");
-  const [actualRR, setActualRR] = useState(2.0);
+  const [actualEntry, setActualEntry] = useState("");
+  const [actualExit, setActualExit] = useState("");
+  const [positionSize, setPositionSize] = useState("");
+  const [riskPercent, setRiskPercent] = useState("0");
+  const [actualRR, setActualRR] = useState(0);
   const [isLateEntry, setIsLateEntry] = useState(false);
   const [isEarlyEntry, setIsEarlyEntry] = useState(false);
-  const [slippage, setSlippage] = useState("0.0");
+  const [slippage, setSlippage] = useState("0");
 
-  // Result State
   const [outcome, setOutcome] = useState<TradeOutcome>("WIN");
   const [exitReason, setExitReason] = useState<ExitReason>("TARGET_HIT");
-  const [pnl, setPnl] = useState("7800.00");
+  const [pnl, setPnl] = useState("");
   const [rulesFollowed, setRulesFollowed] = useState(true);
   const [ruleBreakReason, setRuleBreakReason] = useState("");
 
-  const [selectedEmotions, setSelectedEmotions] = useState<EmotionType[]>(["Calm"]);
+  const [selectedEmotions, setSelectedEmotions] = useState<EmotionType[]>([]);
   const [mindsetBefore, setMindsetBefore] = useState("");
   const [mindsetDuring, setMindsetDuring] = useState("");
   const [mindsetAfter, setMindsetAfter] = useState("");
@@ -136,17 +133,49 @@ export function TradeForm() {
     setScreenshots((prev) => prev.filter((s) => s.id !== id));
   }, []);
 
-  // Auto-fill default lot sizes when Market segment switches
+  const isLong = isOptionsMode ? optionAction === "BUY" : bias !== "BEARISH";
+  const isIndianMarket = INDIAN_MARKETS.includes(market);
+  const currency = isIndianMarket ? "₹" : "$";
+  const parsedPnl = parseFloat(pnl) || 0;
+
+  const instrumentPlaceholder = isOptionsMode
+    ? "Auto-generated"
+    : market === "Forex"
+    ? "e.g. EURUSD, GBPJPY"
+    : market === "Gold"
+    ? "e.g. XAUUSD"
+    : market === "Silver"
+    ? "e.g. XAGUSD"
+    : market === "Crypto"
+    ? "e.g. BTCUSDT, ETHUSDT"
+    : market === "Stocks"
+    ? "e.g. RELIANCE, TCS"
+    : "e.g. NIFTY FUT";
+
+  const positionPlaceholder = isOptionsMode
+    ? "Auto from lots"
+    : market === "Forex"
+    ? "Lots (e.g. 0.10)"
+    : market === "Crypto"
+    ? "Qty (e.g. 0.5)"
+    : market === "Gold" || market === "Silver"
+    ? "Lots (e.g. 1.0)"
+    : "Shares (e.g. 100)";
+
+  useEffect(() => {
+    getActiveStrategies().then(setStrategies);
+  }, []);
+
   useEffect(() => {
     if (market === "Nifty Options") {
-      setLotSize(65); // Current Nifty lot size
-      if (!strikePrice || strikePrice === "52000" || strikePrice === "80000") setStrikePrice("24500");
+      setLotSize(65);
+      setStrikePrice((prev) => (!prev || prev === "52000" || prev === "80000") ? "24500" : prev);
     } else if (market === "BankNifty Options") {
       setLotSize(15);
-      if (!strikePrice || strikePrice === "24500" || strikePrice === "80000") setStrikePrice("52000");
+      setStrikePrice((prev) => (!prev || prev === "24500" || prev === "80000") ? "52000" : prev);
     } else if (market === "Sensex Options") {
       setLotSize(10);
-      if (!strikePrice || strikePrice === "24500" || strikePrice === "52000") setStrikePrice("80000");
+      setStrikePrice((prev) => (!prev || prev === "24500" || prev === "52000") ? "80000" : prev);
     }
   }, [market]);
 
@@ -157,62 +186,115 @@ export function TradeForm() {
     }
   }, [market, strikePrice, optionType, isOptionsMode]);
 
-  // Sync position size with (Lots * LotSize) in Options mode
   useEffect(() => {
     if (isOptionsMode) {
       const lots = parseInt(numberOfLots) || 1;
-      const totalQty = lots * lotSize;
-      setPositionSize(String(totalQty));
+      setPositionSize(String(lots * lotSize));
     }
   }, [numberOfLots, lotSize, isOptionsMode]);
 
-  // Auto-calculate RR, Options Points, and Total PnL
   useEffect(() => {
-    const e = parseFloat(plannedEntry),
-      sl = parseFloat(stopLoss),
-      tp = parseFloat(target);
+    const e = parseFloat(plannedEntry);
+    const sl = parseFloat(stopLoss);
+    const tp = parseFloat(target);
     if (!isNaN(e) && !isNaN(sl) && !isNaN(tp) && e !== sl) {
       setExpectedRR(parseFloat((Math.abs(tp - e) / Math.abs(e - sl)).toFixed(2)));
     }
   }, [plannedEntry, stopLoss, target]);
 
   useEffect(() => {
-    const e = parseFloat(actualEntry),
-      sl = parseFloat(stopLoss),
-      ex = parseFloat(actualExit);
-    if (!isNaN(e) && !isNaN(sl) && !isNaN(ex) && e !== sl) {
-      const risk = Math.abs(e - sl);
+    const entry = parseFloat(actualEntry);
+    const sl = parseFloat(stopLoss);
+    const exit = parseFloat(actualExit);
+    const qty = parseFloat(positionSize) || 1;
+
+    if (!isNaN(entry) && !isNaN(sl) && entry > 0) {
+      setRiskPercent(((Math.abs(entry - sl) / entry) * 100).toFixed(2));
+    }
+
+    if (!isNaN(entry) && !isNaN(sl) && !isNaN(exit) && entry !== sl) {
+      const risk = Math.abs(entry - sl);
       if (risk > 0) {
         if (outcome === "LOSS") {
-          const loss = Math.abs(e - ex);
+          const loss = Math.abs(entry - exit);
           setActualRR(parseFloat((-Math.max(loss, risk) / risk).toFixed(2)));
         } else if (outcome === "BREAKEVEN") {
           setActualRR(0);
         } else {
-          const reward = Math.abs(ex - e);
+          const reward = Math.abs(exit - entry);
           setActualRR(parseFloat((reward / risk).toFixed(2)));
         }
       }
     }
 
-    // Options Points Calculation
-    if (!isNaN(e) && !isNaN(ex)) {
-      const points = optionAction === "BUY" ? ex - e : e - ex;
-      setOptionPoints(parseFloat(points.toFixed(2)));
-
-      // Auto-calculate PnL
-      const qty = parseFloat(positionSize) || 1;
-      const calculatedPnl = (points * qty).toFixed(2);
-      setPnl(calculatedPnl);
+    if (!isNaN(entry) && !isNaN(exit)) {
+      const points = isLong ? exit - entry : entry - exit;
+      if (isOptionsMode) {
+        setOptionPoints(parseFloat(points.toFixed(2)));
+      }
+      setPnl((points * qty).toFixed(2));
     }
-  }, [actualEntry, stopLoss, actualExit, outcome, optionAction, positionSize]);
+  }, [actualEntry, stopLoss, actualExit, outcome, isLong, positionSize, isOptionsMode]);
 
-  // Redirect on successful trade creation
   useEffect(() => {
     if (state?.success) {
       router.push("/trades");
     }
   }, [state, router]);
+
+  const handleStepChange = (newStep: number) => {
+    let entryVal = actualEntry;
+    let exitVal = actualExit;
+
+    if (newStep >= 2) {
+      if (!entryVal && plannedEntry) {
+        setActualEntry(plannedEntry);
+        entryVal = plannedEntry;
+      }
+      if (!exitVal && target) {
+        setActualExit(target);
+        exitVal = target;
+      }
+    }
+
+    if (newStep >= 3) {
+      const entry = parseFloat(entryVal);
+      const exit = parseFloat(exitVal);
+      const sl = parseFloat(stopLoss);
+      const tp = parseFloat(target);
+
+      if (!isNaN(entry) && !isNaN(exit)) {
+        const directedPnl = isLong ? exit - entry : entry - exit;
+        const threshold = entry * 0.003;
+
+        if (directedPnl > threshold) setOutcome("WIN");
+        else if (directedPnl < -threshold) setOutcome("LOSS");
+        else setOutcome("BREAKEVEN");
+
+        if (!isNaN(tp) && !isNaN(sl)) {
+          const targetDist = Math.abs(exit - tp);
+          const slDist = Math.abs(exit - sl);
+          const targetRange = Math.abs(tp - entry) || 1;
+          const slRange = Math.abs(entry - sl) || 1;
+
+          if (targetDist / targetRange < 0.1) setExitReason("TARGET_HIT");
+          else if (slDist / slRange < 0.1) setExitReason("STOP_HIT");
+          else setExitReason("MANUAL_EXIT");
+        }
+      }
+    }
+
+    setActiveStep(newStep);
+  };
+
+  const handleMarketChange = (newMarket: MarketType) => {
+    const wasOptions = market.includes("Options");
+    const isNowOptions = newMarket.includes("Options");
+    setMarket(newMarket);
+    if (wasOptions && !isNowOptions) {
+      setInstrument("");
+    }
+  };
 
   const toggleEmotion = (emo: EmotionType) => {
     setSelectedEmotions((prev) =>
@@ -227,7 +309,6 @@ export function TradeForm() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-5">
-      {/* Header */}
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-clean flex items-center gap-2">
           <Plus className="h-5 w-5 text-accent" /> Log New Trade
@@ -237,7 +318,6 @@ export function TradeForm() {
         </p>
       </div>
 
-      {/* Step Indicator */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
         {STEPS.map((s) => {
           const Icon = s.icon;
@@ -247,8 +327,8 @@ export function TradeForm() {
             <button
               key={s.step}
               type="button"
-              onClick={() => setActiveStep(s.step)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border whitespace-nowrap cursor-pointer ${
+              onClick={() => handleStepChange(s.step)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border whitespace-nowrap ${
                 isCurrent
                   ? "bg-accent-muted text-accent border-accent/30"
                   : isDone
@@ -264,7 +344,6 @@ export function TradeForm() {
         })}
       </div>
 
-      {/* Action Error Message */}
       {state?.message && !state.success && (
         <div className="card p-3 bg-loss/10 border border-loss/30 text-loss text-xs rounded-xl font-medium">
           {state.message}
@@ -272,7 +351,6 @@ export function TradeForm() {
       )}
 
       <form action={formAction} className="card p-4 sm:p-6 space-y-6">
-        {/* Hidden Form Controls for Server Action */}
         <input type="hidden" name="market" value={market} />
         <input type="hidden" name="instrument" value={instrument} />
         <input type="hidden" name="session" value={session} />
@@ -284,7 +362,6 @@ export function TradeForm() {
         <input type="hidden" name="stopLoss" value={stopLoss} />
         <input type="hidden" name="target" value={target} />
         <input type="hidden" name="expectedRR" value={expectedRR} />
-
         <input type="hidden" name="actualEntry" value={actualEntry} />
         <input type="hidden" name="actualExit" value={actualExit} />
         <input type="hidden" name="positionSize" value={positionSize} />
@@ -293,19 +370,16 @@ export function TradeForm() {
         <input type="hidden" name="isLateEntry" value={String(isLateEntry)} />
         <input type="hidden" name="isEarlyEntry" value={String(isEarlyEntry)} />
         <input type="hidden" name="slippage" value={slippage} />
-
         <input type="hidden" name="outcome" value={outcome} />
         <input type="hidden" name="exitReason" value={exitReason} />
         <input type="hidden" name="pnl" value={pnl} />
         <input type="hidden" name="rMultiple" value={actualRR} />
         <input type="hidden" name="rulesFollowed" value={String(rulesFollowed)} />
         <input type="hidden" name="ruleBreakReason" value={ruleBreakReason} />
-
         <input type="hidden" name="mindsetBefore" value={mindsetBefore} />
         <input type="hidden" name="mindsetDuring" value={mindsetDuring} />
         <input type="hidden" name="mindsetAfter" value={mindsetAfter} />
         <input type="hidden" name="emotions" value={selectedEmotions.join(",")} />
-
         <input type="hidden" name="optionAction" value={optionAction} />
         <input type="hidden" name="optionType" value={optionType} />
         <input type="hidden" name="strikePrice" value={strikePrice} />
@@ -313,12 +387,11 @@ export function TradeForm() {
         <input type="hidden" name="optionExpiry" value={optionExpiry} />
         <input type="hidden" name="lotSize" value={lotSize} />
         <input type="hidden" name="numberOfLots" value={numberOfLots} />
-        <input type="hidden" name="optionPoints" value={optionPoints} />
-        <input type="hidden" name="screenshots" value={JSON.stringify(screenshots.map(s => ({ dataUrl: s.dataUrl, stage: s.stage })))} />
+        <input type="hidden" name="optionPoints" value={isOptionsMode ? optionPoints : ""} />
+        <input type="hidden" name="screenshots" value={JSON.stringify(screenshots.map((s) => ({ dataUrl: s.dataUrl, stage: s.stage })))} />
 
-        {/* STEP 1: PLAN */}
         {activeStep === 1 && (
-          <div className="space-y-5">
+          <div className="page-enter space-y-5">
             <SectionHeader
               icon={<Target className="h-4 w-4 text-accent" />}
               title="Trade Setup & Plan"
@@ -329,8 +402,8 @@ export function TradeForm() {
               <FormField label="Market Segment">
                 <select
                   value={market}
-                  onChange={(e) => setMarket(e.target.value as MarketType)}
-                  className="input-field font-semibold cursor-pointer"
+                  onChange={(e) => handleMarketChange(e.target.value as MarketType)}
+                  className="input-field font-semibold"
                 >
                   {MARKETS.map((m) => (
                     <option key={m} value={m}>
@@ -344,8 +417,9 @@ export function TradeForm() {
                 <input
                   value={instrument}
                   onChange={(e) => setInstrument(e.target.value)}
-                  placeholder="e.g. NIFTY 24500 CE"
+                  placeholder={instrumentPlaceholder}
                   className="input-field font-mono uppercase font-bold text-accent"
+                  readOnly={isOptionsMode}
                 />
               </FormField>
 
@@ -353,7 +427,7 @@ export function TradeForm() {
                 <select
                   value={session}
                   onChange={(e) => setSession(e.target.value as SessionType)}
-                  className="input-field cursor-pointer"
+                  className="input-field"
                 >
                   {SESSIONS.map((s) => (
                     <option key={s} value={s}>
@@ -389,7 +463,7 @@ export function TradeForm() {
                       key={b}
                       type="button"
                       onClick={() => setBias(b)}
-                      className={`py-2 rounded-lg text-[11px] font-bold transition-all border cursor-pointer ${
+                      className={`py-2 rounded-lg text-[11px] font-bold transition-all border ${
                         bias === b
                           ? b === "BULLISH"
                             ? "bg-profit/15 text-profit border-profit/30"
@@ -406,7 +480,6 @@ export function TradeForm() {
               </FormField>
             </div>
 
-            {/* ── Dynamic Options Control Panel ── */}
             {isOptionsMode && (
               <div className="card-glow p-4 sm:p-5 rounded-2xl space-y-4 border border-accent/20">
                 <div className="flex items-center justify-between">
@@ -414,18 +487,17 @@ export function TradeForm() {
                     <Layers className="h-3.5 w-3.5" /> Options Contract Setup
                   </span>
                   <span className="text-[11px] font-mono text-dim">
-                    Qty: <strong className="text-clean">{parseInt(numberOfLots) * lotSize || 0}</strong> ({numberOfLots} lots × {lotSize})
+                    Qty: <strong className="text-clean">{(parseInt(numberOfLots) || 0) * lotSize}</strong> ({numberOfLots} × {lotSize})
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {/* Option Buy / Sell */}
                   <FormField label="Option Action">
                     <div className="grid grid-cols-2 gap-1 bg-surface p-1 rounded-xl">
                       <button
                         type="button"
                         onClick={() => setOptionAction("BUY")}
-                        className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
                           optionAction === "BUY"
                             ? "bg-profit text-white shadow"
                             : "text-dim hover:text-clean"
@@ -436,7 +508,7 @@ export function TradeForm() {
                       <button
                         type="button"
                         onClick={() => setOptionAction("SELL")}
-                        className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
                           optionAction === "SELL"
                             ? "bg-loss text-white shadow"
                             : "text-dim hover:text-clean"
@@ -447,13 +519,12 @@ export function TradeForm() {
                     </div>
                   </FormField>
 
-                  {/* Option Type CE / PE */}
                   <FormField label="Option Type">
                     <div className="grid grid-cols-2 gap-1 bg-surface p-1 rounded-xl">
                       <button
                         type="button"
                         onClick={() => setOptionType("CE")}
-                        className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
                           optionType === "CE"
                             ? "bg-accent text-white shadow"
                             : "text-dim hover:text-clean"
@@ -464,7 +535,7 @@ export function TradeForm() {
                       <button
                         type="button"
                         onClick={() => setOptionType("PE")}
-                        className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
                           optionType === "PE"
                             ? "bg-warn text-white shadow"
                             : "text-dim hover:text-clean"
@@ -475,7 +546,6 @@ export function TradeForm() {
                     </div>
                   </FormField>
 
-                  {/* Strike Price & Quick Step Buttons */}
                   <FormField label="Strike Price">
                     <div className="flex items-center gap-1">
                       <input
@@ -483,31 +553,31 @@ export function TradeForm() {
                         step="50"
                         value={strikePrice}
                         onChange={(e) => setStrikePrice(e.target.value)}
+                        placeholder="e.g. 24500"
                         className="input-field font-mono font-bold text-clean flex-1"
                       />
                       <button
                         type="button"
                         onClick={() => adjustStrike(-50)}
-                        className="px-2 py-2 rounded-lg bg-elevated text-xs font-bold text-muted hover:text-clean cursor-pointer"
+                        className="px-2 py-2 rounded-lg bg-elevated text-xs font-bold text-muted hover:text-clean"
                       >
                         -50
                       </button>
                       <button
                         type="button"
                         onClick={() => adjustStrike(50)}
-                        className="px-2 py-2 rounded-lg bg-elevated text-xs font-bold text-muted hover:text-clean cursor-pointer"
+                        className="px-2 py-2 rounded-lg bg-elevated text-xs font-bold text-muted hover:text-clean"
                       >
                         +50
                       </button>
                     </div>
                   </FormField>
 
-                  {/* Expiry Type */}
                   <FormField label="Option Expiry">
                     <select
                       value={optionExpiry}
-                      onChange={(e) => setOptionExpiry(e.target.value as any)}
-                      className="input-field cursor-pointer font-semibold"
+                      onChange={(e) => setOptionExpiry(e.target.value as "WEEKLY" | "MONTHLY" | "0DTE")}
+                      className="input-field font-semibold"
                     >
                       <option value="0DTE">0DTE (Expiry Day)</option>
                       <option value="WEEKLY">Weekly Expiry</option>
@@ -551,7 +621,7 @@ export function TradeForm() {
                             key={preset}
                             type="button"
                             onClick={() => setLotSize(preset)}
-                            className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all ${
                               lotSize === preset
                                 ? "bg-accent text-white"
                                 : "bg-elevated text-dim hover:text-clean"
@@ -567,7 +637,6 @@ export function TradeForm() {
               </div>
             )}
 
-            {/* Price Levels */}
             <div className="card-elevated p-4 rounded-xl grid grid-cols-2 sm:grid-cols-4 gap-3">
               <FormField label={isOptionsMode ? "Planned Premium" : "Planned Entry"}>
                 <input
@@ -575,6 +644,7 @@ export function TradeForm() {
                   step="any"
                   value={plannedEntry}
                   onChange={(e) => setPlannedEntry(e.target.value)}
+                  placeholder="Entry price"
                   className="input-field font-mono"
                 />
               </FormField>
@@ -584,6 +654,7 @@ export function TradeForm() {
                   step="any"
                   value={stopLoss}
                   onChange={(e) => setStopLoss(e.target.value)}
+                  placeholder="SL price"
                   className="input-field font-mono text-loss!"
                 />
               </FormField>
@@ -593,36 +664,48 @@ export function TradeForm() {
                   step="any"
                   value={target}
                   onChange={(e) => setTarget(e.target.value)}
+                  placeholder="TP price"
                   className="input-field font-mono text-profit!"
                 />
               </FormField>
               <FormField label="Expected RR">
-                <div className="h-10.5 rounded-xl bg-accent-muted border border-accent/20 flex items-center justify-center font-mono font-bold text-accent text-sm">
-                  1:{expectedRR}R
+                <div className="h-[42px] rounded-xl bg-accent-muted border border-accent/20 flex items-center justify-center font-mono font-bold text-accent text-sm">
+                  {expectedRR > 0 ? `1:${expectedRR}R` : "—"}
                 </div>
               </FormField>
             </div>
 
-            <StepNav onNext={() => setActiveStep(2)} />
+            <StepNav onNext={() => handleStepChange(2)} />
           </div>
         )}
 
-        {/* STEP 2: EXECUTION */}
         {activeStep === 2 && (
-          <div className="space-y-5">
+          <div className="page-enter space-y-5">
             <SectionHeader
               icon={<TrendingUp className="h-4 w-4 text-accent" />}
               title="Trade Execution"
-              desc="Entry & exit premium, option points captured, and sizing."
+              desc="Actual entry & exit, position sizing, and execution quality."
             />
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <ContextStrip
+              items={[
+                { label: "Symbol", value: instrument.toUpperCase() },
+                { label: "Bias", value: bias, color: bias === "BULLISH" ? "text-profit" : bias === "BEARISH" ? "text-loss" : "text-soft" },
+                { label: "Plan", value: plannedEntry },
+                { label: "SL", value: stopLoss, color: "text-loss" },
+                { label: "TP", value: target, color: "text-profit" },
+                { label: "RR", value: expectedRR > 0 ? `1:${expectedRR}` : "", color: "text-accent" },
+              ]}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <FormField label={isOptionsMode ? "Entry Premium" : "Actual Entry"}>
                 <input
                   type="number"
                   step="any"
                   value={actualEntry}
                   onChange={(e) => setActualEntry(e.target.value)}
+                  placeholder="Entry price"
                   className="input-field font-mono"
                 />
               </FormField>
@@ -632,6 +715,7 @@ export function TradeForm() {
                   step="any"
                   value={actualExit}
                   onChange={(e) => setActualExit(e.target.value)}
+                  placeholder="Exit price"
                   className="input-field font-mono"
                 />
               </FormField>
@@ -641,44 +725,48 @@ export function TradeForm() {
                   step="any"
                   value={positionSize}
                   onChange={(e) => setPositionSize(e.target.value)}
+                  placeholder={positionPlaceholder}
                   className="input-field font-mono"
-                />
-              </FormField>
-              <FormField label="Risk %">
-                <input
-                  type="number"
-                  step="any"
-                  value={riskPercent}
-                  onChange={(e) => setRiskPercent(e.target.value)}
-                  className="input-field font-mono"
+                  readOnly={isOptionsMode}
                 />
               </FormField>
             </div>
 
-            {/* Options Points Auto-Calculation Card */}
-            {isOptionsMode && (
-              <div className="card-glow p-4 rounded-xl flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-dim tracking-wider block">
-                    Option Points Captured / Lost
-                  </span>
-                  <div className={`text-lg font-mono font-bold mt-0.5 ${optionPoints >= 0 ? "text-profit" : "text-loss"}`}>
-                    {optionPoints >= 0 ? `+${optionPoints} pts` : `${optionPoints} pts`}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] uppercase font-bold text-dim tracking-wider block">
-                    Auto Calculated PnL
-                  </span>
-                  <div className={`text-lg font-mono font-bold mt-0.5 ${parseFloat(pnl) >= 0 ? "text-profit" : "text-loss"}`}>
-                    ${parseFloat(pnl).toLocaleString()}
-                  </div>
-                </div>
+            <div className="card-glow p-4 rounded-xl">
+              <div className="flex items-center gap-1.5 mb-3">
+                <Sparkles className="h-3.5 w-3.5 text-accent" />
+                <span className="text-[10px] uppercase font-bold text-accent tracking-wider">
+                  Live Metrics
+                </span>
               </div>
-            )}
+              <div className={`grid gap-3 ${isOptionsMode ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+                <MetricCell
+                  label="Risk Exposure"
+                  value={parseFloat(riskPercent) > 0 ? `${riskPercent}%` : "—"}
+                  color="text-warn"
+                />
+                <MetricCell
+                  label="Actual RR"
+                  value={actualRR !== 0 ? `${actualRR}R` : "—"}
+                  color={actualRR >= 0 ? "text-accent" : "text-loss"}
+                />
+                {isOptionsMode && (
+                  <MetricCell
+                    label="Points Captured"
+                    value={optionPoints !== 0 ? `${optionPoints >= 0 ? "+" : ""}${optionPoints} pts` : "—"}
+                    color={optionPoints >= 0 ? "text-profit" : "text-loss"}
+                  />
+                )}
+                <MetricCell
+                  label={`Est. P&L (${currency})`}
+                  value={parsedPnl !== 0 ? formatPnlValue(parsedPnl, isIndianMarket) : "—"}
+                  color={parsedPnl >= 0 ? "text-profit" : "text-loss"}
+                />
+              </div>
+            </div>
 
             <div className="card-elevated p-4 rounded-xl grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-overlay/30 transition-colors">
+              <label className="flex items-center gap-3 p-2 rounded-lg hover:bg-overlay/30 transition-colors">
                 <input
                   type="checkbox"
                   checked={isLateEntry}
@@ -690,7 +778,7 @@ export function TradeForm() {
                   <span className="text-[10px] text-dim">Chased after trigger</span>
                 </div>
               </label>
-              <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-overlay/30 transition-colors">
+              <label className="flex items-center gap-3 p-2 rounded-lg hover:bg-overlay/30 transition-colors">
                 <input
                   type="checkbox"
                   checked={isEarlyEntry}
@@ -720,17 +808,25 @@ export function TradeForm() {
               isOptions={isOptionsMode}
             />
 
-            <StepNav onPrev={() => setActiveStep(1)} onNext={() => setActiveStep(3)} />
+            <StepNav onPrev={() => handleStepChange(1)} onNext={() => handleStepChange(3)} />
           </div>
         )}
 
-        {/* STEP 3: RESULT */}
         {activeStep === 3 && (
-          <div className="space-y-5">
+          <div className="page-enter space-y-5">
             <SectionHeader
               icon={<CheckCircle2 className="h-4 w-4 text-accent" />}
               title="Trade Result & Compliance"
-              desc="Outcome, exit reason, PnL, and rule adherence."
+              desc="Outcome, P&L, and rule adherence."
+            />
+
+            <ContextStrip
+              items={[
+                { label: "Entry", value: actualEntry },
+                { label: "→ Exit", value: actualExit },
+                { label: "Qty", value: positionSize },
+                { label: "RR", value: actualRR !== 0 ? `${actualRR}R` : "", color: "text-accent" },
+              ]}
             />
 
             <div className="grid grid-cols-3 gap-2">
@@ -739,7 +835,7 @@ export function TradeForm() {
                   key={o}
                   type="button"
                   onClick={() => setOutcome(o)}
-                  className={`py-3 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                  className={`py-3 rounded-xl text-xs font-bold transition-all border ${
                     outcome === o
                       ? o === "WIN"
                         ? "bg-profit/15 text-profit border-profit/30"
@@ -759,7 +855,7 @@ export function TradeForm() {
                 <select
                   value={exitReason}
                   onChange={(e) => setExitReason(e.target.value as ExitReason)}
-                  className="input-field cursor-pointer"
+                  className="input-field"
                 >
                   <option value="TARGET_HIT">Target Hit (TP)</option>
                   <option value="STOP_HIT">Stop Loss Hit (SL)</option>
@@ -767,27 +863,47 @@ export function TradeForm() {
                 </select>
               </FormField>
 
-              <FormField label="Net PnL ($)">
+              <FormField label={`Net P&L (${currency})`}>
                 <input
                   type="number"
                   step="any"
                   value={pnl}
                   onChange={(e) => setPnl(e.target.value)}
+                  placeholder="Auto-calculated"
                   className={`input-field font-mono font-bold text-sm ${
-                    parseFloat(pnl) >= 0 ? "text-profit!" : "text-loss!"
+                    parsedPnl >= 0 ? "text-profit!" : "text-loss!"
                   }`}
                 />
               </FormField>
             </div>
 
-            {/* Rule Compliance */}
+            <div className={`grid gap-3 ${isOptionsMode ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2"}`}>
+              <ResultCard
+                label="R-Multiple"
+                value={actualRR !== 0 ? `${actualRR}R` : "—"}
+                color={actualRR >= 0 ? "text-profit" : "text-loss"}
+              />
+              <ResultCard
+                label="Risk Exposure"
+                value={parseFloat(riskPercent) > 0 ? `${riskPercent}%` : "—"}
+                color="text-warn"
+              />
+              {isOptionsMode && (
+                <ResultCard
+                  label="Points Captured"
+                  value={optionPoints !== 0 ? `${optionPoints >= 0 ? "+" : ""}${optionPoints} pts` : "—"}
+                  color={optionPoints >= 0 ? "text-profit" : "text-loss"}
+                />
+              )}
+            </div>
+
             <div className="card-elevated p-4 rounded-xl space-y-3">
-              <label className="flex items-center justify-between cursor-pointer">
+              <label className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-clean">Followed Trading Rules?</span>
                 <button
                   type="button"
                   onClick={() => setRulesFollowed(!rulesFollowed)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     rulesFollowed
                       ? "bg-profit/15 text-profit border border-profit/30"
                       : "bg-loss/15 text-loss border border-loss/30"
@@ -809,17 +925,25 @@ export function TradeForm() {
               )}
             </div>
 
-            <StepNav onPrev={() => setActiveStep(2)} onNext={() => setActiveStep(4)} />
+            <StepNav onPrev={() => handleStepChange(2)} onNext={() => handleStepChange(4)} />
           </div>
         )}
 
-        {/* STEP 4: MINDSET */}
         {activeStep === 4 && (
-          <div className="space-y-5">
+          <div className="page-enter space-y-5">
             <SectionHeader
               icon={<Brain className="h-4 w-4 text-accent" />}
               title="Psychology & Journal"
               desc="Emotional state and trade execution notes."
+            />
+
+            <ContextStrip
+              items={[
+                { label: "Result", value: outcome, color: outcome === "WIN" ? "text-profit" : outcome === "LOSS" ? "text-loss" : "text-soft" },
+                { label: "P&L", value: pnl ? formatPnlValue(parsedPnl, isIndianMarket) : "", color: parsedPnl >= 0 ? "text-profit" : "text-loss" },
+                { label: "Exit", value: exitReason.replace(/_/g, " ") },
+                { label: "Rules", value: rulesFollowed ? "✓ Followed" : "✗ Violated", color: rulesFollowed ? "text-profit" : "text-loss" },
+              ]}
             />
 
             <div>
@@ -832,7 +956,7 @@ export function TradeForm() {
                       key={emo}
                       type="button"
                       onClick={() => toggleEmotion(emo)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                         isSelected
                           ? "bg-accent-muted text-accent border-accent/30"
                           : "bg-surface text-dim border-transparent hover:bg-elevated"
@@ -875,19 +999,18 @@ export function TradeForm() {
               </FormField>
             </div>
 
-            {/* Final Submit Button */}
             <div className="pt-4 flex items-center justify-between border-t border-border/20">
               <button
                 type="button"
-                onClick={() => setActiveStep(3)}
-                className="btn-secondary text-xs cursor-pointer flex items-center gap-1.5"
+                onClick={() => handleStepChange(3)}
+                className="btn-secondary text-xs flex items-center gap-1.5"
               >
                 <ArrowLeft className="h-4 w-4" /> Back
               </button>
               <button
                 type="submit"
                 disabled={isPending}
-                className="btn-primary text-xs cursor-pointer flex items-center gap-1.5 px-6!"
+                className="btn-primary text-xs flex items-center gap-1.5 px-6!"
               >
                 <Check className="h-4 w-4" />
                 {isPending ? "Saving Trade..." : "Save Trade to Journal"}
@@ -899,8 +1022,6 @@ export function TradeForm() {
     </div>
   );
 }
-
-/* Sub-components */
 
 function SectionHeader({
   icon,
@@ -940,7 +1061,7 @@ function StepNav({ onPrev, onNext }: { onPrev?: () => void; onNext?: () => void 
         <button
           type="button"
           onClick={onPrev}
-          className="btn-secondary text-xs cursor-pointer flex items-center gap-1.5"
+          className="btn-secondary text-xs flex items-center gap-1.5"
         >
           <ArrowLeft className="h-4 w-4" /> Previous
         </button>
@@ -951,11 +1072,44 @@ function StepNav({ onPrev, onNext }: { onPrev?: () => void; onNext?: () => void 
         <button
           type="button"
           onClick={onNext}
-          className="btn-primary text-xs cursor-pointer flex items-center gap-1.5"
+          className="btn-primary text-xs flex items-center gap-1.5"
         >
           Next <ArrowRight className="h-4 w-4" />
         </button>
       )}
+    </div>
+  );
+}
+
+function ContextStrip({ items }: { items: { label: string; value: string; color?: string }[] }) {
+  const filtered = items.filter((i) => i.value);
+  if (filtered.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3.5 py-2.5 rounded-xl bg-surface border border-border text-[11px]">
+      {filtered.map((item, i) => (
+        <span key={i} className="flex items-center gap-1.5">
+          <span className="text-dim font-medium">{item.label}</span>
+          <span className={`font-mono font-bold ${item.color || "text-clean"}`}>{item.value}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function MetricCell({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div>
+      <span className="text-[10px] uppercase font-bold text-dim tracking-wider block">{label}</span>
+      <span className={`text-base font-mono font-bold mt-0.5 block ${color}`}>{value}</span>
+    </div>
+  );
+}
+
+function ResultCard({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="bg-elevated rounded-xl p-3 text-center border border-border">
+      <span className="text-[10px] uppercase font-bold text-dim tracking-wider block">{label}</span>
+      <span className={`text-lg font-mono font-bold mt-1 block ${color}`}>{value}</span>
     </div>
   );
 }
