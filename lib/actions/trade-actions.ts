@@ -97,6 +97,23 @@ export async function createTrade(
         message: "Invalid price values. Please check entry, SL, TP, and exit prices.",
       };
     }
+    // Server-side deduplication guard against rapid multi-clicks or duplicate requests
+    const fifteenSecondsAgo = new Date(Date.now() - 15000);
+    const existingDuplicate = await prisma.trade.findFirst({
+      where: {
+        userId: session.user.id,
+        market: data.market,
+        instrument: data.instrument,
+        actualEntry: data.actualEntry,
+        actualExit: data.actualExit,
+        pnl: data.pnl,
+        createdAt: { gte: fifteenSecondsAgo },
+      },
+    });
+
+    if (existingDuplicate) {
+      return { success: true, message: "Trade saved successfully!" };
+    }
 
     const trade = await prisma.trade.create({ data });
 

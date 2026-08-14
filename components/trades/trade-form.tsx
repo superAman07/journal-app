@@ -79,6 +79,7 @@ export function TradeForm() {
   const router = useRouter();
   const [activeStep, setActiveStep] = useState(1);
   const [state, formAction, isPending] = useActionState(createTrade, initialState);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [market, setMarket] = useState<MarketType>("Nifty Options");
   const [instrument, setInstrument] = useState("");
@@ -239,6 +240,8 @@ export function TradeForm() {
   useEffect(() => {
     if (state?.success) {
       router.push("/trades");
+    } else if (state?.message && !state.success) {
+      setIsSubmitting(false);
     }
   }, [state, router]);
 
@@ -350,7 +353,14 @@ export function TradeForm() {
         </div>
       )}
 
-      <form action={formAction} className="card p-4 sm:p-6 space-y-6">
+      <form
+        action={async (formData) => {
+          if (isSubmitting || isPending) return;
+          setIsSubmitting(true);
+          await formAction(formData);
+        }}
+        className="card p-4 sm:p-6 space-y-6"
+      >
         <input type="hidden" name="market" value={market} />
         <input type="hidden" name="instrument" value={instrument} />
         <input type="hidden" name="session" value={session} />
@@ -1009,11 +1019,11 @@ export function TradeForm() {
               </button>
               <button
                 type="submit"
-                disabled={isPending}
-                className="btn-primary text-xs flex items-center gap-1.5 px-6!"
+                disabled={isPending || isSubmitting}
+                className="btn-primary text-xs flex items-center gap-1.5 px-6! disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Check className="h-4 w-4" />
-                {isPending ? "Saving Trade..." : "Save Trade to Journal"}
+                {isPending || isSubmitting ? "Saving Trade..." : "Save Trade to Journal"}
               </button>
             </div>
           </div>

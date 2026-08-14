@@ -68,6 +68,7 @@ export function EditTradeModal({
   const [activeStep, setActiveStep] = useState(1);
   const updateActionWithId = updateTrade.bind(null, trade.id);
   const [state, formAction, isPending] = useActionState(updateActionWithId, initialState);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [market, setMarket] = useState<MarketType>(trade.market || "Nifty Options");
   const [instrument, setInstrument] = useState(trade.instrument || "");
@@ -171,6 +172,8 @@ export function EditTradeModal({
   useEffect(() => {
     if (state?.success) {
       onClose();
+    } else if (state?.message && !state.success) {
+      setIsSubmitting(false);
     }
   }, [state, onClose]);
 
@@ -225,7 +228,14 @@ export function EditTradeModal({
           </div>
         )}
 
-        <form action={formAction} className="space-y-6">
+        <form
+          action={async (formData) => {
+            if (isSubmitting || isPending) return;
+            setIsSubmitting(true);
+            await formAction(formData);
+          }}
+          className="space-y-6"
+        >
           <input type="hidden" name="market" value={market} />
           <input type="hidden" name="instrument" value={instrument} />
           <input type="hidden" name="session" value={session} />
@@ -713,11 +723,11 @@ export function EditTradeModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={isPending}
-                  className="btn-primary text-xs flex items-center gap-1.5 px-6!"
+                  disabled={isPending || isSubmitting}
+                  className="btn-primary text-xs flex items-center gap-1.5 px-6! disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Check className="h-4 w-4" />
-                  {isPending ? "Updating Trade..." : "Save Changes"}
+                  {isPending || isSubmitting ? "Updating Trade..." : "Save Changes"}
                 </button>
               </div>
             </div>
