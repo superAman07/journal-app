@@ -76,6 +76,9 @@ export async function createTrade(
       lotSize: formData.get("lotSize") ? parseInt(formData.get("lotSize") as string) : null,
       numberOfLots: formData.get("numberOfLots") ? parseInt(formData.get("numberOfLots") as string) : null,
       optionPoints: formData.get("optionPoints") ? parseFloat(formData.get("optionPoints") as string) : null,
+
+      entryTime: formData.get("entryTime") ? new Date(`${formData.get("date")}T${formData.get("entryTime")}`) : null,
+      exitTime: formData.get("exitTime") ? new Date(`${formData.get("date")}T${formData.get("exitTime")}`) : null,
     };
 
     // Basic validation
@@ -269,6 +272,9 @@ export async function updateTrade(
       lotSize: formData.get("lotSize") ? parseInt(formData.get("lotSize") as string) : null,
       numberOfLots: formData.get("numberOfLots") ? parseInt(formData.get("numberOfLots") as string) : null,
       optionPoints: formData.get("optionPoints") ? parseFloat(formData.get("optionPoints") as string) : null,
+
+      entryTime: formData.get("entryTime") ? new Date(`${formData.get("date")}T${formData.get("entryTime")}`) : null,
+      exitTime: formData.get("exitTime") ? new Date(`${formData.get("date")}T${formData.get("exitTime")}`) : null,
     };
 
     await prisma.trade.update({

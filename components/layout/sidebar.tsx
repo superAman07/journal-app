@@ -75,7 +75,7 @@ export function Sidebar() {
           {collapsed ? (
             <Logo className="h-9 w-auto object-contain" collapsed={true} />
           ) : (
-            <Logo className="h-11 max-w-[210px] w-auto object-contain object-left" />
+            <Logo className="h-11 max-w-52.5 w-auto object-contain object-left" />
           )}
         </Link>
       </div>

@@ -102,6 +102,12 @@ export function EditTradeModal({
 
   const [actualEntry, setActualEntry] = useState(trade.actualEntry ? String(trade.actualEntry) : "");
   const [actualExit, setActualExit] = useState(trade.actualExit ? String(trade.actualExit) : "");
+  const [entryTime, setEntryTime] = useState(
+    trade.entryTime ? new Date(trade.entryTime).toTimeString().slice(0, 5) : ""
+  );
+  const [exitTime, setExitTime] = useState(
+    trade.exitTime ? new Date(trade.exitTime).toTimeString().slice(0, 5) : ""
+  );
   const [positionSize, setPositionSize] = useState(trade.positionSize ? String(trade.positionSize) : "");
   const [riskPercent, setRiskPercent] = useState(trade.riskPercent ? String(trade.riskPercent) : "0");
   const [actualRR, setActualRR] = useState(trade.actualRR || 0);
@@ -249,6 +255,8 @@ export function EditTradeModal({
           <input type="hidden" name="expectedRR" value={expectedRR} />
           <input type="hidden" name="actualEntry" value={actualEntry} />
           <input type="hidden" name="actualExit" value={actualExit} />
+          <input type="hidden" name="entryTime" value={entryTime} />
+          <input type="hidden" name="exitTime" value={exitTime} />
           <input type="hidden" name="positionSize" value={positionSize} />
           <input type="hidden" name="riskPercent" value={riskPercent} />
           <input type="hidden" name="actualRR" value={actualRR} />
@@ -401,7 +409,7 @@ export function EditTradeModal({
                 </div>
                 <div>
                   <label className="label">Expected RR</label>
-                  <div className="h-[42px] rounded-xl bg-accent-muted border border-accent/20 flex items-center justify-center font-mono font-bold text-accent text-sm">
+                  <div className="h-10.5 rounded-xl bg-accent-muted border border-accent/20 flex items-center justify-center font-mono font-bold text-accent text-sm">
                     {expectedRR > 0 ? `1:${expectedRR}R` : "—"}
                   </div>
                 </div>
@@ -431,7 +439,7 @@ export function EditTradeModal({
                 ]}
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="label">{isOptionsMode ? "Entry Premium" : "Actual Entry"}</label>
                   <input
@@ -450,6 +458,24 @@ export function EditTradeModal({
                     value={actualExit}
                     onChange={(e) => setActualExit(e.target.value)}
                     className="input-field font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="label">Entry Time</label>
+                  <input
+                    type="time"
+                    value={entryTime}
+                    onChange={(e) => setEntryTime(e.target.value)}
+                    className="input-field font-mono text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="label">Exit Time</label>
+                  <input
+                    type="time"
+                    value={exitTime}
+                    onChange={(e) => setExitTime(e.target.value)}
+                    className="input-field font-mono text-xs"
                   />
                 </div>
                 <div>

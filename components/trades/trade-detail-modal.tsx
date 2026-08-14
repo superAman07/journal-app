@@ -46,6 +46,8 @@ type TradeData = {
   lotSize: number | null;
   numberOfLots: number | null;
   optionPoints: number | null;
+  entryTime?: string | Date | null;
+  exitTime?: string | Date | null;
   emotions: { id: string; emotion: string; stage: string }[];
   screenshots: { id: string; url: string; stage: string; caption: string | null }[];
   mistakes: { id: string; mistake: string }[];
@@ -92,32 +94,32 @@ export function TradeDetailModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 border-b border-border-solid flex items-center justify-between shrink-0 bg-surface">
-          <div className="flex items-center gap-3">
-            <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm ${
+        <div className="p-3.5 sm:p-4 border-b border-border-solid flex items-center justify-between shrink-0 bg-surface gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center text-xs sm:text-sm font-bold shadow-sm shrink-0 ${
               trade.outcome === "WIN" ? "bg-profit/20 text-profit border border-profit/30" : trade.outcome === "LOSS" ? "bg-loss/20 text-loss border border-loss/30" : "bg-elevated text-soft border border-border-solid"
             }`}>
-              {trade.outcome === "WIN" ? <ArrowUpRight className="h-5 w-5" /> : trade.outcome === "LOSS" ? <ArrowDownRight className="h-5 w-5" /> : "BE"}
+              {trade.outcome === "WIN" ? <ArrowUpRight className="h-4 w-4 sm:h-5 sm:w-5" /> : trade.outcome === "LOSS" ? <ArrowDownRight className="h-4 w-4 sm:h-5 sm:w-5" /> : "BE"}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-base font-bold">{trade.instrument}</span>
-                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-mono text-sm sm:text-base font-bold truncate max-w-32.5 sm:max-w-none">{trade.instrument}</span>
+                <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                   trade.outcome === "WIN" ? "bg-profit/20 text-profit border border-profit/30" : trade.outcome === "LOSS" ? "bg-loss/20 text-loss border border-loss/30" : "bg-elevated text-soft border border-border-solid"
                 }`}>{trade.outcome}</span>
               </div>
-              <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
+              <div className="text-[10px] sm:text-[11px] text-muted flex items-center gap-1 mt-0.5 truncate">
                 <span>{new Date(trade.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
                 <span>·</span>
                 <span className="font-medium text-clean">{trade.session}</span>
                 <span>·</span>
-                <span className="font-semibold text-accent">{trade.market}</span>
+                <span className="font-semibold text-accent truncate">{trade.market}</span>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             {onEdit && (
-              <button onClick={onEdit} className="px-3 py-1.5 rounded-xl bg-accent-muted text-accent text-xs font-bold hover:bg-accent/20 transition-all cursor-pointer border border-accent/20">
+              <button onClick={onEdit} className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-accent-muted text-accent text-[11px] sm:text-xs font-bold hover:bg-accent/20 transition-all cursor-pointer border border-accent/20 whitespace-nowrap">
                 Edit Trade
               </button>
             )}
@@ -203,21 +205,62 @@ export function TradeDetailModal({
                 <PriceCard label="Risk Percent" value={trade.riskPercent} suffix="%" />
               </div>
 
+              {/* Execution Timestamps & Holding Time */}
+              {(trade.entryTime || trade.exitTime) && (
+                <div className="p-3.5 rounded-2xl border border-border-solid bg-surface flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-4">
+                    {trade.entryTime && (
+                      <div>
+                        <span className="text-[9px] uppercase font-bold text-dim tracking-wider block">Entry Time</span>
+                        <span className="font-mono font-bold text-clean">
+                          {new Date(trade.entryTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                        </span>
+                      </div>
+                    )}
+                    {trade.exitTime && (
+                      <div>
+                        <span className="text-[9px] uppercase font-bold text-dim tracking-wider block">Exit Time</span>
+                        <span className="font-mono font-bold text-clean">
+                          {new Date(trade.exitTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {trade.entryTime && trade.exitTime && (
+                    <div className="bg-accent/10 border border-accent/20 px-3 py-1 rounded-xl flex items-center gap-1.5 text-accent font-bold">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>
+                        {(() => {
+                          const start = new Date(trade.entryTime).getTime();
+                          const end = new Date(trade.exitTime).getTime();
+                          if (isNaN(start) || isNaN(end) || end <= start) return "—";
+                          const diffMins = Math.round((end - start) / 60000);
+                          if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? "s" : ""}`;
+                          const h = Math.floor(diffMins / 60);
+                          const m = diffMins % 60;
+                          return `${h}h ${m}m`;
+                        })()} holding
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {isOptions && trade.optionPoints !== null && (
-                <div className="p-4 rounded-2xl border border-accent/40 bg-surface flex items-center justify-between shadow-sm">
+                <div className="p-3.5 sm:p-4 rounded-2xl border border-accent/40 bg-surface flex items-center justify-between shadow-sm gap-2">
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-muted tracking-wider block">
-                      Option Points Captured / Lost
+                    <span className="text-[9px] sm:text-[10px] uppercase font-bold text-muted tracking-wider block">
+                      Option Points
                     </span>
-                    <span className={`text-xl font-mono font-black mt-0.5 block ${trade.optionPoints >= 0 ? "text-profit" : "text-loss"}`}>
+                    <span className={`text-base sm:text-xl font-mono font-black mt-0.5 block ${trade.optionPoints >= 0 ? "text-profit" : "text-loss"}`}>
                       {trade.optionPoints >= 0 ? "+" : ""}{trade.optionPoints} pts
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] uppercase font-bold text-muted tracking-wider block">
+                    <span className="text-[9px] sm:text-[10px] uppercase font-bold text-muted tracking-wider block">
                       Actual Achieved R-Multiple
                     </span>
-                    <span className={`text-xl font-mono font-black mt-0.5 block ${trade.actualRR >= 0 ? "text-profit" : "text-loss"}`}>
+                    <span className={`text-base sm:text-xl font-mono font-black mt-0.5 block ${trade.actualRR >= 0 ? "text-profit" : "text-loss"}`}>
                       {formatRMultiple(trade.actualRR)}
                     </span>
                   </div>

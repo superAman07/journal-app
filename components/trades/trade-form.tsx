@@ -107,6 +107,8 @@ export function TradeForm() {
 
   const [actualEntry, setActualEntry] = useState("");
   const [actualExit, setActualExit] = useState("");
+  const [entryTime, setEntryTime] = useState("");
+  const [exitTime, setExitTime] = useState("");
   const [positionSize, setPositionSize] = useState("");
   const [riskPercent, setRiskPercent] = useState("0");
   const [actualRR, setActualRR] = useState(0);
@@ -374,6 +376,8 @@ export function TradeForm() {
         <input type="hidden" name="expectedRR" value={expectedRR} />
         <input type="hidden" name="actualEntry" value={actualEntry} />
         <input type="hidden" name="actualExit" value={actualExit} />
+        <input type="hidden" name="entryTime" value={entryTime} />
+        <input type="hidden" name="exitTime" value={exitTime} />
         <input type="hidden" name="positionSize" value={positionSize} />
         <input type="hidden" name="riskPercent" value={riskPercent} />
         <input type="hidden" name="actualRR" value={actualRR} />
@@ -679,7 +683,7 @@ export function TradeForm() {
                 />
               </FormField>
               <FormField label="Expected RR">
-                <div className="h-[42px] rounded-xl bg-accent-muted border border-accent/20 flex items-center justify-center font-mono font-bold text-accent text-sm">
+                <div className="h-10.5 rounded-xl bg-accent-muted border border-accent/20 flex items-center justify-center font-mono font-bold text-accent text-sm">
                   {expectedRR > 0 ? `1:${expectedRR}R` : "—"}
                 </div>
               </FormField>
@@ -708,7 +712,7 @@ export function TradeForm() {
               ]}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <FormField label={isOptionsMode ? "Entry Premium" : "Actual Entry"}>
                 <input
                   type="number"
@@ -727,6 +731,22 @@ export function TradeForm() {
                   onChange={(e) => setActualExit(e.target.value)}
                   placeholder="Exit price"
                   className="input-field font-mono"
+                />
+              </FormField>
+              <FormField label="Entry Time">
+                <input
+                  type="time"
+                  value={entryTime}
+                  onChange={(e) => setEntryTime(e.target.value)}
+                  className="input-field font-mono text-xs"
+                />
+              </FormField>
+              <FormField label="Exit Time">
+                <input
+                  type="time"
+                  value={exitTime}
+                  onChange={(e) => setExitTime(e.target.value)}
+                  className="input-field font-mono text-xs"
                 />
               </FormField>
               <FormField label={isOptionsMode ? "Total Qty (Units)" : "Position Size"}>

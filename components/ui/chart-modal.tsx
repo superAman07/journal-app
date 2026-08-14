@@ -160,7 +160,7 @@ export function ChartModal({ isOpen, onClose, initialSymbol = "NIFTY" }: ChartMo
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-150"
+      className="fixed inset-0 z-9999 bg-black/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
@@ -186,7 +186,7 @@ export function ChartModal({ isOpen, onClose, initialSymbol = "NIFTY" }: ChartMo
             </div>
 
             {/* Quick Custom Search Input */}
-            <form onSubmit={handleCustomSubmit} className="flex items-center gap-1.5 flex-1 max-w-md min-w-[200px]">
+            <form onSubmit={handleCustomSubmit} className="flex items-center gap-1.5 flex-1 max-w-md min-w-50">
               <div className="relative flex-1">
                 <Search className="h-3.5 w-3.5 text-dim absolute left-3 top-1/2 -translate-y-1/2" />
                 <input

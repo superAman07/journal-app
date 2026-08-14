@@ -87,6 +87,8 @@ model Trade {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   date      DateTime @default(now())
+  entryTime DateTime?
+  exitTime  DateTime?
 
   // Market & Asset Info
   market     String // Forex, Gold, Silver, Crypto, Nifty Options, BankNifty, Stocks, Futures
