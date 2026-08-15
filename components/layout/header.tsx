@@ -34,7 +34,7 @@ export function Header() {
           <>
             <Link
               href="/trades/new"
-              className="hidden lg:flex btn-primary py-2! px-4! text-xs! rounded-lg! cursor-pointer"
+              className="hidden sm:flex btn-primary py-2! px-4! text-xs! rounded-lg! cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               <span>New Trade</span>
