@@ -143,10 +143,11 @@ model Trade {
   // Relations
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   strategy    Strategy?     @relation(fields: [strategyId], references: [id], onDelete: SetNull)
-  screenshots Screenshot[]
-  emotions    EmotionTag[]
-  mistakes    MistakeTag[]
-  tags        TradeTag[]
+  screenshots    Screenshot[]
+  emotions       EmotionTag[]
+  mistakes       MistakeTag[]
+  tags           TradeTag[]
+  ruleCompliance StrategyRuleCompliance[]
 
   @@index([userId, date])
   @@index([market])
@@ -300,4 +301,18 @@ model AIInsight {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("ai_insights")
+}
+
+// Strategy Rule Compliance — Per-rule tracking for each trade
+model StrategyRuleCompliance {
+  id        String  @id @default(cuid())
+  tradeId   String
+  ruleText  String  // The exact rule text from the strategy at time of trade
+  followed  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@index([tradeId])
+  @@map("strategy_rule_compliance")
 }

@@ -13,6 +13,8 @@ import {
   Check,
   Layers,
   Sparkles,
+  X,
+  ShieldCheck,
 } from "lucide-react";
 import {
   MarketType,
@@ -136,6 +138,14 @@ export function TradeForm() {
     setScreenshots((prev) => prev.filter((s) => s.id !== id));
   }, []);
 
+  // ── Strategy Rule Compliance State ──
+  type RuleComplianceItem = { ruleText: string; followed: boolean; sortOrder: number };
+  const [ruleCompliance, setRuleCompliance] = useState<RuleComplianceItem[]>([]);
+
+  const complianceCount = ruleCompliance.filter((r) => r.followed).length;
+  const complianceTotal = ruleCompliance.length;
+  const compliancePercent = complianceTotal > 0 ? Math.round((complianceCount / complianceTotal) * 100) : 100;
+
   const isLong = isOptionsMode ? optionAction === "BUY" : bias !== "BEARISH";
   const isIndianMarket = INDIAN_MARKETS.includes(market);
   const currency = isIndianMarket ? "₹" : "$";
@@ -168,6 +178,28 @@ export function TradeForm() {
   useEffect(() => {
     getActiveStrategies().then(setStrategies);
   }, []);
+
+  useEffect(() => {
+    if (strategyId) {
+      const selected = strategies.find((s) => s.id === strategyId);
+      if (selected?.rules) {
+        try {
+          const parsed = JSON.parse(selected.rules);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setRuleCompliance(
+              parsed.map((ruleText: string, i: number) => ({
+                ruleText,
+                followed: true,
+                sortOrder: i,
+              }))
+            );
+            return;
+          }
+        } catch {}
+      }
+    }
+    setRuleCompliance([]);
+  }, [strategyId, strategies]);
 
   useEffect(() => {
     if (market === "Nifty Options") {
@@ -313,7 +345,7 @@ export function TradeForm() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
+    <div className="max-w-5xl mx-auto space-y-5">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-clean flex items-center gap-2">
           <Plus className="h-5 w-5 text-accent" /> Log New Trade
@@ -403,6 +435,7 @@ export function TradeForm() {
         <input type="hidden" name="numberOfLots" value={numberOfLots} />
         <input type="hidden" name="optionPoints" value={isOptionsMode ? optionPoints : ""} />
         <input type="hidden" name="screenshots" value={JSON.stringify(screenshots.map((s) => ({ dataUrl: s.dataUrl, stage: s.stage })))} />
+        <input type="hidden" name="ruleCompliance" value={JSON.stringify(ruleCompliance)} />
 
         {activeStep === 1 && (
           <div className="page-enter space-y-5">
@@ -927,33 +960,117 @@ export function TradeForm() {
               )}
             </div>
 
-            <div className="card-elevated p-4 rounded-xl space-y-3">
-              <label className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-clean">Followed Trading Rules?</span>
-                <button
-                  type="button"
-                  onClick={() => setRulesFollowed(!rulesFollowed)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    rulesFollowed
-                      ? "bg-profit/15 text-profit border border-profit/30"
-                      : "bg-loss/15 text-loss border border-loss/30"
-                  }`}
-                >
-                  {rulesFollowed ? "Yes (Disciplined)" : "No (Rule Violation)"}
-                </button>
-              </label>
+            {ruleCompliance.length > 0 && (
+              <div className="card-elevated p-4 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-accent" />
+                    <span className="text-xs font-bold text-clean">Strategy Compliance</span>
+                  </div>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-1 rounded-lg ${
+                      compliancePercent === 100
+                        ? "bg-profit/15 text-profit"
+                        : compliancePercent >= 50
+                        ? "bg-warn/15 text-warn"
+                        : "bg-loss/15 text-loss"
+                    }`}
+                  >
+                    {complianceCount}/{complianceTotal} followed ({compliancePercent}%)
+                  </span>
+                </div>
 
-              {!rulesFollowed && (
-                <FormField label="Violation Reason">
-                  <input
-                    value={ruleBreakReason}
-                    onChange={(e) => setRuleBreakReason(e.target.value)}
-                    placeholder="e.g. Moved SL during trade, overleveraged"
-                    className="input-field text-loss!"
-                  />
-                </FormField>
-              )}
-            </div>
+                <div className="space-y-1.5">
+                  {ruleCompliance.map((rule, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setRuleCompliance((prev) =>
+                          prev.map((r, idx) =>
+                            idx === i ? { ...r, followed: !r.followed } : r
+                          )
+                        );
+                        // Auto-compute rulesFollowed
+                        const updated = ruleCompliance.map((r, idx) =>
+                          idx === i ? { ...r, followed: !r.followed } : r
+                        );
+                        setRulesFollowed(updated.every((r) => r.followed));
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all border ${
+                        rule.followed
+                          ? "bg-profit/5 border-profit/20 hover:bg-profit/10"
+                          : "bg-loss/5 border-loss/20 hover:bg-loss/10"
+                      }`}
+                    >
+                      <div
+                        className={`shrink-0 h-5 w-5 rounded-md flex items-center justify-center transition-all ${
+                          rule.followed
+                            ? "bg-profit/20 text-profit"
+                            : "bg-loss/20 text-loss"
+                        }`}
+                      >
+                        {rule.followed ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <X className="h-3 w-3" />
+                        )}
+                      </div>
+                      <span
+                        className={`text-xs font-medium flex-1 transition-all ${
+                          rule.followed
+                            ? "text-clean"
+                            : "text-loss line-through opacity-70"
+                        }`}
+                      >
+                        {rule.ruleText}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {!rulesFollowed && (
+                  <FormField label="Violation Notes (optional)">
+                    <input
+                      value={ruleBreakReason}
+                      onChange={(e) => setRuleBreakReason(e.target.value)}
+                      placeholder="Why were some rules broken?"
+                      className="input-field text-loss!"
+                    />
+                  </FormField>
+                )}
+              </div>
+            )}
+
+            {ruleCompliance.length === 0 && (
+              <div className="card-elevated p-4 rounded-xl space-y-3">
+                <label className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-clean">Followed Trading Rules?</span>
+                  <button
+                    type="button"
+                    onClick={() => setRulesFollowed(!rulesFollowed)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      rulesFollowed
+                        ? "bg-profit/15 text-profit border border-profit/30"
+                        : "bg-loss/15 text-loss border border-loss/30"
+                    }`}
+                  >
+                    {rulesFollowed ? "Yes (Disciplined)" : "No (Rule Violation)"}
+                  </button>
+                </label>
+
+                {!rulesFollowed && (
+                  <FormField label="Violation Reason">
+                    <input
+                      value={ruleBreakReason}
+                      onChange={(e) => setRuleBreakReason(e.target.value)}
+                      placeholder="e.g. Moved SL during trade, overleveraged"
+                      className="input-field text-loss!"
+                    />
+                  </FormField>
+                )}
+              </div>
+            )}
 
             <StepNav onPrev={() => handleStepChange(2)} onNext={() => handleStepChange(4)} />
           </div>

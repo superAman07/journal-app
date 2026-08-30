@@ -429,7 +429,7 @@ export function AnalyticsView({
         </div>
 
         {equityCurveData.length > 1 ? (
-          <div className="relative w-full h-[200px] bg-surface rounded-xl p-3 border border-border-solid flex flex-col justify-between overflow-hidden">
+          <div className="relative w-full h-50 bg-surface rounded-xl p-3 border border-border-solid flex flex-col justify-between overflow-hidden">
             <svg className="w-full h-full overflow-visible" viewBox="0 0 600 180" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">

@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import {
   X, Target, TrendingUp, CheckCircle2, Brain, Camera,
-  ArrowUpRight, ArrowDownRight, Clock, Shield, AlertTriangle, ZoomIn
+  ArrowUpRight, ArrowDownRight, Clock, Shield, AlertTriangle, ZoomIn,
+  Check, ShieldCheck
 } from "lucide-react";
 import { formatRMultiple } from "@/lib/utils";
 import { formatPnlWithCurrency } from "@/lib/utils/currency";
@@ -51,6 +52,7 @@ type TradeData = {
   emotions: { id: string; emotion: string; stage: string }[];
   screenshots: { id: string; url: string; stage: string; caption: string | null }[];
   mistakes: { id: string; mistake: string }[];
+  ruleCompliance?: { id: string; ruleText: string; followed: boolean; sortOrder: number }[];
 };
 
 const TABS = [
@@ -129,7 +131,6 @@ export function TradeDetailModal({
           </div>
         </div>
 
-        {/* PnL Banner */}
         <div className={`px-5 py-3.5 flex items-center justify-between border-b border-border-solid ${pnl >= 0 ? "bg-profit/15 text-profit" : "bg-loss/15 text-loss"}`}>
           <span className="text-xs uppercase font-extrabold tracking-wider">Net Realized P&L</span>
           <span className={`font-mono text-xl font-black ${pnl >= 0 ? "text-profit" : "text-loss"}`}>
@@ -137,7 +138,6 @@ export function TradeDetailModal({
           </span>
         </div>
 
-        {/* Tabs — Responsive 4-tab fit with no horizontal cut-off */}
         <div className="flex items-center justify-around sm:justify-start border-b border-border-solid shrink-0 px-1 sm:px-3 bg-surface overflow-x-auto no-scrollbar">
           {TABS.map((t) => {
             const Icon = t.icon;
@@ -157,7 +157,6 @@ export function TradeDetailModal({
           })}
         </div>
 
-        {/* Tab Content — Safe Bottom Padding for Mobile */}
         <div className="p-4 sm:p-5 pb-24 sm:pb-6 overflow-y-auto flex-1 space-y-5 bg-card">
           {tab === "plan" && (
             <div className="space-y-4">
@@ -205,7 +204,6 @@ export function TradeDetailModal({
                 <PriceCard label="Risk Percent" value={trade.riskPercent} suffix="%" />
               </div>
 
-              {/* Execution Timestamps & Holding Time */}
               {(trade.entryTime || trade.exitTime) && (
                 <div className="p-3.5 rounded-2xl border border-border-solid bg-surface flex flex-wrap items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-4">
@@ -285,7 +283,6 @@ export function TradeDetailModal({
                 )}
               </div>
 
-              {/* Interactive Screenshots Gallery */}
               {trade.screenshots.length > 0 ? (
                 <div className="space-y-2.5 pt-2">
                   <div className="flex items-center justify-between">
@@ -360,25 +357,99 @@ export function TradeDetailModal({
                 <PriceCard label="R-Multiple" value={trade.rMultiple} suffix="R" />
               </div>
 
-              <div className={`flex items-center justify-between p-4 rounded-2xl border ${
-                trade.rulesFollowed ? "bg-profit/10 border-profit/30" : "bg-loss/10 border-loss/30"
-              }`}>
-                <div className="flex items-center gap-2.5">
-                  <Shield className={`h-5 w-5 ${trade.rulesFollowed ? "text-profit" : "text-loss"}`} />
-                  <span className="text-xs font-bold text-clean">Trading Rules Adherence</span>
-                </div>
-                <span className={`text-xs font-extrabold px-3 py-1 rounded-full ${
-                  trade.rulesFollowed ? "bg-profit/20 text-profit border border-profit/30" : "bg-loss/20 text-loss border border-loss/30"
-                }`}>
-                  {trade.rulesFollowed ? "Disciplined (Rules Followed)" : "Rule Violation"}
-                </span>
-              </div>
+              {trade.ruleCompliance && trade.ruleCompliance.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-accent" />
+                      <span className="text-xs font-bold text-clean">Strategy Compliance</span>
+                    </div>
+                    {(() => {
+                      const followed = trade.ruleCompliance!.filter((r) => r.followed).length;
+                      const total = trade.ruleCompliance!.length;
+                      const pct = Math.round((followed / total) * 100);
+                      return (
+                        <span
+                          className={`text-[10px] font-bold px-2 py-1 rounded-lg ${
+                            pct === 100
+                              ? "bg-profit/15 text-profit"
+                              : pct >= 50
+                              ? "bg-warn/15 text-warn"
+                              : "bg-loss/15 text-loss"
+                          }`}
+                        >
+                          {followed}/{total} followed ({pct}%)
+                        </span>
+                      );
+                    })()}
+                  </div>
 
-              {!trade.rulesFollowed && trade.ruleBreakReason && (
-                <div className="p-4 rounded-2xl bg-loss/10 border border-loss/30 space-y-1">
-                  <span className="text-[10px] uppercase font-extrabold text-loss tracking-wider block">Rule Violation Reason</span>
-                  <p className="text-xs font-medium text-clean">{trade.ruleBreakReason}</p>
+                  <div className="space-y-1.5">
+                    {trade.ruleCompliance.map((rule) => (
+                      <div
+                        key={rule.id}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${
+                          rule.followed
+                            ? "bg-profit/5 border-profit/20"
+                            : "bg-loss/5 border-loss/20"
+                        }`}
+                      >
+                        <div
+                          className={`shrink-0 h-5 w-5 rounded-md flex items-center justify-center ${
+                            rule.followed
+                              ? "bg-profit/20 text-profit"
+                              : "bg-loss/20 text-loss"
+                          }`}
+                        >
+                          {rule.followed ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            <X className="h-3 w-3" />
+                          )}
+                        </div>
+                        <span
+                          className={`text-xs font-medium flex-1 ${
+                            rule.followed
+                              ? "text-clean"
+                              : "text-loss line-through opacity-70"
+                          }`}
+                        >
+                          {rule.ruleText}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {!trade.rulesFollowed && trade.ruleBreakReason && (
+                    <div className="p-4 rounded-2xl bg-loss/10 border border-loss/30 space-y-1">
+                      <span className="text-[10px] uppercase font-extrabold text-loss tracking-wider block">Violation Notes</span>
+                      <p className="text-xs font-medium text-clean">{trade.ruleBreakReason}</p>
+                    </div>
+                  )}
                 </div>
+              ) : (
+                <>
+                  <div className={`flex items-center justify-between p-4 rounded-2xl border ${
+                    trade.rulesFollowed ? "bg-profit/10 border-profit/30" : "bg-loss/10 border-loss/30"
+                  }`}>
+                    <div className="flex items-center gap-2.5">
+                      <Shield className={`h-5 w-5 ${trade.rulesFollowed ? "text-profit" : "text-loss"}`} />
+                      <span className="text-xs font-bold text-clean">Trading Rules Adherence</span>
+                    </div>
+                    <span className={`text-xs font-extrabold px-3 py-1 rounded-full ${
+                      trade.rulesFollowed ? "bg-profit/20 text-profit border border-profit/30" : "bg-loss/20 text-loss border border-loss/30"
+                    }`}>
+                      {trade.rulesFollowed ? "Disciplined (Rules Followed)" : "Rule Violation"}
+                    </span>
+                  </div>
+
+                  {!trade.rulesFollowed && trade.ruleBreakReason && (
+                    <div className="p-4 rounded-2xl bg-loss/10 border border-loss/30 space-y-1">
+                      <span className="text-[10px] uppercase font-extrabold text-loss tracking-wider block">Rule Violation Reason</span>
+                      <p className="text-xs font-medium text-clean">{trade.ruleBreakReason}</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

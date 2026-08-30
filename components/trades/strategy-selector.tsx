@@ -16,6 +16,7 @@ export type StrategyOption = {
   name: string;
   market: string | null;
   targetRR: number | null;
+  rules: string | null;
   winRate: number;
   avgRR: number;
   totalTrades: number;

@@ -7,6 +7,29 @@ import { redirect } from "next/navigation";
 import type { Trade } from "@prisma/client";
 import { calculateRR } from "@/lib/utils/calculate-rr";
 
+// Helper to convert Prisma Decimal objects to plain JS numbers
+// Next.js cannot serialize Decimal objects when passing from Server → Client Components
+function serializeTrade(t: any) {
+  return {
+    ...t,
+    plannedEntry: t.plannedEntry != null ? Number(t.plannedEntry) : null,
+    stopLoss: t.stopLoss != null ? Number(t.stopLoss) : null,
+    target: t.target != null ? Number(t.target) : null,
+    actualEntry: t.actualEntry != null ? Number(t.actualEntry) : null,
+    actualExit: t.actualExit != null ? Number(t.actualExit) : null,
+    positionSize: t.positionSize != null ? Number(t.positionSize) : null,
+    riskPercent: t.riskPercent != null ? Number(t.riskPercent) : null,
+    pnl: t.pnl != null ? Number(t.pnl) : 0,
+    actualRR: t.actualRR != null ? Number(t.actualRR) : 0,
+    rMultiple: t.rMultiple != null ? Number(t.rMultiple) : 0,
+    expectedRR: t.expectedRR != null ? Number(t.expectedRR) : 0,
+    slippage: t.slippage != null ? Number(t.slippage) : null,
+    strikePrice: t.strikePrice != null ? Number(t.strikePrice) : null,
+    spotPrice: t.spotPrice != null ? Number(t.spotPrice) : null,
+    optionPoints: t.optionPoints != null ? Number(t.optionPoints) : null,
+  };
+}
+
 export type TradeFormState = {
   success: boolean;
   message: string;
@@ -151,6 +174,24 @@ export async function createTrade(
       } catch {}
     }
 
+    // Create strategy rule compliance records
+    const ruleComplianceRaw = formData.get("ruleCompliance") as string;
+    if (ruleComplianceRaw) {
+      try {
+        const parsed = JSON.parse(ruleComplianceRaw) as { ruleText: string; followed: boolean; sortOrder: number }[];
+        if (parsed.length > 0) {
+          await prisma.strategyRuleCompliance.createMany({
+            data: parsed.map((rc) => ({
+              tradeId: trade.id,
+              ruleText: rc.ruleText,
+              followed: rc.followed,
+              sortOrder: rc.sortOrder,
+            })),
+          });
+        }
+      } catch {}
+    }
+
     revalidatePath("/");
     revalidatePath("/trades");
     revalidatePath("/analytics");
@@ -197,16 +238,17 @@ export async function getTradeById(tradeId: string) {
       emotions: true,
       screenshots: true,
       mistakes: true,
+      ruleCompliance: { orderBy: { sortOrder: "asc" } },
     },
   });
 
   if (!trade) return null;
   const computedRR = calculateRR(Number(trade.actualEntry), Number(trade.stopLoss), Number(trade.actualExit), trade.outcome);
-  return {
+  return serializeTrade({
     ...trade,
     actualRR: computedRR,
     rMultiple: computedRR,
-  };
+  });
 }
 
 export async function updateTrade(
@@ -297,6 +339,25 @@ export async function updateTrade(
       }
     }
 
+    // Update strategy rule compliance records
+    const ruleComplianceRaw = formData.get("ruleCompliance") as string;
+    await prisma.strategyRuleCompliance.deleteMany({ where: { tradeId } });
+    if (ruleComplianceRaw) {
+      try {
+        const parsed = JSON.parse(ruleComplianceRaw) as { ruleText: string; followed: boolean; sortOrder: number }[];
+        if (parsed.length > 0) {
+          await prisma.strategyRuleCompliance.createMany({
+            data: parsed.map((rc) => ({
+              tradeId,
+              ruleText: rc.ruleText,
+              followed: rc.followed,
+              sortOrder: rc.sortOrder,
+            })),
+          });
+        }
+      } catch {}
+    }
+
     revalidatePath("/");
     revalidatePath("/trades");
     revalidatePath("/analytics");
@@ -313,6 +374,7 @@ export async function updateTrade(
   }
 }
 
+
 export async function getUserTrades() {
   const session = await auth();
   if (!session?.user?.id) return [];
@@ -323,17 +385,18 @@ export async function getUserTrades() {
       emotions: true,
       screenshots: true,
       mistakes: true,
+      ruleCompliance: { orderBy: { sortOrder: "asc" } },
     },
     orderBy: { date: "desc" },
   });
 
   return trades.map((t) => {
     const computedRR = calculateRR(Number(t.actualEntry), Number(t.stopLoss), Number(t.actualExit), t.outcome);
-    return {
+    return serializeTrade({
       ...t,
       actualRR: computedRR,
       rMultiple: computedRR,
-    };
+    });
   });
 }
 
@@ -358,13 +421,13 @@ export async function getDashboardMetrics() {
 
   return {
     totalTrades: trades.length,
-    netPnL: totalPnL,
+    netPnL: Number(totalPnL),
     winRate,
     averageRR: parseFloat(avgRR.toFixed(2)),
     ruleFollowRate: parseFloat(ruleFollowRate.toFixed(1)),
-    recentTrades: trades.slice(0, 5),
-    bestDay: wins.length > 0 ? Math.max(...wins.map((w) => w.pnl)) : 0,
-    worstDay: losses.length > 0 ? Math.min(...losses.map((l) => l.pnl)) : 0,
+    recentTrades: trades.slice(0, 5).map(serializeTrade),
+    bestDay: wins.length > 0 ? Math.max(...wins.map((w) => Number(w.pnl))) : 0,
+    worstDay: losses.length > 0 ? Math.min(...losses.map((l) => Number(l.pnl))) : 0,
   };
 }
 

@@ -289,6 +289,7 @@ export async function getActiveStrategies(): Promise<
     name: string;
     market: string | null;
     targetRR: number | null;
+    rules: string | null;
     winRate: number;
     avgRR: number;
     totalTrades: number;
@@ -321,6 +322,7 @@ export async function getActiveStrategies(): Promise<
       name: s.name,
       market: s.market,
       targetRR: s.targetRR,
+      rules: s.rules,
       winRate: parseFloat(winRate.toFixed(1)),
       avgRR: parseFloat(avgRR.toFixed(2)),
       totalTrades,
