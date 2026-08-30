@@ -193,6 +193,104 @@ input[type="radio"] {
   box-shadow: 0 0 24px -6px var(--color-accent-muted), var(--shadow-card);
 }
 
+/* ═══════════════════════════════════════
+   ACCENT-EDGE CARDS — Colored left border
+   with subtle tinted backgrounds
+   ═══════════════════════════════════════ */
+.card-accent {
+  background: var(--color-card);
+  border: 1px solid var(--color-border-solid);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  border-left: 3px solid;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-accent:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+/* Profit / Green edge */
+.card-accent-profit {
+  border-left-color: var(--color-profit);
+  background: linear-gradient(135deg, rgba(11, 208, 127, 0.06) 0%, var(--color-card) 60%);
+}
+.card-accent-profit:hover {
+  border-left-color: var(--color-profit);
+  box-shadow: var(--shadow-card-hover), 0 0 20px -8px rgba(11, 208, 127, 0.3);
+}
+
+/* Loss / Red edge */
+.card-accent-loss {
+  border-left-color: var(--color-loss);
+  background: linear-gradient(135deg, rgba(255, 87, 87, 0.06) 0%, var(--color-card) 60%);
+}
+.card-accent-loss:hover {
+  border-left-color: var(--color-loss);
+  box-shadow: var(--shadow-card-hover), 0 0 20px -8px rgba(255, 87, 87, 0.3);
+}
+
+/* Accent / Blue edge */
+.card-accent-blue {
+  border-left-color: var(--color-accent);
+  background: linear-gradient(135deg, rgba(79, 110, 247, 0.06) 0%, var(--color-card) 60%);
+}
+.card-accent-blue:hover {
+  border-left-color: var(--color-accent);
+  box-shadow: var(--shadow-card-hover), 0 0 20px -8px rgba(79, 110, 247, 0.3);
+}
+
+/* Warn / Amber edge */
+.card-accent-warn {
+  border-left-color: var(--color-warn);
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.06) 0%, var(--color-card) 60%);
+}
+.card-accent-warn:hover {
+  border-left-color: var(--color-warn);
+  box-shadow: var(--shadow-card-hover), 0 0 20px -8px rgba(245, 166, 35, 0.3);
+}
+
+/* AI / Purple edge */
+.card-accent-purple {
+  border-left-color: var(--color-ai);
+  background: linear-gradient(135deg, rgba(155, 125, 255, 0.06) 0%, var(--color-card) 60%);
+}
+.card-accent-purple:hover {
+  border-left-color: var(--color-ai);
+  box-shadow: var(--shadow-card-hover), 0 0 20px -8px rgba(155, 125, 255, 0.3);
+}
+
+/* Neutral / Subtle edge */
+.card-accent-neutral {
+  border-left-color: var(--color-muted);
+  background: var(--color-card);
+}
+.card-accent-neutral:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* ── Section card with colored top accent line ── */
+.card-top-accent {
+  background: var(--color-card);
+  border: 1px solid var(--color-border-solid);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  border-top: 3px solid var(--color-accent);
+  transition: all 0.25s ease;
+}
+
+.card-top-accent:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card-top-accent-profit { border-top-color: var(--color-profit); }
+.card-top-accent-loss { border-top-color: var(--color-loss); }
+.card-top-accent-warn { border-top-color: var(--color-warn); }
+.card-top-accent-purple { border-top-color: var(--color-ai); }
+
 .surface {
   background: var(--color-surface);
 }

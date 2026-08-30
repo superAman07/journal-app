@@ -153,7 +153,8 @@ export function DashboardView({
             <div
               key={t.symbol}
               onClick={() => openLiveChart(t.symbol)}
-              className="card-elevated p-3 rounded-xl flex items-center justify-between gap-2 cursor-pointer hover:border-accent/40 hover:bg-surface transition-all select-none group"
+              className="card-accent p-3 rounded-xl flex items-center justify-between gap-2 cursor-pointer hover:border-accent/40 transition-all select-none group"
+              style={{ borderLeftColor: t.isUp ? 'var(--color-profit)' : 'var(--color-loss)' }}
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -222,7 +223,7 @@ export function DashboardView({
       {/* ── Main Content: Trades + DNA ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent Trades Section */}
-        <div className="lg:col-span-2 card p-4 sm:p-5 space-y-4">
+        <div className="lg:col-span-2 card-top-accent p-4 sm:p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-clean flex items-center gap-2">
               <Zap className="h-4 w-4 text-accent" /> Recent Trades
@@ -324,7 +325,7 @@ export function DashboardView({
         </div>
 
         {/* DNA Snapshot Section */}
-        <div className="card p-4 sm:p-5 space-y-4 flex flex-col justify-between">
+        <div className="card-top-accent card-top-accent-purple p-4 sm:p-5 space-y-4 flex flex-col justify-between">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-clean flex items-center gap-2">
@@ -397,8 +398,16 @@ function KPICard({
     default: "text-clean",
   }[color];
 
+  const edgeClass = {
+    profit: "card-accent card-accent-profit",
+    loss: "card-accent card-accent-loss",
+    accent: "card-accent card-accent-blue",
+    ai: "card-accent card-accent-purple",
+    default: "card-accent card-accent-neutral",
+  }[color];
+
   return (
-    <div className="card p-3 sm:p-3.5 space-y-1 hover:scale-[1.01] transition-transform">
+    <div className={`${edgeClass} p-3 sm:p-3.5 space-y-1`}>
       <span className="label mb-0!">{label}</span>
       <div className={`stat-value text-base! sm:text-lg! ${valueColor}`}>{value}</div>
       <div className="flex items-center gap-1 text-[10px] text-dim font-medium">

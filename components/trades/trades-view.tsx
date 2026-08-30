@@ -240,7 +240,13 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
                           <div
                             key={trade.id}
                             onClick={() => setSelectedTradeForDetail(trade)}
-                            className="card p-4 space-y-3 cursor-pointer hover:border-accent/40 active:scale-[0.99] transition-all"
+                            className={`card-accent p-4 space-y-3 cursor-pointer hover:border-accent/40 active:scale-[0.99] transition-all ${
+                              trade.outcome === "WIN"
+                                ? "card-accent-profit"
+                                : trade.outcome === "LOSS"
+                                ? "card-accent-loss"
+                                : "card-accent-neutral"
+                            }`}
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">

@@ -435,7 +435,7 @@ function StrategyCard({
   }
 
   return (
-    <div className="card p-4 sm:p-5 space-y-3 group relative overflow-hidden cursor-pointer" onClick={onView}>
+    <div className="card-accent card-accent-blue p-4 sm:p-5 space-y-3 group relative overflow-hidden cursor-pointer" onClick={onView}>
       {rank && rank <= 3 && (
         <div className="absolute top-3 right-3">
           <div

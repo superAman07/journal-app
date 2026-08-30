@@ -61,7 +61,7 @@ export default async function DNAPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="card p-5 space-y-3">
+        <div className="card-accent card-accent-profit p-5 space-y-3">
           <span className="badge badge-profit">Peak Strength</span>
           <div>
             <span className="text-[11px] text-dim font-medium">Most Traded Market</span>
@@ -70,7 +70,7 @@ export default async function DNAPage() {
           <p className="text-xs text-muted leading-relaxed">{trades.length} total logged trades in your database.</p>
         </div>
 
-        <div className="card p-5 space-y-3">
+        <div className="card-accent card-accent-blue p-5 space-y-3">
           <span className="badge badge-accent">Win Ratio</span>
           <div>
             <span className="text-[11px] text-dim font-medium">Winning Trades</span>
@@ -79,7 +79,7 @@ export default async function DNAPage() {
           <p className="text-xs text-muted leading-relaxed">Out of {trades.length} total recorded entries.</p>
         </div>
 
-        <div className="card p-5 space-y-3">
+        <div className="card-accent card-accent-loss p-5 space-y-3">
           <span className="badge badge-loss">Risk Warning</span>
           <div>
             <span className="text-[11px] text-dim font-medium">Losing Trades</span>

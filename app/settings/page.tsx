@@ -59,7 +59,7 @@ export default function SettingsPage() {
       )}
 
       {/* Trader Profile */}
-      <div className="card p-5 space-y-4">
+      <div className="card-top-accent p-5 space-y-4">
         <h2 className="text-sm font-semibold text-clean flex items-center gap-2">
           <User className="h-4 w-4 text-accent" /> Trader Profile
         </h2>
@@ -86,7 +86,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Financial Preferences */}
-      <div className="card p-5 space-y-4">
+      <div className="card-top-accent card-top-accent-profit p-5 space-y-4">
         <h2 className="text-sm font-semibold text-clean flex items-center gap-2">
           <Wallet className="h-4 w-4 text-accent" /> Portfolio & Currency
         </h2>
@@ -122,7 +122,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Integration Status */}
-      <div className="card p-5 space-y-4">
+      <div className="card-top-accent card-top-accent-purple p-5 space-y-4">
         <h2 className="text-sm font-semibold text-clean flex items-center gap-2">
           <Key className="h-4 w-4 text-accent" /> Integration Status
         </h2>

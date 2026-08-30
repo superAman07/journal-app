@@ -417,7 +417,7 @@ export function AnalyticsView({
       </div>
 
       {/* Equity Curve SVG Section */}
-      <div className="card p-5 space-y-4">
+      <div className={`card-top-accent ${totalPnLInr >= 0 ? 'card-top-accent-profit' : 'card-top-accent-loss'} p-5 space-y-4`}>
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-bold text-clean text-sm flex items-center gap-2">
@@ -454,13 +454,13 @@ export function AnalyticsView({
       {/* Breakdown Grid: Market Segment & Session Analysis */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Market Segment Performance */}
-        <div className="card p-5 space-y-4">
+        <div className="card-top-accent p-5 space-y-4">
           <h3 className="font-bold text-clean text-sm flex items-center gap-2">
             <Layers className="h-4 w-4 text-accent" /> Market Segment Breakdown
           </h3>
           <div className="space-y-3">
             {marketBreakdown.map((item) => (
-              <div key={item.market} className="card-elevated p-3.5 rounded-xl space-y-2">
+              <div key={item.market} className="card-accent p-3.5 rounded-xl space-y-2" style={{ borderLeftColor: item.pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)' }}>
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-clean">{item.market}</span>
                   <span className={`font-mono font-bold ${item.pnl >= 0 ? "text-profit" : "text-loss"}`}>
@@ -484,13 +484,13 @@ export function AnalyticsView({
         </div>
 
         {/* Trading Session Performance */}
-        <div className="card p-5 space-y-4">
+        <div className="card-top-accent card-top-accent-purple p-5 space-y-4">
           <h3 className="font-bold text-clean text-sm flex items-center gap-2">
             <Clock className="h-4 w-4 text-accent" /> Session Performance
           </h3>
           <div className="space-y-3">
             {sessionBreakdown.map((item) => (
-              <div key={item.session} className="card-elevated p-3.5 rounded-xl space-y-2">
+              <div key={item.session} className="card-accent p-3.5 rounded-xl space-y-2" style={{ borderLeftColor: item.pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)' }}>
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-clean">{item.session} Session</span>
                   <span className={`font-mono font-bold ${item.pnl >= 0 ? "text-profit" : "text-loss"}`}>
@@ -514,13 +514,13 @@ export function AnalyticsView({
       </div>
 
       {/* Day of Week Analysis */}
-      <div className="card p-5 space-y-4">
+      <div className="card-top-accent card-top-accent-warn p-5 space-y-4">
         <h3 className="font-bold text-clean text-sm flex items-center gap-2">
           <Calendar className="h-4 w-4 text-accent" /> Day of Week Distribution
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {dayOfWeekBreakdown.map((item) => (
-            <div key={item.day} className="card-elevated p-3 rounded-xl text-center space-y-1.5">
+            <div key={item.day} className="card-accent p-3 rounded-xl text-center space-y-1.5" style={{ borderLeftColor: item.pnl >= 0 ? 'var(--color-profit)' : 'var(--color-loss)' }}>
               <span className="text-xs font-bold text-clean block">{item.day}</span>
               <span className={`text-sm font-mono font-bold block ${item.pnl >= 0 ? "text-profit" : "text-loss"}`}>
                 {formatAggregatedPnl(item.pnl)}
@@ -547,8 +547,14 @@ function KPICard({
   icon: React.ReactNode;
   color: string;
 }) {
+  const edgeClass = color.includes("profit")
+    ? "card-accent card-accent-profit"
+    : color.includes("loss")
+    ? "card-accent card-accent-loss"
+    : "card-accent card-accent-blue";
+
   return (
-    <div className="card p-4 space-y-1.5">
+    <div className={`${edgeClass} p-4 space-y-1.5`}>
       <div className="flex items-center justify-between text-muted text-xs">
         <span className="text-[10px] uppercase font-bold tracking-wider">{label}</span>
         {icon}
