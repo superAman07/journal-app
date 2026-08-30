@@ -49,7 +49,7 @@ export default async function DNAPage() {
     acc[t.market] = (acc[t.market] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
-  const topMarket = Object.entries(marketCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
+  const topMarket = Object.entries(marketCounts).sort((a: any, b: any) => b[1] - a[1])[0]?.[0] || "N/A";
 
   return (
     <div className="space-y-6">
