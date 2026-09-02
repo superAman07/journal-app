@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Plus, BookOpen, ChevronDown, ChevronRight, Edit2, Eye, RefreshCw } from "lucide-react";
+import { Plus, BookOpen, ChevronDown, ChevronRight, Edit2, Eye, RefreshCw, CalendarDays, List } from "lucide-react";
 import { formatRMultiple } from "@/lib/utils";
 import { DeleteTradeButton } from "@/components/trades/delete-trade-button";
 import { TradeDetailModal } from "@/components/trades/trade-detail-modal";
@@ -16,11 +16,13 @@ import {
   convertPnlToInr,
   getCurrencySymbol,
 } from "@/lib/utils/currency";
+import { TradeCalendar } from "@/components/trades/trade-calendar";
 
 export function TradesView({ initialTrades }: { initialTrades: any[] }) {
   const [selectedTradeForDetail, setSelectedTradeForDetail] = useState<any | null>(null);
   const [selectedTradeForEdit, setSelectedTradeForEdit] = useState<any | null>(null);
   const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
+  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const { rate, loading: rateLoading } = useExchangeRate();
 
   const [filters, setFilters] = useState<TradeFilterState>({
@@ -140,6 +142,27 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
           </p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
+          {/* View Toggle */}
+          {initialTrades.length > 0 && (
+            <div className="flex items-center gap-0.5 bg-surface border border-border-solid p-0.5 rounded-xl">
+              <button
+                onClick={() => setViewMode("calendar")}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  viewMode === "calendar" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-clean"
+                }`}
+              >
+                <CalendarDays className="h-3.5 w-3.5" /> Calendar
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  viewMode === "list" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-clean"
+                }`}
+              >
+                <List className="h-3.5 w-3.5" /> List
+              </button>
+            </div>
+          )}
           <Link href="/trades/new" className="btn-primary cursor-pointer">
             <Plus className="h-4 w-4" /> Log Trade
           </Link>
@@ -176,14 +199,21 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
         </div>
       ) : filteredTrades.length === 0 ? (
         <div className="card p-8 text-center space-y-3">
-          <p className="text-sm font-semibold text-soft">No trades match your search filters.</p>
+          <p className="text-sm text-muted">No trades match your current filters.</p>
           <button
             onClick={() => setFilters({ search: "", market: "ALL", outcome: "ALL", month: "ALL" })}
-            className="btn-secondary text-xs cursor-pointer inline-flex items-center gap-1.5"
+            className="btn-secondary text-xs cursor-pointer"
           >
             Clear Filters
           </button>
         </div>
+      ) : viewMode === "calendar" ? (
+        <TradeCalendar
+          trades={filteredTrades}
+          rate={rate}
+          onViewTrade={setSelectedTradeForDetail}
+          onEditTrade={setSelectedTradeForEdit}
+        />
       ) : (
         <div className="space-y-6">
           {sortedMonthKeys.map((monthKey) => {
@@ -317,7 +347,7 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
                               <th className="py-2.5 pr-3 font-semibold">Instrument</th>
                               <th className="py-2.5 pr-3 font-semibold">Session</th>
                               <th className="py-2.5 pr-3 font-semibold">Setup</th>
-                              <th className="py-2.5 pr-3 font-semibold">Entry / SL / TP</th>
+                              <th className="py-2.5 pr-3 font-semibold">Entry / SL / Exit</th>
                               <th className="py-2.5 pr-3 font-semibold">Outcome</th>
                               <th className="py-2.5 pr-3 text-right font-semibold">R-Mult</th>
                               <th className="py-2.5 pr-3 text-right font-semibold">PnL</th>
@@ -328,7 +358,7 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
                             {group.trades.map((trade) => {
                               const entryNum = Number(trade.actualEntry);
                               const slNum = Number(trade.stopLoss);
-                              const tpNum = Number(trade.target);
+                              const tpNum = Number(trade.actualExit);
                               const pnlNum = Number(trade.pnl);
                               const rrNum = Number(trade.actualRR);
                               const isInr = isIndianMarket(trade.market);
