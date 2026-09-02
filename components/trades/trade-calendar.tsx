@@ -6,16 +6,17 @@ import {
   ChevronRight,
   TrendingUp,
   TrendingDown,
-  Calendar,
+  Calendar as CalendarIcon,
   Eye,
   Edit2,
   Flame,
   X,
+  Target,
   BarChart3,
-  PieChart,
+  Award,
+  Clock,
   ArrowUpRight,
-  ArrowDownRight,
-  Minus,
+  Sparkles,
 } from "lucide-react";
 import { formatRMultiple } from "@/lib/utils";
 import {
@@ -32,70 +33,61 @@ interface TradeCalendarProps {
   onEditTrade: (trade: any) => void;
 }
 
-// ── Reusable SVG Donut Chart ──
-function DonutChart({
+// ── Flag-Style Horizontal Distribution Bar ──
+function HorizontalFlagBar({
+  title,
   segments,
-  size = 120,
-  strokeWidth = 18,
-  label,
 }: {
-  segments: { value: number; color: string; label: string }[];
-  size?: number;
-  strokeWidth?: number;
-  label?: string;
+  title: string;
+  segments: { label: string; count: number; percentage: number; color: string }[];
 }) {
-  const total = segments.reduce((sum, s) => sum + s.value, 0);
-  if (total === 0) return null;
-
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const center = size / 2;
-
-  let currentOffset = 0;
+  const total = segments.reduce((sum, s) => sum + s.count, 0);
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-          {segments.map((seg, i) => {
-            const pct = seg.value / total;
-            const dashLength = pct * circumference;
-            const dashGap = circumference - dashLength;
-            const offset = currentOffset;
-            currentOffset += dashLength;
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-bold text-clean tracking-tight">{title}</span>
+        <span className="text-[11px] font-mono text-dim font-medium">{total} total</span>
+      </div>
 
-            return (
-              <circle
+      {/* Flag-style segmented horizontal bar */}
+      <div className="h-3 w-full rounded-full bg-elevated overflow-hidden flex shadow-inner">
+        {total === 0 ? (
+          <div className="w-full h-full bg-surface" />
+        ) : (
+          segments.map((seg, i) =>
+            seg.percentage > 0 ? (
+              <div
                 key={i}
-                cx={center}
-                cy={center}
-                r={radius}
-                fill="none"
-                stroke={seg.color}
-                strokeWidth={strokeWidth}
-                strokeDasharray={`${dashLength} ${dashGap}`}
-                strokeDashoffset={-offset}
-                strokeLinecap="round"
-                transform={`rotate(-90 ${center} ${center})`}
-                style={{ transition: "stroke-dasharray 0.6s ease, stroke-dashoffset 0.6s ease" }}
+                style={{
+                  width: `${seg.percentage}%`,
+                  backgroundColor: seg.color,
+                }}
+                className="h-full transition-all duration-500 relative group"
+                title={`${seg.label}: ${seg.count} (${seg.percentage.toFixed(1)}%)`}
               />
-            );
-          })}
-        </svg>
-        {label && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-[clamp(10px,1.2vw,13px)] font-bold text-clean">{total}</span>
-            <span className="text-[clamp(8px,1vw,10px)] text-dim uppercase tracking-wider font-semibold">{label}</span>
-          </div>
+            ) : null
+          )
         )}
       </div>
-      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1">
-        {segments.filter(s => s.value > 0).map((seg, i) => (
-          <div key={i} className="flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: seg.color }} />
-            <span className="text-[clamp(9px,1vw,11px)] text-muted font-medium">
-              {seg.label} <strong className="text-soft">{seg.value}</strong>{" "}
-              <span className="text-dim">({((seg.value / total) * 100).toFixed(0)}%)</span>
+
+      {/* Legend with Flag Pill Tags */}
+      <div className="flex flex-wrap items-center gap-2 pt-0.5">
+        {segments.map((seg, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface border border-border-solid text-[11px]"
+          >
+            <span
+              className="h-2 w-2 rounded-full shrink-0"
+              style={{ backgroundColor: seg.color }}
+            />
+            <span className="text-muted font-medium">{seg.label}</span>
+            <span className="font-mono font-bold text-clean">
+              {seg.count}
+              <span className="text-[10px] text-dim ml-1">
+                ({seg.percentage.toFixed(0)}%)
+              </span>
             </span>
           </div>
         ))}
@@ -104,115 +96,21 @@ function DonutChart({
   );
 }
 
-// ── Mini Sparkline for cumulative PnL ──
-function MiniSparkline({ values, width = 120, height = 32 }: { values: number[]; width?: number; height?: number }) {
-  if (values.length < 2) return null;
-
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const pad = 2;
-
-  const points = values
-    .map((v, i) => {
-      const x = pad + (i / (values.length - 1)) * (width - 2 * pad);
-      const y = height - pad - ((v - min) / range) * (height - 2 * pad);
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  const lastVal = values[values.length - 1];
-  const color = lastVal >= 0 ? "var(--color-profit)" : "var(--color-loss)";
-
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="shrink-0">
-      <polyline
-        points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-// ── Day of Week Bar Chart ──
-function DayOfWeekChart({ trades, rate }: { trades: any[]; rate: number }) {
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const dayData = useMemo(() => {
-    const map: Record<string, { pnl: number; trades: number; wins: number }> = {};
-    days.forEach((d) => (map[d] = { pnl: 0, trades: 0, wins: 0 }));
-
-    trades.forEach((t) => {
-      const dayIdx = new Date(t.date).getDay();
-      const dayName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dayIdx];
-      if (map[dayName]) {
-        map[dayName].pnl += convertPnlToInr(Number(t.pnl), t.market, rate);
-        map[dayName].trades += 1;
-        if (t.outcome === "WIN") map[dayName].wins += 1;
-      }
-    });
-
-    return days.map((d) => ({
-      day: d,
-      pnl: map[d].pnl,
-      trades: map[d].trades,
-      winRate: map[d].trades > 0 ? (map[d].wins / map[d].trades) * 100 : 0,
-    }));
-  }, [trades, rate]);
-
-  const maxAbsPnl = Math.max(...dayData.map((d) => Math.abs(d.pnl)), 1);
-
-  return (
-    <div className="space-y-2">
-      <h3 className="text-[clamp(11px,1.2vw,13px)] font-bold text-clean flex items-center gap-1.5">
-        <BarChart3 className="h-3.5 w-3.5 text-accent" /> Day-of-Week Performance
-      </h3>
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-        {dayData.map((d) => {
-          const barPct = maxAbsPnl > 0 ? (Math.abs(d.pnl) / maxAbsPnl) * 100 : 0;
-          return (
-            <div
-              key={d.day}
-              className="card-accent p-2.5 rounded-xl text-center space-y-1.5"
-              style={{ borderLeftColor: d.pnl >= 0 ? "var(--color-profit)" : d.pnl < 0 ? "var(--color-loss)" : "var(--color-muted)" }}
-            >
-              <span className="text-[clamp(10px,1.1vw,12px)] font-extrabold text-clean block">{d.day}</span>
-              <div className="h-12 flex items-end justify-center">
-                <div
-                  className="w-5 rounded-t-md transition-all duration-500"
-                  style={{
-                    height: `${Math.max(barPct, d.trades > 0 ? 10 : 0)}%`,
-                    backgroundColor: d.pnl >= 0 ? "var(--color-profit)" : "var(--color-loss)",
-                    opacity: d.trades > 0 ? 0.7 : 0.15,
-                  }}
-                />
-              </div>
-              <span className={`text-[clamp(9px,1vw,11px)] font-mono font-bold block ${d.pnl >= 0 ? "text-profit" : "text-loss"}`}>
-                {d.trades > 0 ? formatAggregatedPnl(d.pnl) : "\u2014"}
-              </span>
-              <span className="text-[clamp(8px,0.9vw,10px)] text-dim block">
-                {d.trades > 0 ? `${d.trades}t \u00B7 ${d.winRate.toFixed(0)}%` : "No trades"}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════
-// MAIN CALENDAR COMPONENT
+// MAIN COMPACT CALENDAR COMPONENT
 // ═══════════════════════════════════════════
-export function TradeCalendar({ trades, rate, onViewTrade, onEditTrade }: TradeCalendarProps) {
+export function TradeCalendar({
+  trades,
+  rate,
+  onViewTrade,
+  onEditTrade,
+}: TradeCalendarProps) {
   const now = new Date();
   const [currentMonth, setCurrentMonth] = useState(now.getMonth());
   const [currentYear, setCurrentYear] = useState(now.getFullYear());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
+  // ── Month Stepper ──
   const goToPrevMonth = () => {
     if (currentMonth === 0) {
       setCurrentMonth(11);
@@ -239,37 +137,232 @@ export function TradeCalendar({ trades, rate, onViewTrade, onEditTrade }: TradeC
     setSelectedDate(null);
   };
 
-  // ── Compute daily PnL map ──
+  // ── Daily Aggregation Map ──
   const dailyData = useMemo(() => {
-    const map: Record<string, { pnl: number; trades: any[]; wins: number; losses: number }> = {};
+    const map: Record<
+      string,
+      { pnl: number; trades: any[]; wins: number; losses: number; be: number }
+    > = {};
+
     trades.forEach((t) => {
       const d = new Date(t.date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      if (!map[key]) map[key] = { pnl: 0, trades: [], wins: 0, losses: 0 };
+      if (!map[key]) {
+        map[key] = { pnl: 0, trades: [], wins: 0, losses: 0, be: 0 };
+      }
       map[key].pnl += convertPnlToInr(Number(t.pnl), t.market, rate);
       map[key].trades.push(t);
       if (t.outcome === "WIN") map[key].wins++;
-      if (t.outcome === "LOSS") map[key].losses++;
+      else if (t.outcome === "LOSS") map[key].losses++;
+      else map[key].be++;
     });
+
     return map;
   }, [trades, rate]);
 
-  // ── Calendar grid data ──
-  const calendarDays = useMemo(() => {
+  // ── Monthly Filtered Trades ──
+  const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
+  const monthTrades = useMemo(() => {
+    return trades.filter((t) => {
+      const d = new Date(t.date);
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      return k === monthKey;
+    });
+  }, [trades, monthKey]);
+
+  // ── Monthly Broker KPIs ──
+  const metrics = useMemo(() => {
+    const totalPnl = monthTrades.reduce(
+      (sum, t) => sum + convertPnlToInr(Number(t.pnl), t.market, rate),
+      0
+    );
+    const wins = monthTrades.filter((t) => t.outcome === "WIN");
+    const losses = monthTrades.filter((t) => t.outcome === "LOSS");
+    const breakevens = monthTrades.filter((t) => t.outcome === "BREAKEVEN");
+
+    const grossProfit = wins.reduce(
+      (sum, t) => sum + convertPnlToInr(Number(t.pnl), t.market, rate),
+      0
+    );
+    const grossLoss = Math.abs(
+      losses.reduce(
+        (sum, t) => sum + convertPnlToInr(Number(t.pnl), t.market, rate),
+        0
+      )
+    );
+
+    const profitFactor =
+      grossLoss > 0
+        ? (grossProfit / grossLoss).toFixed(2)
+        : grossProfit > 0
+        ? "∞"
+        : "0.00";
+
+    const winRate =
+      monthTrades.length > 0 ? (wins.length / monthTrades.length) * 100 : 0;
+
+    const avgRR =
+      monthTrades.length > 0
+        ? (
+            monthTrades.reduce(
+              (sum, t) => sum + Number(t.actualRR || t.rMultiple || 0),
+              0
+            ) / monthTrades.length
+          ).toFixed(2)
+        : "0.00";
+
+    // Best & Worst Day in selected month
+    let bestDayPnl = 0;
+    let worstDayPnl = 0;
+    Object.entries(dailyData).forEach(([key, data]) => {
+      if (key.startsWith(monthKey)) {
+        if (data.pnl > bestDayPnl) bestDayPnl = data.pnl;
+        if (data.pnl < worstDayPnl) worstDayPnl = data.pnl;
+      }
+    });
+
+    // Market Breakdown for Flag bar
+    const marketCounts: Record<string, number> = {};
+    monthTrades.forEach((t) => {
+      marketCounts[t.market] = (marketCounts[t.market] || 0) + 1;
+    });
+
+    const marketColors = [
+      "var(--color-accent)",
+      "var(--color-ai)",
+      "var(--color-warn)",
+      "var(--color-profit)",
+      "#38bdf8",
+      "#f43f5e",
+    ];
+
+    const marketSegments = Object.entries(marketCounts).map(
+      ([market, count], idx) => ({
+        label: market,
+        count,
+        percentage:
+          monthTrades.length > 0 ? (count / monthTrades.length) * 100 : 0,
+        color: marketColors[idx % marketColors.length],
+      })
+    );
+
+    // Outcome Flag Bar
+    const outcomeSegments = [
+      {
+        label: "Wins",
+        count: wins.length,
+        percentage:
+          monthTrades.length > 0 ? (wins.length / monthTrades.length) * 100 : 0,
+        color: "var(--color-profit)",
+      },
+      {
+        label: "Losses",
+        count: losses.length,
+        percentage:
+          monthTrades.length > 0
+            ? (losses.length / monthTrades.length) * 100
+            : 0,
+        color: "var(--color-loss)",
+      },
+      {
+        label: "Breakeven",
+        count: breakevens.length,
+        percentage:
+          monthTrades.length > 0
+            ? (breakevens.length / monthTrades.length) * 100
+            : 0,
+        color: "var(--color-dim)",
+      },
+    ];
+
+    return {
+      totalTrades: monthTrades.length,
+      totalPnl,
+      grossProfit,
+      grossLoss,
+      profitFactor,
+      winRate,
+      avgRR,
+      bestDayPnl,
+      worstDayPnl,
+      outcomeSegments,
+      marketSegments,
+    };
+  }, [monthTrades, dailyData, monthKey, rate]);
+
+  // ── Day-of-Week Aggregation (Monday to Saturday) ──
+  const dayOfWeekStats = useMemo(() => {
+    const days = [
+      { name: "Mon", idx: 1 },
+      { name: "Tue", idx: 2 },
+      { name: "Wed", idx: 3 },
+      { name: "Thu", idx: 4 },
+      { name: "Fri", idx: 5 },
+      { name: "Sat", idx: 6 },
+    ];
+
+    const map: Record<
+      number,
+      { pnl: number; trades: number; wins: number; losses: number }
+    > = {
+      1: { pnl: 0, trades: 0, wins: 0, losses: 0 },
+      2: { pnl: 0, trades: 0, wins: 0, losses: 0 },
+      3: { pnl: 0, trades: 0, wins: 0, losses: 0 },
+      4: { pnl: 0, trades: 0, wins: 0, losses: 0 },
+      5: { pnl: 0, trades: 0, wins: 0, losses: 0 },
+      6: { pnl: 0, trades: 0, wins: 0, losses: 0 },
+    };
+
+    monthTrades.forEach((t) => {
+      const dow = new Date(t.date).getDay();
+      if (map[dow]) {
+        map[dow].pnl += convertPnlToInr(Number(t.pnl), t.market, rate);
+        map[dow].trades++;
+        if (t.outcome === "WIN") map[dow].wins++;
+        else if (t.outcome === "LOSS") map[dow].losses++;
+      }
+    });
+
+    const maxAbsPnl = Math.max(
+      ...Object.values(map).map((d) => Math.abs(d.pnl)),
+      1
+    );
+
+    return days.map((d) => {
+      const data = map[d.idx];
+      const winRate =
+        data.trades > 0 ? ((data.wins / data.trades) * 100).toFixed(0) : "0";
+      return {
+        name: d.name,
+        pnl: data.pnl,
+        trades: data.trades,
+        winRate,
+        barPct: maxAbsPnl > 0 ? (Math.abs(data.pnl) / maxAbsPnl) * 100 : 0,
+      };
+    });
+  }, [monthTrades, rate]);
+
+  // ── Compact Calendar Cells Construction ──
+  const calendarCells = useMemo(() => {
     const firstDay = new Date(currentYear, currentMonth, 1);
     const lastDay = new Date(currentYear, currentMonth + 1, 0);
-    const daysInMonth = lastDay.getDate();
+    const totalDays = lastDay.getDate();
 
-    let startDow = firstDay.getDay() - 1;
-    if (startDow < 0) startDow = 6;
+    // Monday-based (0 = Mon, ..., 6 = Sun)
+    let startDayOfWeek = firstDay.getDay() - 1;
+    if (startDayOfWeek < 0) startDayOfWeek = 6;
 
-    const cells: { date: number; key: string; isCurrentMonth: boolean }[] = [];
+    const cells: {
+      date: number;
+      key: string;
+      isCurrentMonth: boolean;
+    }[] = [];
 
-    for (let i = 0; i < startDow; i++) {
-      cells.push({ date: 0, key: `empty-${i}`, isCurrentMonth: false });
+    for (let i = 0; i < startDayOfWeek; i++) {
+      cells.push({ date: 0, key: `pad-prev-${i}`, isCurrentMonth: false });
     }
 
-    for (let d = 1; d <= daysInMonth; d++) {
+    for (let d = 1; d <= totalDays; d++) {
       const key = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
       cells.push({ date: d, key, isCurrentMonth: true });
     }
@@ -277,227 +370,269 @@ export function TradeCalendar({ trades, rate, onViewTrade, onEditTrade }: TradeC
     return cells;
   }, [currentMonth, currentYear]);
 
-  // ── Monthly summary ──
-  const monthlySummary = useMemo(() => {
-    const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
-    const monthTrades = trades.filter((t) => {
-      const d = new Date(t.date);
-      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      return k === monthKey;
-    });
-
-    const totalPnl = monthTrades.reduce((sum, t) => sum + convertPnlToInr(Number(t.pnl), t.market, rate), 0);
-    const wins = monthTrades.filter((t) => t.outcome === "WIN").length;
-    const losses = monthTrades.filter((t) => t.outcome === "LOSS").length;
-    const breakevens = monthTrades.filter((t) => t.outcome === "BREAKEVEN").length;
-    const winRate = monthTrades.length > 0 ? (wins / monthTrades.length) * 100 : 0;
-
-    let cum = 0;
-    const cumulativePnl = monthTrades
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .map((t) => {
-        cum += convertPnlToInr(Number(t.pnl), t.market, rate);
-        return cum;
-      });
-
-    const marketMap: Record<string, number> = {};
-    monthTrades.forEach((t) => {
-      marketMap[t.market] = (marketMap[t.market] || 0) + 1;
-    });
-
-    let currentStreak = 0;
-    let bestStreak = 0;
-    monthTrades.forEach((t) => {
-      if (t.outcome === "WIN") {
-        currentStreak = currentStreak >= 0 ? currentStreak + 1 : 1;
-        if (currentStreak > bestStreak) bestStreak = currentStreak;
-      } else if (t.outcome === "LOSS") {
-        currentStreak = currentStreak <= 0 ? currentStreak - 1 : -1;
-      }
-    });
-
-    return {
-      trades: monthTrades,
-      totalPnl,
-      wins,
-      losses,
-      breakevens,
-      winRate,
-      cumulativePnl: [0, ...cumulativePnl],
-      marketBreakdown: Object.entries(marketMap).map(([market, count]) => ({
-        label: market,
-        value: count as number,
-        color: market.includes("Nifty") ? "#4f6ef7" : market.includes("Bank") ? "#9b7dff" : market.includes("Gold") || market.includes("Crypto") ? "#f5a623" : "#0bd07f",
-      })),
-      currentStreak,
-      bestStreak,
-    };
-  }, [trades, currentMonth, currentYear, rate]);
-
-  const selectedDayTrades = selectedDate ? dailyData[selectedDate]?.trades || [] : [];
-
-  const monthName = new Date(currentYear, currentMonth, 1).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  const monthLabel = new Date(currentYear, currentMonth, 1).toLocaleDateString(
+    "en-US",
+    {
+      month: "long",
+      year: "numeric",
+    }
+  );
 
   const isToday = (dateNum: number) => {
-    return dateNum === now.getDate() && currentMonth === now.getMonth() && currentYear === now.getFullYear();
+    return (
+      dateNum === now.getDate() &&
+      currentMonth === now.getMonth() &&
+      currentYear === now.getFullYear()
+    );
   };
+
+  const selectedDayTrades = selectedDate
+    ? dailyData[selectedDate]?.trades || []
+    : [];
 
   return (
     <div className="space-y-4">
-      {/* ── Monthly Summary KPI Strip ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2.5">
-        <div className={`card-accent ${monthlySummary.totalPnl >= 0 ? "card-accent-profit" : "card-accent-loss"} p-3 space-y-1`}>
-          <span className="text-[clamp(9px,1vw,10px)] uppercase font-bold text-dim tracking-wider block">Monthly P&L</span>
-          <span className={`text-[clamp(14px,1.8vw,20px)] font-mono font-black block ${monthlySummary.totalPnl >= 0 ? "text-profit" : "text-loss"}`}>
-            {formatAggregatedPnl(monthlySummary.totalPnl)}
-          </span>
-          <MiniSparkline values={monthlySummary.cumulativePnl} width={100} height={24} />
-        </div>
-
-        <div className="card-accent card-accent-blue p-3 space-y-1">
-          <span className="text-[clamp(9px,1vw,10px)] uppercase font-bold text-dim tracking-wider block">Total Trades</span>
-          <span className="text-[clamp(14px,1.8vw,20px)] font-mono font-black text-clean block">{monthlySummary.trades.length}</span>
-          <span className="text-[clamp(8px,0.9vw,10px)] text-dim font-medium">{monthlySummary.wins}W / {monthlySummary.losses}L / {monthlySummary.breakevens}BE</span>
-        </div>
-
-        <div className={`card-accent ${monthlySummary.winRate >= 50 ? "card-accent-profit" : "card-accent-loss"} p-3 space-y-1`}>
-          <span className="text-[clamp(9px,1vw,10px)] uppercase font-bold text-dim tracking-wider block">Win Rate</span>
-          <span className={`text-[clamp(14px,1.8vw,20px)] font-mono font-black block ${monthlySummary.winRate >= 50 ? "text-profit" : "text-loss"}`}>
-            {monthlySummary.winRate.toFixed(1)}%
-          </span>
-          <div className="w-full h-1.5 bg-elevated rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{
-                width: `${monthlySummary.winRate}%`,
-                backgroundColor: monthlySummary.winRate >= 50 ? "var(--color-profit)" : "var(--color-loss)",
-              }}
-            />
+      {/* ── 1. Top Broker P&L Performance Cards (Clean, No Neon Ribbons) ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Net Realized P&L */}
+        <div className="card p-4 rounded-2xl border border-border-solid bg-card shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-dim text-xs">
+            <span className="uppercase font-bold tracking-wider text-[10px]">
+              Net Realized P&L
+            </span>
+            {metrics.totalPnl >= 0 ? (
+              <TrendingUp className="h-4 w-4 text-profit" />
+            ) : (
+              <TrendingDown className="h-4 w-4 text-loss" />
+            )}
+          </div>
+          <div
+            className={`font-mono text-xl sm:text-2xl font-black ${
+              metrics.totalPnl >= 0 ? "text-profit" : "text-loss"
+            }`}
+          >
+            {formatAggregatedPnl(metrics.totalPnl)}
+          </div>
+          <div className="text-[11px] text-muted font-medium">
+            {monthLabel} · {metrics.totalTrades} trade
+            {metrics.totalTrades !== 1 ? "s" : ""}
           </div>
         </div>
 
-        <div className={`card-accent ${monthlySummary.currentStreak > 0 ? "card-accent-profit" : monthlySummary.currentStreak < 0 ? "card-accent-loss" : "card-accent-neutral"} p-3 space-y-1`}>
-          <span className="text-[clamp(9px,1vw,10px)] uppercase font-bold text-dim tracking-wider block">Streak</span>
-          <div className="flex items-center gap-1.5">
-            <Flame className="h-4 w-4 text-warn" />
-            <span className={`text-[clamp(14px,1.8vw,20px)] font-mono font-black block ${monthlySummary.currentStreak > 0 ? "text-profit" : monthlySummary.currentStreak < 0 ? "text-loss" : "text-clean"}`}>
-              {monthlySummary.currentStreak > 0 ? `+${monthlySummary.currentStreak}` : monthlySummary.currentStreak}
+        {/* Win Rate */}
+        <div className="card p-4 rounded-2xl border border-border-solid bg-card shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-dim text-xs">
+            <span className="uppercase font-bold tracking-wider text-[10px]">
+              Win Rate
+            </span>
+            <Target className="h-4 w-4 text-accent" />
+          </div>
+          <div className="font-mono text-xl sm:text-2xl font-black text-clean">
+            {metrics.winRate.toFixed(1)}%
+          </div>
+          <div className="text-[11px] text-muted font-medium">
+            <span className="text-profit font-bold">
+              {metrics.outcomeSegments[0]?.count || 0}W
+            </span>{" "}
+            /{" "}
+            <span className="text-loss font-bold">
+              {metrics.outcomeSegments[1]?.count || 0}L
+            </span>{" "}
+            / {metrics.outcomeSegments[2]?.count || 0}BE
+          </div>
+        </div>
+
+        {/* Profit Factor & Avg RR */}
+        <div className="card p-4 rounded-2xl border border-border-solid bg-card shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-dim text-xs">
+            <span className="uppercase font-bold tracking-wider text-[10px]">
+              Profit Factor
+            </span>
+            <Award className="h-4 w-4 text-warn" />
+          </div>
+          <div className="font-mono text-xl sm:text-2xl font-black text-clean flex items-baseline gap-2">
+            <span>{metrics.profitFactor}</span>
+            <span className="text-xs font-semibold text-dim">
+              Avg: {metrics.avgRR}R
             </span>
           </div>
-          <span className="text-[clamp(8px,0.9vw,10px)] text-dim font-medium">Best: +{monthlySummary.bestStreak}W</span>
+          <div className="text-[11px] text-muted font-medium">
+            Gross: {formatAggregatedPnl(metrics.grossProfit)}
+          </div>
         </div>
 
-        <div className="card-accent card-accent-purple p-3 flex items-center justify-center">
-          <DonutChart
-            segments={[
-              { value: monthlySummary.wins, color: "#0bd07f", label: "Win" },
-              { value: monthlySummary.losses, color: "#ff5757", label: "Loss" },
-              { value: monthlySummary.breakevens, color: "#5c5e7a", label: "BE" },
-            ]}
-            size={90}
-            strokeWidth={14}
-            label="Trades"
+        {/* Best Day / Streak */}
+        <div className="card p-4 rounded-2xl border border-border-solid bg-card shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-dim text-xs">
+            <span className="uppercase font-bold tracking-wider text-[10px]">
+              Best Day
+            </span>
+            <Flame className="h-4 w-4 text-profit" />
+          </div>
+          <div className="font-mono text-xl sm:text-2xl font-black text-profit">
+            {metrics.bestDayPnl > 0
+              ? formatAggregatedPnl(metrics.bestDayPnl)
+              : "—"}
+          </div>
+          <div className="text-[11px] text-muted font-medium">
+            Worst Day:{" "}
+            <span className="font-mono font-semibold text-loss">
+              {metrics.worstDayPnl < 0
+                ? formatAggregatedPnl(metrics.worstDayPnl)
+                : "—"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2. Flag-Style Horizontal Distribution Bars (Replaces Ugly Pie Charts) ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="card p-4 rounded-2xl border border-border-solid bg-card shadow-sm">
+          <HorizontalFlagBar
+            title="Outcome Distribution"
+            segments={metrics.outcomeSegments}
           />
         </div>
-
-        <div className="card-accent card-accent-warn p-3 flex items-center justify-center">
-          <DonutChart
-            segments={monthlySummary.marketBreakdown}
-            size={90}
-            strokeWidth={14}
-            label="Markets"
+        <div className="card p-4 rounded-2xl border border-border-solid bg-card shadow-sm">
+          <HorizontalFlagBar
+            title="Market Segment Distribution"
+            segments={metrics.marketSegments}
           />
         </div>
       </div>
 
-      {/* ── Calendar Header: Month Navigation ── */}
-      <div className="card-top-accent p-4 space-y-3">
-        <div className="flex items-center justify-between">
+      {/* ── 3. Compact Broker-Grade Calendar (Height ~320px, Clean AngelOne Circles) ── */}
+      <div className="card p-4 sm:p-5 rounded-2xl border border-border-solid bg-card shadow-sm space-y-3">
+        {/* Calendar Header with Navigation Stepper */}
+        <div className="flex items-center justify-between border-b border-border-solid pb-3">
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-accent" />
-            <h2 className="text-[clamp(13px,1.4vw,16px)] font-bold text-clean">{monthName}</h2>
+            <CalendarIcon className="h-4 w-4 text-accent" />
+            <h2 className="text-sm sm:text-base font-bold text-clean">
+              {monthLabel}
+            </h2>
           </div>
+
           <div className="flex items-center gap-1.5">
             <button
               onClick={goToToday}
-              className="px-2.5 py-1 rounded-lg text-[clamp(9px,1vw,11px)] font-bold text-accent bg-accent-muted hover:bg-accent/20 transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded-lg text-xs font-bold text-accent bg-accent/10 hover:bg-accent/20 transition-all cursor-pointer"
             >
-              Today
+              Current Month
             </button>
-            <button onClick={goToPrevMonth} className="h-7 w-7 rounded-lg bg-elevated hover:bg-overlay flex items-center justify-center text-muted hover:text-clean transition-colors cursor-pointer">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button onClick={goToNextMonth} className="h-7 w-7 rounded-lg bg-elevated hover:bg-overlay flex items-center justify-center text-muted hover:text-clean transition-colors cursor-pointer">
-              <ChevronRight className="h-4 w-4" />
-            </button>
+            <div className="flex items-center bg-surface border border-border-solid rounded-lg p-0.5">
+              <button
+                onClick={goToPrevMonth}
+                className="h-7 w-7 rounded-md hover:bg-elevated flex items-center justify-center text-muted hover:text-clean transition-colors cursor-pointer"
+                title="Previous Month"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={goToNextMonth}
+                className="h-7 w-7 rounded-md hover:bg-elevated flex items-center justify-center text-muted hover:text-clean transition-colors cursor-pointer"
+                title="Next Month"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* ── Weekday Headers ── */}
+        {/* Weekday Row (Mon → Sun) */}
         <div className="grid grid-cols-7 gap-1">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-            <div key={day} className="text-center text-[clamp(9px,1vw,11px)] font-bold text-dim uppercase tracking-wider py-1">
-              {day}
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+            <div
+              key={d}
+              className="text-center text-[10px] sm:text-xs font-bold text-dim uppercase tracking-wider py-1"
+            >
+              {d}
             </div>
           ))}
         </div>
 
-        {/* ── Calendar Grid ── */}
-        <div className="grid grid-cols-7 gap-1">
-          {calendarDays.map((cell) => {
+        {/* Compact Calendar Grid */}
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+          {calendarCells.map((cell) => {
             if (!cell.isCurrentMonth) {
-              return <div key={cell.key} className="aspect-square" />;
+              return (
+                <div
+                  key={cell.key}
+                  className="h-14 sm:h-16 rounded-xl bg-transparent opacity-10"
+                />
+              );
             }
 
             const dayInfo = dailyData[cell.key];
             const hasTrades = dayInfo && dayInfo.trades.length > 0;
             const isSelected = selectedDate === cell.key;
-            const todayClass = isToday(cell.date);
+            const today = isToday(cell.date);
+
+            const isProfitable = hasTrades && dayInfo.pnl > 0;
+            const isLoss = hasTrades && dayInfo.pnl < 0;
 
             return (
               <button
                 key={cell.key}
-                onClick={() => setSelectedDate(isSelected ? null : hasTrades ? cell.key : null)}
+                onClick={() =>
+                  setSelectedDate(isSelected ? null : hasTrades ? cell.key : null)
+                }
+                disabled={!hasTrades}
                 className={`
-                  aspect-square rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer relative
-                  ${isSelected ? "ring-2 ring-accent bg-accent-muted" : ""}
-                  ${hasTrades ? "hover:bg-elevated" : "hover:bg-surface"}
-                  ${todayClass ? "ring-1 ring-accent/50" : ""}
+                  h-14 sm:h-16 rounded-xl p-1 flex flex-col items-center justify-between transition-all relative select-none
+                  ${
+                    isSelected
+                      ? "ring-2 ring-accent bg-accent/15"
+                      : hasTrades
+                      ? "bg-surface hover:bg-elevated cursor-pointer"
+                      : "bg-surface/30 cursor-default opacity-60"
+                  }
+                  ${today && !isSelected ? "border border-accent/40" : "border border-transparent"}
                 `}
               >
-                <span className={`text-[clamp(10px,1.2vw,13px)] font-bold ${todayClass ? "text-accent" : hasTrades ? "text-clean" : "text-dim"}`}>
+                {/* Date Badge: AngelOne Circular Pill */}
+                <div
+                  className={`
+                    h-6 w-6 sm:h-7 sm:w-7 rounded-full flex items-center justify-center text-xs font-bold transition-transform
+                    ${
+                      isProfitable
+                        ? "bg-profit text-[#06060a] font-black shadow-sm"
+                        : isLoss
+                        ? "bg-loss text-white font-black shadow-sm"
+                        : hasTrades
+                        ? "bg-dim text-white font-black"
+                        : today
+                        ? "text-accent font-black"
+                        : "text-dim"
+                    }
+                  `}
+                >
                   {cell.date}
-                </span>
+                </div>
 
-                {hasTrades ? (
-                  <>
-                    <div
-                      className={`h-[clamp(6px,1vw,10px)] w-[clamp(6px,1vw,10px)] rounded-full ${
-                        dayInfo.pnl > 0 ? "bg-profit" : dayInfo.pnl < 0 ? "bg-loss" : "bg-muted"
+                {/* Daily P&L Number under Circle */}
+                <div className="w-full text-center">
+                  {hasTrades ? (
+                    <span
+                      className={`text-[9px] sm:text-[11px] font-mono font-bold block truncate leading-tight ${
+                        isProfitable
+                          ? "text-profit"
+                          : isLoss
+                          ? "text-loss"
+                          : "text-clean"
                       }`}
-                      style={{
-                        boxShadow: dayInfo.pnl > 0
-                          ? "0 0 6px rgba(11,208,127,0.4)"
-                          : dayInfo.pnl < 0
-                          ? "0 0 6px rgba(255,87,87,0.4)"
-                          : "none",
-                      }}
-                    />
-                    <span className={`text-[clamp(7px,0.8vw,9px)] font-mono font-bold leading-none ${
-                      dayInfo.pnl >= 0 ? "text-profit" : "text-loss"
-                    }`}>
+                    >
                       {formatAggregatedPnl(dayInfo.pnl)}
                     </span>
-                  </>
-                ) : (
-                  <span className="text-[clamp(7px,0.8vw,9px)] text-dim/30">{"\u2014"}</span>
-                )}
+                  ) : (
+                    <span className="text-[10px] text-dim/40 block leading-tight">
+                      —
+                    </span>
+                  )}
+                </div>
 
+                {/* Multiple Trades Badge */}
                 {hasTrades && dayInfo.trades.length > 1 && (
-                  <span className="absolute top-0.5 right-1 text-[clamp(7px,0.7vw,8px)] font-bold text-dim bg-elevated rounded-full h-3.5 w-3.5 flex items-center justify-center">
+                  <span className="absolute top-1 right-1 text-[8px] font-mono font-bold bg-overlay text-clean px-1 rounded-full">
                     {dayInfo.trades.length}
                   </span>
                 )}
@@ -505,107 +640,255 @@ export function TradeCalendar({ trades, rate, onViewTrade, onEditTrade }: TradeC
             );
           })}
         </div>
+
+        {/* AngelOne Style Calendar Legend */}
+        <div className="flex items-center justify-between pt-3 border-t border-border-solid text-xs text-muted">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded-full bg-profit inline-block" />
+              <span className="text-[11px] font-medium text-soft">Profit Day</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded-full bg-loss inline-block" />
+              <span className="text-[11px] font-medium text-soft">Loss Day</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-dim font-bold">—</span>
+              <span className="text-[11px] font-medium text-muted">No Trades</span>
+            </div>
+          </div>
+          <span className="text-[10px] text-dim hidden sm:inline-block">
+            Click any active day to inspect scrip executions
+          </span>
+        </div>
       </div>
 
-      {/* ── Selected Day Expansion Panel ── */}
+      {/* ── 4. Selected Day Scrip Execution List (Expands on Click) ── */}
       {selectedDate && selectedDayTrades.length > 0 && (
-        <div className="card-accent card-accent-blue p-4 space-y-3">
-          <div className="flex items-center justify-between">
+        <div className="card p-4 sm:p-5 rounded-2xl border border-accent/40 bg-card shadow-md space-y-3 animate-in fade-in-50 duration-200">
+          <div className="flex items-center justify-between border-b border-border-solid pb-2.5">
             <div className="flex items-center gap-2">
-              <span className="text-[clamp(11px,1.2vw,13px)] font-bold text-clean">
+              <h3 className="text-xs sm:text-sm font-bold text-clean">
+                Executions on{" "}
                 {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-IN", {
-                  weekday: "long",
+                  weekday: "short",
                   day: "numeric",
-                  month: "long",
+                  month: "short",
                   year: "numeric",
                 })}
+              </h3>
+              <span className="badge badge-accent text-[10px]">
+                {selectedDayTrades.length} Scrip
+                {selectedDayTrades.length > 1 ? "s" : ""}
               </span>
-              <span className="badge badge-accent text-[9px]">{selectedDayTrades.length} trade{selectedDayTrades.length > 1 ? "s" : ""}</span>
             </div>
-            <button onClick={() => setSelectedDate(null)} className="h-6 w-6 rounded-lg bg-elevated hover:bg-overlay flex items-center justify-center text-dim hover:text-clean cursor-pointer">
-              <X className="h-3.5 w-3.5" />
-            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <span className="text-[10px] uppercase font-bold text-dim mr-1.5">
+                  Day Total:
+                </span>
+                <span
+                  className={`font-mono font-black text-sm ${
+                    (dailyData[selectedDate]?.pnl || 0) >= 0
+                      ? "text-profit"
+                      : "text-loss"
+                  }`}
+                >
+                  {formatAggregatedPnl(dailyData[selectedDate]?.pnl || 0)}
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedDate(null)}
+                className="h-6 w-6 rounded-md hover:bg-elevated flex items-center justify-center text-dim hover:text-clean cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <div className="space-y-2">
             {selectedDayTrades.map((trade: any) => {
               const pnlNum = Number(trade.pnl);
-              const rrNum = Number(trade.actualRR || trade.rMultiple);
+              const rrNum = Number(trade.actualRR || trade.rMultiple || 0);
               const isInr = isIndianMarket(trade.market);
               const pnlInInr = convertPnlToInr(pnlNum, trade.market, rate);
 
               return (
                 <div
                   key={trade.id}
-                  className={`card-accent p-3 rounded-xl cursor-pointer hover:border-accent/40 transition-all ${
-                    trade.outcome === "WIN"
-                      ? "card-accent-profit"
-                      : trade.outcome === "LOSS"
-                      ? "card-accent-loss"
-                      : "card-accent-neutral"
-                  }`}
                   onClick={() => onViewTrade(trade)}
+                  className="p-3 sm:p-3.5 rounded-xl border border-border-solid bg-surface hover:bg-elevated hover:border-accent/30 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono text-[clamp(11px,1.2vw,13px)] font-bold text-clean truncate">{trade.instrument}</span>
-                      <span className={`badge text-[9px] ${trade.outcome === "WIN" ? "badge-profit" : trade.outcome === "LOSS" ? "badge-loss" : "badge-neutral"}`}>
+                  {/* Left: Scrip, Market, Session */}
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-sm font-bold text-clean">
+                        {trade.instrument}
+                      </span>
+                      <span
+                        className={`badge text-[9px] font-bold ${
+                          trade.outcome === "WIN"
+                            ? "badge-profit"
+                            : trade.outcome === "LOSS"
+                            ? "badge-loss"
+                            : "badge-neutral"
+                        }`}
+                      >
                         {trade.outcome}
                       </span>
-                      <span className="badge badge-neutral text-[9px] hidden sm:inline-flex">{trade.session}</span>
+                      <span className="badge badge-neutral text-[9px]">
+                        {trade.market}
+                      </span>
+                      <span className="text-dim text-xs">· {trade.session}</span>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="text-right">
-                        <span className={`font-mono text-[clamp(11px,1.2vw,13px)] font-bold ${pnlNum >= 0 ? "text-profit" : "text-loss"}`}>
-                          {formatPnlWithCurrency(pnlNum, trade.market)}
-                        </span>
-                        {!isInr && (
-                          <span className="text-[9px] text-dim font-mono block">{"\u2248"} {formatAggregatedPnl(pnlInInr)}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => onViewTrade(trade)}
-                          className="h-7 w-7 rounded-lg flex items-center justify-center text-dim hover:text-accent hover:bg-accent-muted transition-colors cursor-pointer"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => onEditTrade(trade)}
-                          className="h-7 w-7 rounded-lg flex items-center justify-center text-dim hover:text-accent hover:bg-accent-muted transition-colors cursor-pointer"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+
+                    {/* Price execution points */}
+                    <div className="flex items-center gap-3 text-xs text-muted">
+                      <span>
+                        Entry:{" "}
+                        <strong className="text-soft font-mono">
+                          {Number(trade.actualEntry)}
+                        </strong>
+                      </span>
+                      <span>
+                        SL:{" "}
+                        <strong className="text-loss font-mono">
+                          {Number(trade.stopLoss)}
+                        </strong>
+                      </span>
+                      <span>
+                        Exit:{" "}
+                        <strong className="text-profit font-mono">
+                          {Number(trade.actualExit)}
+                        </strong>
+                      </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 mt-1.5 text-[clamp(9px,1vw,11px)] text-muted">
-                    <span>Entry: <strong className="text-soft font-mono">{Number(trade.actualEntry)}</strong></span>
-                    <span>SL: <strong className="text-loss font-mono">{Number(trade.stopLoss)}</strong></span>
-                    <span>Exit: <strong className="text-profit font-mono">{Number(trade.actualExit)}</strong></span>
-                    <span className="ml-auto">
-                      R: <strong className={`font-mono ${rrNum >= 0 ? "text-profit" : "text-loss"}`}>{formatRMultiple(rrNum)}</strong>
-                    </span>
+                  {/* Right: R-Multiple, P&L, Actions */}
+                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-1 sm:pt-0 border-t sm:border-t-0 border-border/20">
+                    <div className="text-left sm:text-right">
+                      <span
+                        className={`font-mono text-sm sm:text-base font-black block ${
+                          pnlNum >= 0 ? "text-profit" : "text-loss"
+                        }`}
+                      >
+                        {formatPnlWithCurrency(pnlNum, trade.market)}
+                      </span>
+                      <span
+                        className={`font-mono text-[10px] font-bold ${
+                          rrNum >= 0 ? "text-profit" : "text-loss"
+                        }`}
+                      >
+                        {formatRMultiple(rrNum)}
+                      </span>
+                      {!isInr && (
+                        <span className="text-[9px] text-dim font-mono block">
+                          ≈ {formatAggregatedPnl(pnlInInr)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div
+                      className="flex items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={() => onViewTrade(trade)}
+                        className="h-7 w-7 rounded-lg flex items-center justify-center text-dim hover:text-accent hover:bg-accent/10 transition-colors cursor-pointer"
+                        title="View Details"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => onEditTrade(trade)}
+                        className="h-7 w-7 rounded-lg flex items-center justify-center text-dim hover:text-accent hover:bg-accent/10 transition-colors cursor-pointer"
+                        title="Edit Trade"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
-
-          {selectedDayTrades.length > 1 && (
-            <div className="flex items-center justify-between pt-2 border-t border-border/20 text-[clamp(10px,1.1vw,12px)]">
-              <span className="text-dim font-semibold">Day Total</span>
-              <span className={`font-mono font-bold ${(dailyData[selectedDate]?.pnl || 0) >= 0 ? "text-profit" : "text-loss"}`}>
-                {formatAggregatedPnl(dailyData[selectedDate]?.pnl || 0)}
-              </span>
-            </div>
-          )}
         </div>
       )}
 
-      {/* ── Day of Week Chart ── */}
-      <DayOfWeekChart trades={monthlySummary.trades} rate={rate} />
+      {/* ── 5. Day-of-Week P&L Strip (Monday to Saturday) ── */}
+      <div className="card p-4 sm:p-5 rounded-2xl border border-border-solid bg-card shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-accent" />
+            <h3 className="text-xs sm:text-sm font-bold text-clean">
+              Day-of-Week Performance (Mon – Sat)
+            </h3>
+          </div>
+          <span className="text-[11px] text-dim font-medium">
+            Aggregated by weekday
+          </span>
+        </div>
+
+        {/* 6 Weekdays Cards: Monday to Saturday */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          {dayOfWeekStats.map((day) => {
+            const isProf = day.pnl > 0;
+            const isLos = day.pnl < 0;
+
+            return (
+              <div
+                key={day.name}
+                className="p-3 rounded-xl border border-border-solid bg-surface text-center space-y-1.5"
+              >
+                <span className="text-xs font-extrabold text-clean block">
+                  {day.name}
+                </span>
+
+                {/* Subtle vertical mini bar */}
+                <div className="h-8 flex items-end justify-center">
+                  <div
+                    className="w-3.5 rounded-t-sm transition-all duration-500"
+                    style={{
+                      height: `${
+                        day.trades > 0 ? Math.max(day.barPct, 15) : 4
+                      }%`,
+                      backgroundColor: isProf
+                        ? "var(--color-profit)"
+                        : isLos
+                        ? "var(--color-loss)"
+                        : "var(--color-border-solid)",
+                    }}
+                  />
+                </div>
+
+                <div
+                  className={`font-mono text-xs font-black truncate ${
+                    isProf
+                      ? "text-profit"
+                      : isLos
+                      ? "text-loss"
+                      : "text-dim"
+                  }`}
+                >
+                  {day.trades > 0 ? formatAggregatedPnl(day.pnl) : "₹0"}
+                </div>
+
+                <div className="text-[10px] text-dim">
+                  {day.trades > 0 ? (
+                    <span>
+                      {day.trades}t · {day.winRate}%
+                    </span>
+                  ) : (
+                    <span>0 trades</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
