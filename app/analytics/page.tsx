@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getUserTrades } from "@/lib/actions/trade-actions";
-import { fetchUsdToInrRate } from "@/lib/utils/currency";
 import { AnalyticsView } from "@/components/analytics/analytics-view";
 
 export const metadata: Metadata = {
@@ -10,7 +9,6 @@ export const metadata: Metadata = {
 
 export default async function AnalyticsPage() {
   const trades = await getUserTrades();
-  const usdInrRate = await fetchUsdToInrRate();
 
-  return <AnalyticsView initialTrades={trades} usdInrRate={usdInrRate} />;
+  return <AnalyticsView initialTrades={trades} />;
 }

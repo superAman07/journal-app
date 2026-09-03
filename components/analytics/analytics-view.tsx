@@ -9,78 +9,72 @@ import {
   Plus,
   Clock,
   Target,
-  Zap,
   Award,
   Layers,
   Calendar,
   Filter,
   Flame,
-  ArrowUpRight,
-  ArrowDownRight,
   Activity,
   Percent,
   Dna,
   BrainCircuit,
   CalendarRange,
   ShieldCheck,
-  CheckCircle2,
-  AlertTriangle,
-  Sparkles,
 } from "lucide-react";
-import { convertPnlToInr, formatAggregatedPnl, getCurrencySymbol } from "@/lib/utils/currency";
+import { convertPnlToInr, formatAggregatedPnl } from "@/lib/utils/currency";
+import { useExchangeRate } from "@/lib/hooks/use-exchange-rate";
 
 interface TradeData {
   id: string;
   date: string | Date;
-  market: string;
-  instrument: string;
-  session: string;
-  setup: string;
-  outcome: string;
-  pnl: number;
-  rMultiple: number;
-  actualRR: number;
-  riskPercent: number;
+  market?: string | null;
+  instrument?: string | null;
+  session?: string | null;
+  setup?: string | null;
+  outcome?: string | null;
+  pnl?: number | null;
+  rMultiple?: number | null;
+  actualRR?: number | null;
+  riskPercent?: number | null;
   entryTime?: string | Date | null;
   exitTime?: string | Date | null;
-  rulesFollowed: boolean;
+  rulesFollowed?: boolean | null;
 }
 
 type AnalyticsTab = "overview" | "dna" | "audits";
 
 export function AnalyticsView({
-  initialTrades,
-  usdInrRate,
+  initialTrades = [],
 }: {
-  initialTrades: TradeData[];
-  usdInrRate: number;
+  initialTrades?: TradeData[];
+  usdInrRate?: number;
 }) {
+  const { rate: hookRate } = useExchangeRate();
+  const usdInrRate = Number.isFinite(hookRate) && hookRate > 0 ? hookRate : 85.0;
+
   const [activeTab, setActiveTab] = useState<AnalyticsTab>("overview");
   const [selectedMarket, setSelectedMarket] = useState<string>("ALL");
   const [selectedSession, setSelectedSession] = useState<string>("ALL");
   const [timeRange, setTimeRange] = useState<"ALL" | "30D" | "90D">("ALL");
 
-  // Markets list
   const markets = useMemo(() => {
-    const set = new Set(initialTrades.map((t) => t.market));
+    const set = new Set(initialTrades.map((t) => t.market || "Other"));
     return ["ALL", ...Array.from(set)];
   }, [initialTrades]);
 
-  // Sessions list
   const sessions = useMemo(() => {
-    const set = new Set(initialTrades.map((t) => t.session));
+    const set = new Set(initialTrades.map((t) => t.session || "Regular"));
     return ["ALL", ...Array.from(set)];
   }, [initialTrades]);
 
-  // Filtered trades
   const filteredTrades = useMemo(() => {
     let list = [...initialTrades];
 
     if (selectedMarket !== "ALL") {
-      list = list.filter((t) => t.market === selectedMarket);
+      list = list.filter((t) => (t.market || "Other") === selectedMarket);
     }
     if (selectedSession !== "ALL") {
-      list = list.filter((t) => t.session === selectedSession);
+      list = list.filter((t) => (t.session || "Regular") === selectedSession);
     }
     if (timeRange !== "ALL") {
       const now = new Date().getTime();
@@ -92,34 +86,38 @@ export function AnalyticsView({
     return list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [initialTrades, selectedMarket, selectedSession, timeRange]);
 
-  // Metrics Calculations
   const totalTrades = filteredTrades.length;
   const wins = filteredTrades.filter((t) => t.outcome === "WIN");
   const losses = filteredTrades.filter((t) => t.outcome === "LOSS");
-  const breakevens = filteredTrades.filter((t) => t.outcome === "BREAKEVEN");
-
   const winCount = wins.length;
   const lossCount = losses.length;
   const winRate = totalTrades > 0 ? ((winCount / totalTrades) * 100).toFixed(1) : "0.0";
 
-  // Converted PnLs in INR
   const tradesWithInrPnL = useMemo(() => {
     return filteredTrades.map((t) => ({
       ...t,
-      pnlInr: convertPnlToInr(Number(t.pnl || 0), t.market, usdInrRate),
+      marketClean: t.market || "Other",
+      sessionClean: t.session || "Regular",
+      pnlInr: convertPnlToInr(Number(t.pnl || 0), t.market || "", usdInrRate),
     }));
   }, [filteredTrades, usdInrRate]);
 
   const totalPnLInr = useMemo(() => {
-    return tradesWithInrPnL.reduce((sum, t) => sum + t.pnlInr, 0);
+    return tradesWithInrPnL.reduce((sum, t) => sum + (Number.isFinite(t.pnlInr) ? t.pnlInr : 0), 0);
   }, [tradesWithInrPnL]);
 
   const grossProfit = useMemo(() => {
-    return tradesWithInrPnL.filter((t) => t.pnlInr > 0).reduce((sum, t) => sum + t.pnlInr, 0);
+    return tradesWithInrPnL
+      .filter((t) => t.pnlInr > 0)
+      .reduce((sum, t) => sum + t.pnlInr, 0);
   }, [tradesWithInrPnL]);
 
   const grossLoss = useMemo(() => {
-    return Math.abs(tradesWithInrPnL.filter((t) => t.pnlInr < 0).reduce((sum, t) => sum + t.pnlInr, 0));
+    return Math.abs(
+      tradesWithInrPnL
+        .filter((t) => t.pnlInr < 0)
+        .reduce((sum, t) => sum + t.pnlInr, 0)
+    );
   }, [tradesWithInrPnL]);
 
   const profitFactor = useMemo(() => {
@@ -129,25 +127,28 @@ export function AnalyticsView({
 
   const avgRR = useMemo(() => {
     if (totalTrades === 0) return "0.00";
-    const sum = filteredTrades.reduce((acc, t) => acc + (t.actualRR || t.rMultiple || 0), 0);
+    const sum = filteredTrades.reduce((acc, t) => acc + Number(t.actualRR || t.rMultiple || 0), 0);
     return (sum / totalTrades).toFixed(2);
   }, [filteredTrades, totalTrades]);
 
-  // Holding Time
   const avgHoldingTimeFormatted = useMemo(() => {
     const withDuration = filteredTrades.filter((t) => t.entryTime && t.exitTime);
     if (withDuration.length === 0) return "—";
     const totalMins = withDuration.reduce((acc, t) => {
-      const diff = new Date(t.exitTime!).getTime() - new Date(t.entryTime!).getTime();
-      return acc + Math.max(0, diff / (1000 * 60));
+      const start = new Date(t.entryTime!).getTime();
+      const end = new Date(t.exitTime!).getTime();
+      if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+        return acc + (end - start) / (1000 * 60);
+      }
+      return acc;
     }, 0);
     const avgMins = Math.round(totalMins / withDuration.length);
+    if (!Number.isFinite(avgMins) || avgMins <= 0) return "—";
     const h = Math.floor(avgMins / 60);
     const m = avgMins % 60;
     return `${h}h ${m}m`;
   }, [filteredTrades]);
 
-  // Streak Tracker
   const { currentStreak, bestStreak } = useMemo(() => {
     let current = 0;
     let best = 0;
@@ -166,21 +167,23 @@ export function AnalyticsView({
     return { currentStreak: current, bestStreak: best };
   }, [filteredTrades]);
 
-  // Equity Curve Cumulative Data
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
   const equityCurveData = useMemo(() => {
     let cumulative = 0;
     return tradesWithInrPnL.map((t, idx) => {
       cumulative += t.pnlInr;
       return {
         step: idx + 1,
-        date: new Date(t.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+        date: new Date(t.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+        instrument: t.instrument || "Scrip",
+        outcome: t.outcome || "N/A",
         pnl: t.pnlInr,
         cumulative,
       };
     });
   }, [tradesWithInrPnL]);
 
-  // SVG Path for Equity Curve
   const svgPathData = useMemo(() => {
     if (equityCurveData.length === 0) return { path: "", area: "", points: [] };
     const values = [0, ...equityCurveData.map((d) => d.cumulative)];
@@ -195,7 +198,13 @@ export function AnalyticsView({
     const points = values.map((val, idx) => {
       const x = padding + (idx / (values.length - 1)) * (width - 2 * padding);
       const y = height - padding - ((val - minVal) / range) * (height - 2 * padding);
-      return { x, y, val };
+      const data = idx === 0 ? null : equityCurveData[idx - 1];
+      return {
+        x: Number.isFinite(x) ? x : 0,
+        y: Number.isFinite(y) ? y : 0,
+        val,
+        data,
+      };
     });
 
     const path = points.reduce((acc, p, idx) => (idx === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), "");
@@ -206,14 +215,14 @@ export function AnalyticsView({
     return { path, area, points };
   }, [equityCurveData]);
 
-  // Market Breakdown
   const marketBreakdown = useMemo(() => {
     const map: Record<string, { trades: number; wins: number; pnl: number }> = {};
     tradesWithInrPnL.forEach((t) => {
-      if (!map[t.market]) map[t.market] = { trades: 0, wins: 0, pnl: 0 };
-      map[t.market].trades += 1;
-      if (t.outcome === "WIN") map[t.market].wins += 1;
-      map[t.market].pnl += t.pnlInr;
+      const m = t.marketClean;
+      if (!map[m]) map[m] = { trades: 0, wins: 0, pnl: 0 };
+      map[m].trades += 1;
+      if (t.outcome === "WIN") map[m].wins += 1;
+      map[m].pnl += t.pnlInr;
     });
 
     return Object.entries(map).map(([m, data]) => ({
@@ -224,14 +233,14 @@ export function AnalyticsView({
     }));
   }, [tradesWithInrPnL]);
 
-  // Session Breakdown
   const sessionBreakdown = useMemo(() => {
     const map: Record<string, { trades: number; wins: number; pnl: number }> = {};
     tradesWithInrPnL.forEach((t) => {
-      if (!map[t.session]) map[t.session] = { trades: 0, wins: 0, pnl: 0 };
-      map[t.session].trades += 1;
-      if (t.outcome === "WIN") map[t.session].wins += 1;
-      map[t.session].pnl += t.pnlInr;
+      const s = t.sessionClean;
+      if (!map[s]) map[s] = { trades: 0, wins: 0, pnl: 0 };
+      map[s].trades += 1;
+      if (t.outcome === "WIN") map[s].wins += 1;
+      map[s].pnl += t.pnlInr;
     });
 
     return Object.entries(map).map(([s, data]) => ({
@@ -242,14 +251,14 @@ export function AnalyticsView({
     }));
   }, [tradesWithInrPnL]);
 
-  // Day of Week Breakdown
   const dayOfWeekBreakdown = useMemo(() => {
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const map: Record<string, { trades: number; wins: number; pnl: number }> = {};
     days.forEach((d) => (map[d] = { trades: 0, wins: 0, pnl: 0 }));
 
     tradesWithInrPnL.forEach((t) => {
-      const dayName = days[new Date(t.date).getDay()];
+      const dNum = new Date(t.date).getDay();
+      const dayName = days[dNum >= 0 && dNum <= 6 ? dNum : 0];
       if (map[dayName]) {
         map[dayName].trades += 1;
         if (t.outcome === "WIN") map[dayName].wins += 1;
@@ -257,15 +266,16 @@ export function AnalyticsView({
       }
     });
 
-    return days.filter((d) => map[d].trades > 0).map((d) => ({
-      day: d,
-      trades: map[d].trades,
-      winRate: ((map[d].wins / map[d].trades) * 100).toFixed(0),
-      pnl: map[d].pnl,
-    }));
+    return days
+      .filter((d) => map[d].trades > 0)
+      .map((d) => ({
+        day: d,
+        trades: map[d].trades,
+        winRate: ((map[d].wins / map[d].trades) * 100).toFixed(0),
+        pnl: map[d].pnl,
+      }));
   }, [tradesWithInrPnL]);
 
-  // Trading DNA & Psychology Calculations
   const topMarket = useMemo(() => {
     if (marketBreakdown.length === 0) return "N/A";
     return [...marketBreakdown].sort((a, b) => b.trades - a.trades)[0]?.market || "N/A";
@@ -277,7 +287,7 @@ export function AnalyticsView({
   }, [sessionBreakdown]);
 
   const rulesFollowedCount = useMemo(() => {
-    return filteredTrades.filter((t) => t.rulesFollowed).length;
+    return filteredTrades.filter((t) => Boolean(t.rulesFollowed)).length;
   }, [filteredTrades]);
 
   const ruleFollowRate = totalTrades > 0 ? ((rulesFollowedCount / totalTrades) * 100).toFixed(1) : "100";
@@ -286,7 +296,7 @@ export function AnalyticsView({
     if (totalTrades === 0) return 100;
     const ruleScore = (rulesFollowedCount / totalTrades) * 70;
     const winScore = (Number(winRate) / 100) * 30;
-    return Math.min(100, Math.round(ruleScore + winScore));
+    return Math.min(100, Math.max(0, Math.round(ruleScore + winScore)));
   }, [totalTrades, rulesFollowedCount, winRate]);
 
   if (initialTrades.length === 0) {
@@ -321,7 +331,6 @@ export function AnalyticsView({
 
   return (
     <div className="space-y-6">
-      {/* ── Header + Powerhouse Tabs ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-solid pb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-clean flex items-center gap-2">
@@ -332,7 +341,6 @@ export function AnalyticsView({
           </p>
         </div>
 
-        {/* ── Modern Pill Tab Switcher ── */}
         <div className="flex items-center gap-1 p-1 bg-surface border border-border-solid rounded-xl shrink-0 self-start sm:self-auto">
           <button
             onClick={() => setActiveTab("overview")}
@@ -367,12 +375,8 @@ export function AnalyticsView({
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════
-          TAB 1: P&L & EQUITY TRAJECTORY
-          ═══════════════════════════════════════════ */}
       {activeTab === "overview" && (
         <div className="space-y-6 animate-in fade-in-50 duration-200">
-          {/* Segment Filter Bar */}
           <div className="card p-3 sm:p-4 rounded-2xl border border-border-solid bg-card shadow-sm flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5 text-xs text-muted font-semibold mr-1">
@@ -380,7 +384,6 @@ export function AnalyticsView({
                 <span>Filters:</span>
               </div>
 
-              {/* Market Filter */}
               <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
                 {markets.map((m) => (
                   <button
@@ -399,7 +402,6 @@ export function AnalyticsView({
 
               <div className="h-4 w-px bg-border-solid hidden sm:block mx-1" />
 
-              {/* Session Filter */}
               <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
                 {sessions.map((s) => (
                   <button
@@ -417,7 +419,6 @@ export function AnalyticsView({
               </div>
             </div>
 
-            {/* Time Range Filter */}
             <div className="flex items-center gap-1 bg-surface border border-border-solid p-0.5 rounded-lg shrink-0">
               {(["ALL", "30D", "90D"] as const).map((range) => (
                 <button
@@ -435,7 +436,6 @@ export function AnalyticsView({
             </div>
           </div>
 
-          {/* Top KPI Metrics Strip (6 Clean Cards) */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <KPICard
               label="Net Realized PnL"
@@ -481,7 +481,6 @@ export function AnalyticsView({
             />
           </div>
 
-          {/* Equity Curve SVG Section */}
           <div className="card p-5 rounded-2xl border border-border-solid bg-card shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -494,19 +493,120 @@ export function AnalyticsView({
             </div>
 
             {equityCurveData.length > 1 ? (
-              <div className="relative w-full h-52 bg-surface/50 rounded-xl p-3 border border-border-solid flex flex-col justify-between overflow-hidden">
-                <svg className="w-full h-full overflow-visible" viewBox="0 0 600 180" preserveAspectRatio="none">
+              <div className="relative w-full h-56 bg-surface/50 rounded-xl p-3 border border-border-solid flex flex-col justify-between overflow-hidden">
+                {hoveredIndex !== null && svgPathData.points[hoveredIndex]?.data && (
+                  <div
+                    className="absolute top-3 z-10 bg-card/95 backdrop-blur-md border border-border-solid rounded-xl p-2.5 shadow-xl transition-all duration-150 pointer-events-none flex items-center gap-3"
+                    style={{
+                      left: `${Math.min(Math.max((svgPathData.points[hoveredIndex].x / 600) * 100, 10), 80)}%`,
+                      transform: "translateX(-50%)",
+                    }}
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-clean">
+                          {svgPathData.points[hoveredIndex].data.instrument}
+                        </span>
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                            svgPathData.points[hoveredIndex].data.outcome === "WIN"
+                              ? "bg-profit/15 text-profit"
+                              : svgPathData.points[hoveredIndex].data.outcome === "LOSS"
+                              ? "bg-loss/15 text-loss"
+                              : "bg-dim/15 text-dim"
+                          }`}
+                        >
+                          {svgPathData.points[hoveredIndex].data.outcome}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-dim block mt-0.5">
+                        Trade #{svgPathData.points[hoveredIndex].data.step} · {svgPathData.points[hoveredIndex].data.date}
+                      </span>
+                    </div>
+
+                    <div className="border-l border-border-solid pl-3 text-right">
+                      <span
+                        className={`font-mono text-xs font-black block ${
+                          svgPathData.points[hoveredIndex].data.pnl >= 0 ? "text-profit" : "text-loss"
+                        }`}
+                      >
+                        {formatAggregatedPnl(svgPathData.points[hoveredIndex].data.pnl)}
+                      </span>
+                      <span className="text-[10px] font-mono text-soft block">
+                        Balance: {formatAggregatedPnl(svgPathData.points[hoveredIndex].data.cumulative)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <svg
+                  className="w-full h-full overflow-visible"
+                  viewBox="0 0 600 180"
+                  preserveAspectRatio="none"
+                  onMouseLeave={() => setHoveredIndex(null)}
+                >
                   <defs>
                     <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor={totalPnLInr >= 0 ? "#0bd07f" : "#ff5757"} stopOpacity="0.25" />
                       <stop offset="100%" stopColor={totalPnLInr >= 0 ? "#0bd07f" : "#ff5757"} stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
+
+                  {hoveredIndex !== null && (
+                    <line
+                      x1={svgPathData.points[hoveredIndex].x}
+                      y1={20}
+                      x2={svgPathData.points[hoveredIndex].x}
+                      y2={160}
+                      stroke="rgba(255,255,255,0.2)"
+                      strokeDasharray="3 3"
+                    />
+                  )}
+
                   <path d={svgPathData.area} fill="url(#equityGradient)" />
-                  <path d={svgPathData.path} fill="none" stroke={totalPnLInr >= 0 ? "#0bd07f" : "#ff5757"} strokeWidth="2.5" strokeLinecap="round" />
-                  {svgPathData.points.map((p, i) => (
-                    <circle key={i} cx={p.x} cy={p.y} r="3" fill={totalPnLInr >= 0 ? "#0bd07f" : "#ff5757"} />
-                  ))}
+                  <path
+                    d={svgPathData.path}
+                    fill="none"
+                    stroke={totalPnLInr >= 0 ? "#0bd07f" : "#ff5757"}
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+
+                  {svgPathData.points.map((p, i) => {
+                    const isHovered = hoveredIndex === i;
+                    return (
+                      <g key={i}>
+                        <circle
+                          cx={p.x}
+                          cy={p.y}
+                          r="16"
+                          fill="transparent"
+                          className="cursor-pointer"
+                          onMouseEnter={() => setHoveredIndex(i)}
+                        />
+                        {isHovered && (
+                          <circle
+                            cx={p.x}
+                            cy={p.y}
+                            r="8"
+                            fill="none"
+                            stroke="#fff"
+                            strokeWidth="2"
+                            className="animate-ping opacity-75"
+                          />
+                        )}
+                        <circle
+                          cx={p.x}
+                          cy={p.y}
+                          r={isHovered ? 6 : 4}
+                          fill={totalPnLInr >= 0 ? "#0bd07f" : "#ff5757"}
+                          stroke={isHovered ? "#fff" : "transparent"}
+                          strokeWidth="2"
+                          className="transition-all duration-150"
+                        />
+                      </g>
+                    );
+                  })}
                 </svg>
               </div>
             ) : (
@@ -516,7 +616,6 @@ export function AnalyticsView({
             )}
           </div>
 
-          {/* Breakdown Grid: Market Segment & Session Analysis */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="card p-5 rounded-2xl border border-border-solid bg-card shadow-sm space-y-4">
               <h3 className="font-bold text-clean text-sm flex items-center gap-2">
@@ -575,7 +674,6 @@ export function AnalyticsView({
             </div>
           </div>
 
-          {/* Day of Week Analysis */}
           <div className="card p-5 rounded-2xl border border-border-solid bg-card shadow-sm space-y-4">
             <h3 className="font-bold text-clean text-sm flex items-center gap-2">
               <Calendar className="h-4 w-4 text-warn" /> Day of Week Distribution
@@ -595,12 +693,8 @@ export function AnalyticsView({
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════
-          TAB 2: TRADING DNA & PSYCHOLOGY
-          ═══════════════════════════════════════════ */}
       {activeTab === "dna" && (
         <div className="space-y-6 animate-in fade-in-50 duration-200">
-          {/* Top DNA Quantitative Fingerprint */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="card p-5 rounded-2xl border border-border-solid bg-card shadow-sm space-y-3">
               <div className="flex items-center justify-between">
@@ -645,7 +739,6 @@ export function AnalyticsView({
             </div>
           </div>
 
-          {/* Psychology & Mindset Health Strip */}
           <div className="card p-5 sm:p-6 rounded-2xl border border-border-solid bg-card shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -673,9 +766,6 @@ export function AnalyticsView({
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════
-          TAB 3: PERIODIC AUDITS
-          ═══════════════════════════════════════════ */}
       {activeTab === "audits" && (
         <div className="space-y-6 animate-in fade-in-50 duration-200">
           <div className="card p-5 sm:p-6 rounded-2xl border border-border-solid bg-card shadow-sm space-y-4">

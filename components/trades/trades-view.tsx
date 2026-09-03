@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Plus, BookOpen, ChevronDown, ChevronRight, Edit2, Eye, RefreshCw, CalendarDays, List } from "lucide-react";
+import { Plus, BookOpen, ChevronDown, ChevronRight, Edit2, Eye, RefreshCw, CalendarDays, List, Download } from "lucide-react";
 import { formatRMultiple } from "@/lib/utils";
 import { DeleteTradeButton } from "@/components/trades/delete-trade-button";
 import { TradeDetailModal } from "@/components/trades/trade-detail-modal";
@@ -130,6 +130,60 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
     setCollapsedMonths((prev) => ({ ...prev, [monthKey]: !prev[monthKey] }));
   };
 
+  const exportPnLStatement = () => {
+    if (!filteredTrades || filteredTrades.length === 0) return;
+    const headers = [
+      "Date",
+      "Market",
+      "Instrument",
+      "Bias",
+      "Setup",
+      "Planned Entry",
+      "Actual Entry",
+      "Stop Loss",
+      "Actual Exit",
+      "Position Size",
+      "Outcome",
+      "Exit Reason",
+      "Rules Followed",
+      "Net PnL",
+      "Net PnL (INR)",
+      "R-Multiple",
+    ];
+
+    const rows = filteredTrades.map((t) => {
+      const pnlInr = convertPnlToInr(Number(t.pnl || 0), t.market, rate);
+      const d = t.date ? new Date(t.date).toISOString().split("T")[0] : "";
+      return [
+        d,
+        `"${(t.market || "").replace(/"/g, '""')}"`,
+        `"${(t.instrument || "").replace(/"/g, '""')}"`,
+        t.bias || "",
+        `"${(t.setup || "").replace(/"/g, '""')}"`,
+        t.plannedEntry ?? "",
+        t.actualEntry ?? "",
+        t.stopLoss ?? "",
+        t.actualExit ?? "",
+        t.positionSize ?? "",
+        t.outcome || "",
+        t.exitReason || "",
+        t.rulesFollowed ? "YES" : "NO",
+        t.pnl ?? 0,
+        pnlInr.toFixed(2),
+        t.actualRR ?? t.rMultiple ?? "",
+      ].join(",");
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `TradingOS_PnL_Statement_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -141,8 +195,18 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
             Review detailed execution logs, monthly statistics, and trade psychology.
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          {/* View Toggle */}
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {initialTrades.length > 0 && (
+            <button
+              onClick={exportPnLStatement}
+              className="btn-secondary text-xs cursor-pointer flex items-center gap-1.5"
+              title="Download P&L Statement (CSV)"
+            >
+              <Download className="h-3.5 w-3.5 text-accent" />
+              <span className="hidden sm:inline">Export P&L</span>
+            </button>
+          )}
+
           {initialTrades.length > 0 && (
             <div className="flex items-center gap-0.5 bg-surface border border-border-solid p-0.5 rounded-xl">
               <button

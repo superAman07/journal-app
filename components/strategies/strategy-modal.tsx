@@ -19,6 +19,7 @@ import {
   StrategyFormState,
 } from "@/lib/actions/strategy-actions";
 import type { StrategyWithMetrics } from "@/lib/actions/strategy-actions";
+import { SmartTextarea } from "@/components/ui/smart-textarea";
 
 const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1H", "4H", "Daily", "Weekly"];
 const MARKETS = [
@@ -195,17 +196,13 @@ export function StrategyModal({
             />
           </div>
 
-          {/* Description */}
           <div>
-            <label className="label inline-flex! items-center gap-1.5">
-              <FileText className="h-3 w-3" /> Description
-            </label>
-            <textarea
+            <SmartTextarea
+              label="Description & Rules"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe your strategy setup, entry conditions, and edge..."
-              className="input-field min-h-20 resize-y"
-              rows={3}
+              onChange={setDescription}
+              placeholder="Describe strategy setup, entry rules, indicators (VWAP, EMA, RSI), and edge..."
+              minRows={3}
             />
           </div>
 

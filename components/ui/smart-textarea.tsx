@@ -13,7 +13,6 @@ interface SmartTextareaProps {
   label?: string;
 }
 
-// Common trading terms to auto-capitalize & correct
 const TRADING_TERMS: Record<string, string> = {
   sl: "SL",
   tp: "TP",
