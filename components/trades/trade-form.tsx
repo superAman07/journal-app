@@ -28,6 +28,7 @@ import { createTrade, TradeFormState } from "@/lib/actions/trade-actions";
 import { ScreenshotPaste } from "./screenshot-paste";
 import { StrategySelector, StrategyOption } from "./strategy-selector";
 import { getActiveStrategies } from "@/lib/actions/strategy-actions";
+import { SmartTextarea } from "@/components/ui/smart-textarea";
 
 const MARKETS: MarketType[] = [
   "Nifty Options",
@@ -1116,34 +1117,28 @@ export function TradeForm() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <FormField label="Mindset Before Entry">
-                <textarea
-                  value={mindsetBefore}
-                  onChange={(e) => setMindsetBefore(e.target.value)}
-                  placeholder="State of mind entering..."
-                  rows={3}
-                  className="input-field resize-none text-xs"
-                />
-              </FormField>
-              <FormField label="Mindset During Trade">
-                <textarea
-                  value={mindsetDuring}
-                  onChange={(e) => setMindsetDuring(e.target.value)}
-                  placeholder="How did you manage emotions..."
-                  rows={3}
-                  className="input-field resize-none text-xs"
-                />
-              </FormField>
-              <FormField label="Mindset After Exit">
-                <textarea
-                  value={mindsetAfter}
-                  onChange={(e) => setMindsetAfter(e.target.value)}
-                  placeholder="Reflections post-trade..."
-                  rows={3}
-                  className="input-field resize-none text-xs"
-                />
-              </FormField>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <SmartTextarea
+                label="Mindset Before Entry"
+                value={mindsetBefore}
+                onChange={setMindsetBefore}
+                placeholder="State of mind entering (confidence, doubts, catalysts)..."
+                minRows={3}
+              />
+              <SmartTextarea
+                label="Mindset During Trade"
+                value={mindsetDuring}
+                onChange={setMindsetDuring}
+                placeholder="How did you manage emotions while trade was running..."
+                minRows={3}
+              />
+              <SmartTextarea
+                label="Mindset After Exit"
+                value={mindsetAfter}
+                onChange={setMindsetAfter}
+                placeholder="Reflections post-trade (discipline, mistakes, lessons)..."
+                minRows={3}
+              />
             </div>
 
             <div className="pt-4 flex items-center justify-between border-t border-border/20">

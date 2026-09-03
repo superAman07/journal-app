@@ -15,21 +15,18 @@ import {
   CalendarRange,
   Settings,
   Image as ImageIcon,
+  Layers,
   X,
 } from "lucide-react";
 
 const COMMANDS = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard, keywords: "home overview" },
   { label: "Log New Trade", href: "/trades/new", icon: PlusCircle, keywords: "add create new journal" },
-  { label: "Trade Journal", href: "/trades", icon: BookOpen, keywords: "history trades list" },
-  { label: "Analytics", href: "/analytics", icon: BarChart3, keywords: "charts performance stats" },
-  { label: "Trading DNA", href: "/dna", icon: Dna, keywords: "profile strengths weaknesses" },
-  { label: "Psychology", href: "/psychology", icon: BrainCircuit, keywords: "emotions mindset mental" },
-  { label: "Rule Engine", href: "/rules", icon: ShieldCheck, keywords: "rules discipline protocols" },
+  { label: "Trade Journal", href: "/trades", icon: BookOpen, keywords: "history trades list calendar" },
+  { label: "Performance & DNA", href: "/analytics", icon: BarChart3, keywords: "charts performance stats analytics dna psychology" },
+  { label: "Strategies & Playbook", href: "/strategies", icon: Layers, keywords: "strategy setups rules playbook ranking" },
   { label: "AI Coach", href: "/ai-coach", icon: Sparkles, keywords: "assistant coach ai llm" },
-  { label: "Reviews", href: "/reviews", icon: CalendarRange, keywords: "weekly monthly yearly review" },
-  { label: "Screenshots", href: "/screenshots", icon: ImageIcon, keywords: "charts images vault" },
-  { label: "Settings", href: "/settings", icon: Settings, keywords: "preferences config" },
+  { label: "Settings", href: "/settings", icon: Settings, keywords: "preferences config currency" },
 ];
 
 export function CommandPalette() {

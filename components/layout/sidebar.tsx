@@ -26,7 +26,7 @@ import { Logo } from "@/components/ui/logo";
 
 const NAV_SECTIONS = [
   {
-    title: "Core",
+    title: "Trading",
     items: [
       { label: "Dashboard", href: "/", icon: LayoutDashboard },
       { label: "Trade Journal", href: "/trades", icon: BookOpen },
@@ -34,20 +34,11 @@ const NAV_SECTIONS = [
     ],
   },
   {
-    title: "Insights",
+    title: "Intelligence",
     items: [
-      { label: "Analytics", href: "/analytics", icon: BarChart3 },
-      { label: "Trading DNA", href: "/dna", icon: Dna },
-    ],
-  },
-  {
-    title: "Discipline",
-    items: [
-      { label: "Strategies", href: "/strategies", icon: Layers },
-      { label: "Psychology", href: "/psychology", icon: BrainCircuit },
-      { label: "Rule Engine", href: "/rules", icon: ShieldCheck },
+      { label: "Performance & DNA", href: "/analytics", icon: BarChart3 },
+      { label: "Strategies & Playbook", href: "/strategies", icon: Layers },
       { label: "AI Coach", href: "/ai-coach", icon: Sparkles },
-      { label: "Reviews", href: "/reviews", icon: CalendarRange },
     ],
   },
   {

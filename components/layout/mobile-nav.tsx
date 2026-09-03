@@ -32,12 +32,8 @@ const MAIN_TABS = [
 ];
 
 const MORE_ITEMS = [
-  { label: "Strategies", href: "/strategies", icon: Layers },
-  { label: "Trading DNA", href: "/dna", icon: Dna },
-  { label: "Psychology", href: "/psychology", icon: BrainCircuit },
-  { label: "Rule Engine", href: "/rules", icon: ShieldCheck },
+  { label: "Strategies & Playbook", href: "/strategies", icon: Layers },
   { label: "AI Coach", href: "/ai-coach", icon: Sparkles },
-  { label: "Reviews", href: "/reviews", icon: CalendarRange },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
