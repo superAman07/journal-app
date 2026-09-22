@@ -19,6 +19,7 @@ import { TradeItem, DashboardMetrics } from "@/types";
 import { ChartModal } from "@/components/ui/chart-modal";
 import { useExchangeRate } from "@/lib/hooks/use-exchange-rate";
 import { formatPnlWithCurrency, formatAggregatedPnl, convertPnlToInr } from "@/lib/utils/currency";
+import { DisciplineDirective } from "@/components/dashboard/discipline-directive";
 
 interface DashboardViewProps {
   userName?: string | null;
@@ -138,6 +139,11 @@ export function DashboardView({
           </Link>
         </div>
       </div>
+
+      {/* ── Big Commanding Discipline Directive & Post-Trade Challenge ── */}
+      {isAuthed && (
+        <DisciplineDirective trades={initialTrades} userName={userName} />
+      )}
 
       {/* ── Live Market Watch Strip (Prominent on Mobile & Desktop) ── */}
       <div className="space-y-2">
