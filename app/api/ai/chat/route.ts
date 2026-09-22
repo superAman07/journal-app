@@ -70,11 +70,14 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("[POST /api/ai/chat] Error:", error);
+    
+    // Return clean, human-readable error messages
+    const msg = error.message || "Failed to process AI chat request";
+    const status = msg.includes("429") || msg.includes("rate-limit") ? 429 : 500;
+    
     return NextResponse.json(
-      {
-        error: error.message || "Failed to process AI chat request",
-      },
-      { status: 500 }
+      { error: msg },
+      { status }
     );
   }
 }

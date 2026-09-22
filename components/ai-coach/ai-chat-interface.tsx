@@ -135,11 +135,28 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
       setMessages((prev) => [...prev, aiMsg]);
     } catch (err: any) {
       console.error("AI Coach Error:", err);
+      
+      // Parse error into a friendly message — never show raw JSON to the user
+      const rawMsg = err.message || "Connection issue";
+      let friendlyMsg: string;
+
+      if (rawMsg.includes("429") || rawMsg.includes("rate-limit") || rawMsg.includes("quota")) {
+        friendlyMsg = "⏳ The AI is cooling down (free quota limit reached). It resets in about 30 seconds. In the meantime, switch to **NVIDIA 550B** using the toggle above — it's faster and has separate quota.";
+      } else if (rawMsg.includes("401") || rawMsg.includes("Unauthorized")) {
+        friendlyMsg = "🔐 Session expired. Please refresh the page and sign in again.";
+      } else if (rawMsg.includes("API key") || rawMsg.includes("not configured")) {
+        friendlyMsg = "🔑 AI API key is not configured yet. Go to Settings or add your NVIDIA/Gemini API key in the .env file.";
+      } else if (rawMsg.includes("Failed to fetch") || rawMsg.includes("NetworkError")) {
+        friendlyMsg = "📡 Network connection lost. Check your internet and try again.";
+      } else {
+        friendlyMsg = `The AI is temporarily unavailable. Try switching providers using the toggle above, or retry in a moment.`;
+      }
+
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: `⚠️ Note from Desk Coach: ${err.message || "Connection issue"}. Remember the golden rule: Regardless of tech issues or market wicks, your primary job right now is capital preservation. Take a deep breath and close the terminal.`,
+          content: `💡 **Quick Note:** ${friendlyMsg}\n\nWhile the AI reconnects, remember: *Your only job right now is capital preservation. No screen, no chart, no revenge trade. Tomorrow is a fresh market.*`,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);

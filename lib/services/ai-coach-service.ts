@@ -114,46 +114,43 @@ export async function getUserTradingContext(userId: string) {
 }
 
 /**
- * Builds the comprehensive Trading Performance & Psychology System Prompt
+ * Builds a TOKEN-EFFICIENT Trading Performance & Psychology System Prompt
+ * Uses compact one-line trade summaries instead of full JSON to stay within free-tier token limits
  */
 export function buildTradingSystemPrompt(context: any, specificTrade?: any): string {
-  const contextSummary = context
-    ? `
-=== TRADER REAL-TIME DATABASE CONTEXT ===
-- Current Streak: ${context.currentStreak.count} consecutive ${context.currentStreak.type}s
-- Today's Total Realized PnL: ₹${context.todayPnL.toFixed(2)}
-- Trades Logged Today: ${context.todayTrades.length}
-- Recent Sample Win Rate (Last 10 trades): ${context.recentWinRate}
-- Trader's Active Non-Negotiable Rules:
-  ${context.activeRules.length > 0 ? context.activeRules.map((r: string) => `  * ${r}`).join("\n") : "  * None configured yet."}
-- Last Logged Trades:
-  ${JSON.stringify(context.recentTrades.slice(0, 4), null, 2)}
-========================================
-`
-    : "No trade context available.";
+  let contextSummary = "No trade context available.";
 
-  const specificTradeSection = specificTrade
-    ? `
-=== FOCUSED TRADE DETAILS (TRADER ASKING ABOUT THIS SPECIFIC TRADE) ===
-${JSON.stringify(specificTrade, null, 2)}
-====================================================================
-`
-    : "";
+  if (context) {
+    // Compact one-line trade summaries — saves ~70% tokens vs JSON.stringify
+    const tradeSummaries = context.recentTrades.slice(0, 5).map((t: any) =>
+      `${t.date} | ${t.instrument} | ${t.outcome} | PnL:${t.pnl} | RR:${t.actualRR} | Exit:${t.exitReason} | Emotions:${t.emotions.join(",") || "none"} | Rules:${t.rulesFollowed ? "yes" : "BROKEN"}`
+    ).join("\n  ");
 
-  return `You are an elite Trading Performance Coach, Risk Manager, and Psychological Mentor at a top proprietary trading desk. 
-Your philosophy is deeply rooted in Mark Douglas ("Trading in the Zone"), Tom Hougaard ("Best Loser Wins"), and Dr. Brett Steenbarger ("The Daily Trading Coach").
+    contextSummary = `=== TRADER DB CONTEXT ===
+Streak: ${context.currentStreak.count}x ${context.currentStreak.type} | Today PnL: ₹${context.todayPnL.toFixed(0)} | Today Trades: ${context.todayTrades.length} | Win Rate (last 10): ${context.recentWinRate}
+Rules: ${context.activeRules.length > 0 ? context.activeRules.join(" | ") : "None set"}
+Recent Trades:
+  ${tradeSummaries || "No trades yet"}
+========================`;
+  }
 
-${contextSummary}
-${specificTradeSection}
+  let specificSection = "";
+  if (specificTrade) {
+    specificSection = `\n=== FOCUSED TRADE ===\n${specificTrade.instrument} | ${specificTrade.market} | ${specificTrade.outcome} | Entry:${Number(specificTrade.actualEntry)} SL:${Number(specificTrade.stopLoss)} Target:${Number(specificTrade.target)} Exit:${Number(specificTrade.actualExit)} | PnL:${specificTrade.pnl} | RR:${specificTrade.actualRR} | Exit Reason:${specificTrade.exitReason} | Rules:${specificTrade.rulesFollowed ? "followed" : "BROKEN: " + (specificTrade.ruleBreakReason || "unknown")}\n=====================`;
+  }
 
-CORE PHILOSOPHY & BEHAVIORAL DIRECTIVES:
-1. **The Reality of Trading**: Losses and wick-outs are the non-negotiable cost of doing business. A trade where the stop-loss is hit by a wick but the entry and risk-reward were planned is a 10/10 execution. The only true failure is revenge trading, moving stops, or overtrading.
-2. **Empathy + Firm Discipline**: Acknowledge the emotional gut-punch of getting stopped out right before a massive move (e.g., getting wicked out on an index option right before a 100-point trend). Validate that it hurts, but immediately pivot to capital preservation: "You survived today. By not taking a revenge trade, you won the real psychological battle."
-3. **Fight Revenge Trading Aggressively**: If the trader is on a losing streak or just took a loss today, advise them to LOCK THE TERMINAL. Give them a clear post-trade challenge (e.g., step away from the screen, walk outside, journal the emotions, come back tomorrow fresh).
-4. **Data-Driven**: Use the exact numbers from the trader's history (e.g. mention their actual instrument, stop loss, R:R, and rules).
-5. **Tone**: Direct, encouraging, grounded, wise, and brotherly. Do not use generic corporate filler. Speak like a senior trader who has blown accounts in the past and learned the hard way how to become consistent.
+  return `You are an elite Trading Performance Coach and Psychological Mentor. Philosophy: Mark Douglas (Trading in the Zone), Tom Hougaard (Best Loser Wins), Brett Steenbarger (The Daily Trading Coach).
 
-Always remind the trader: Consistency is not made by never losing; consistency is made by losing gracefully and letting your setup work over hundreds of trades. "Survival first, execution second, profit will take care of itself."`;
+${contextSummary}${specificSection}
+
+DIRECTIVES:
+1. Losses and wick-outs are the cost of business. A planned stop-loss hit is 10/10 execution. Only true failure = revenge trading, moving stops, overtrading.
+2. Empathy + Firm Discipline: Validate the pain, then pivot to capital preservation.
+3. If trader took a loss or is on a losing streak: LOCK THE TERMINAL. Give a clear discipline challenge.
+4. Use the trader's actual data (instrument, SL, RR, rules) in your response.
+5. Tone: Direct, brotherly, grounded. No generic filler. Speak like a senior trader who learned the hard way.
+
+Reminder: "Survival first, execution second, profit takes care of itself."`;
 }
 
 /**
@@ -210,12 +207,13 @@ export async function callNvidiaNIM(
 }
 
 /**
- * Call Google Gemini API (supporting Multimodal Chart Vision)
+ * Call Google Gemini API with retry for 429 rate limits
  */
 export async function callGemini(
   messages: AIChatMessage[],
   systemPrompt: string,
-  imageUrl?: string
+  imageUrl?: string,
+  retryCount = 0
 ): Promise<AICoachResponse> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.startsWith("your_")) {
@@ -252,15 +250,30 @@ export async function callGemini(
       contents,
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 1024,
       },
     }),
   });
 
+  // Handle 429 rate limit with auto-retry (max 2 retries)
+  if (res.status === 429 && retryCount < 2) {
+    const retryBody = await res.json().catch(() => null);
+    const retryDelay = retryBody?.error?.details?.find((d: any) => d.retryDelay)?.retryDelay;
+    const waitMs = retryDelay ? parseInt(retryDelay) * 1000 : (retryCount + 1) * 15000;
+    const waitSec = Math.ceil(waitMs / 1000);
+    console.warn(`[callGemini] Rate limited (429). Retrying in ${waitSec}s (attempt ${retryCount + 1}/2)`);
+    await new Promise((resolve) => setTimeout(resolve, Math.min(waitMs, 30000)));
+    return callGemini(messages, systemPrompt, imageUrl, retryCount + 1);
+  }
+
+  if (res.status === 429) {
+    throw new Error("Gemini is temporarily rate-limited. Your free quota resets in ~30 seconds. Please try again shortly, or switch to NVIDIA 550B.");
+  }
+
   if (!res.ok) {
     const errorText = await res.text();
     console.error("[callGemini] HTTP error:", res.status, errorText);
-    throw new Error(`Gemini API error (${res.status}): ${errorText}`);
+    throw new Error(`Gemini is temporarily unavailable (${res.status}). Try switching to NVIDIA 550B.`);
   }
 
   const data = await res.json();
