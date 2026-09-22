@@ -176,20 +176,20 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
   ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8.5rem)] space-y-3">
+    <div className="flex flex-col h-[calc(100vh-7rem)] sm:h-[calc(100vh-8.5rem)] space-y-2 sm:space-y-3">
       {/* ── Top Bar: Desk Context & Model Selection ── */}
-      <div className="card p-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-xl bg-ai-muted text-ai flex items-center justify-center font-bold">
-            <Brain className="h-5 w-5" />
+      <div className="card p-2.5 sm:p-3 rounded-xl sm:rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-7 sm:h-9 w-7 sm:w-9 rounded-lg sm:rounded-xl bg-ai-muted text-ai flex items-center justify-center font-bold shrink-0">
+            <Brain className="h-4 sm:h-5 w-4 sm:w-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold text-clean">AI Trading Performance & Psychology Coach</h1>
-              <span className="badge badge-ai text-[10px]">Active DB Context</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <h1 className="text-xs sm:text-sm font-bold text-clean truncate">AI Trading Coach</h1>
+              <span className="badge badge-ai text-[9px] sm:text-[10px] hidden xs:inline-flex">DB Connected</span>
             </div>
-            <p className="text-[11px] text-muted">
-              Live Database Integration · Disciplined Prop Desk Methodology
+            <p className="text-[10px] sm:text-[11px] text-muted truncate">
+              Live Database · Prop Desk Methodology
             </p>
           </div>
         </div>
@@ -198,13 +198,13 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
         <div className="flex items-center gap-2 flex-wrap">
           {initialTrades.length > 0 && (
             <div className="flex items-center gap-1 text-xs">
-              <span className="text-dim text-[11px]">Focus Trade:</span>
+              <span className="text-dim text-[10px] sm:text-[11px] hidden sm:inline">Focus:</span>
               <select
                 value={selectedTradeId}
                 onChange={(e) => setSelectedTradeId(e.target.value)}
-                className="input-field py-1 text-xs max-w-45 truncate font-mono"
+                className="input-field py-1 text-[10px] sm:text-xs max-w-32 sm:max-w-45 truncate font-mono"
               >
-                <option value="">-- All Recent Trades --</option>
+                <option value="">All Trades</option>
                 {initialTrades.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.instrument} ({t.outcome} ₹{t.pnl})
@@ -215,7 +215,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
           )}
 
           {/* AI Model Provider */}
-          <div className="flex items-center gap-1 p-0.5 bg-card-accent rounded-xl text-xs border border-border/40">
+          <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 bg-card-accent rounded-lg sm:rounded-xl text-[10px] sm:text-xs border border-border/40">
             <button
               onClick={() => {
                 setProvider("NVIDIA NIM");
@@ -230,7 +230,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
             <button
               onClick={() => {
                 setProvider("Google Gemini");
-                setModel("gemini-2.0-flash");
+                setModel("gemini-3.6-flash");
               }}
               className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                 provider === "Google Gemini" ? "bg-ai text-white shadow-sm" : "text-muted hover:text-clean"
@@ -243,13 +243,13 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
       </div>
 
       {/* ── Quick Emergency Prompt Pills ── */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 shrink-0 scrollbar-none">
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 shrink-0 scrollbar-none -mx-1 px-1">
         {quickPrompts.map((qp, i) => (
           <button
             key={i}
             onClick={() => handleSend(qp.prompt)}
             disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-card-accent/80 hover:bg-ai/15 hover:border-ai/40 border border-border/40 text-xs font-semibold text-soft hover:text-clean transition-all cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg sm:rounded-xl bg-card-accent/80 hover:bg-ai/15 hover:border-ai/40 border border-border/40 text-[10px] sm:text-xs font-semibold text-soft hover:text-clean transition-all cursor-pointer whitespace-nowrap"
           >
             <span>{qp.label}</span>
           </button>

@@ -240,7 +240,7 @@ export async function callGemini(
     contents.push({ role, parts });
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
 
   const res = await fetch(endpoint, {
     method: "POST",
@@ -269,7 +269,7 @@ export async function callGemini(
 
   return {
     content,
-    modelUsed: "gemini-2.0-flash",
+    modelUsed: "gemini-3.6-flash",
     provider: "Google Gemini",
   };
 }
