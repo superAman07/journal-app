@@ -10,12 +10,12 @@ import {
 
 const hasNvidiaKey = () => {
   const k = process.env.NVIDIA_API_KEY;
-  return k && k !== "nvapi-YourNvidiaKeyHere" && k.startsWith("nvapi-");
+  return Boolean(k && k !== "nvapi-YourNvidiaKeyHere" && k.startsWith("nvapi-"));
 };
 
 const hasGeminiKey = () => {
   const k = process.env.GEMINI_API_KEY;
-  return k && !k.startsWith("your_") && k.length > 10;
+  return Boolean(k && !k.startsWith("your_") && k.length > 10);
 };
 
 export async function POST(req: Request) {
@@ -32,10 +32,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Messages array is required" }, { status: 400 });
     }
 
-    // 1. Fetch user's DB trading context
     const tradingContext = await getUserTradingContext(session.user.id);
 
-    // 2. If a specific trade was selected, load its full details
     let specificTrade = null;
     if (tradeId) {
       specificTrade = await prisma.trade.findUnique({
@@ -50,53 +48,65 @@ export async function POST(req: Request) {
       });
     }
 
-    // 3. Build the tailored system prompt
     const systemPrompt = buildTradingSystemPrompt(tradingContext, specificTrade);
 
-    // 4. Smart Provider Routing
     let response;
     const errors: string[] = [];
 
     if (provider === "Google Gemini") {
-      // Explicitly selected Gemini
-      response = await callGemini(messages, systemPrompt, imageUrl);
-    } else if (provider === "NVIDIA NIM") {
-      // Explicitly selected NVIDIA
-      response = await callNvidiaNIM(messages, systemPrompt, model);
-    } else {
-      // AUTO MODE: Try providers in order of reliability
-      // Priority: NVIDIA (has your key, separate quota) → Gemini (free tier, shared quota)
-      
-      if (hasNvidiaKey()) {
-        try {
-          response = await callNvidiaNIM(messages, systemPrompt, model);
-        } catch (err: any) {
-          errors.push(`NVIDIA: ${err.message}`);
-          console.warn("[Auto] NVIDIA failed:", err.message);
+      try {
+        response = await callGemini(messages, systemPrompt, imageUrl);
+      } catch (err: any) {
+        errors.push(`Gemini: ${err.message}`);
+        if (hasNvidiaKey()) {
+          try {
+            response = await callNvidiaNIM(messages, systemPrompt, model);
+          } catch (nErr: any) {
+            errors.push(`NVIDIA fallback: ${nErr.message}`);
+          }
         }
       }
-
-      if (!response && hasGeminiKey()) {
+    } else if (provider === "NVIDIA NIM") {
+      try {
+        response = await callNvidiaNIM(messages, systemPrompt, model);
+      } catch (err: any) {
+        errors.push(`NVIDIA: ${err.message}`);
+        if (hasGeminiKey()) {
+          try {
+            response = await callGemini(messages, systemPrompt, imageUrl);
+          } catch (gErr: any) {
+            errors.push(`Gemini fallback: ${gErr.message}`);
+          }
+        }
+      }
+    } else {
+      if (hasGeminiKey()) {
         try {
           response = await callGemini(messages, systemPrompt, imageUrl);
         } catch (err: any) {
           errors.push(`Gemini: ${err.message}`);
-          console.warn("[Auto] Gemini failed:", err.message);
         }
       }
 
-      if (!response) {
-        const configured = [
-          hasNvidiaKey() ? "NVIDIA" : null,
-          hasGeminiKey() ? "Gemini" : null,
-        ].filter(Boolean);
-
-        if (configured.length === 0) {
-          throw new Error("No AI provider is configured. Add NVIDIA_API_KEY or GEMINI_API_KEY to your .env file.");
-        } else {
-          throw new Error(`All AI providers are temporarily unavailable. ${errors.join(" | ")}. Please retry in a moment.`);
+      if (!response && hasNvidiaKey()) {
+        try {
+          response = await callNvidiaNIM(messages, systemPrompt, model);
+        } catch (err: any) {
+          errors.push(`NVIDIA: ${err.message}`);
         }
       }
+    }
+
+    if (!response) {
+      const configured = [
+        hasGeminiKey() ? "Gemini" : null,
+        hasNvidiaKey() ? "NVIDIA" : null,
+      ].filter(Boolean);
+
+      if (configured.length === 0) {
+        throw new Error("No AI provider is configured. Add NVIDIA_API_KEY or GEMINI_API_KEY to your .env file.");
+      }
+      throw new Error(`AI providers temporarily unavailable: ${errors.join("; ")}`);
     }
 
     return NextResponse.json({
@@ -108,13 +118,8 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("[POST /api/ai/chat] Error:", error);
-    
     const msg = error.message || "Failed to process AI chat request";
-    const status = msg.includes("429") || msg.includes("rate-limit") ? 429 : 500;
-    
-    return NextResponse.json(
-      { error: msg },
-      { status }
-    );
+    const status = msg.includes("429") || msg.includes("rate limit") ? 429 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }

@@ -3,23 +3,16 @@
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  Sparkles,
-  Bot,
   Send,
   RefreshCw,
-  Cpu,
-  ShieldAlert,
-  Flame,
   ChevronDown,
   ChevronUp,
   Image as ImageIcon,
-  CheckCircle,
-  AlertTriangle,
-  HeartHandshake,
-  Target,
   Brain,
+  Bot,
   X,
 } from "lucide-react";
+import { FormattedMessage } from "./formatted-message";
 
 interface TradeOption {
   id: string;
@@ -59,7 +52,6 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
 
   const selectedTrade = initialTrades.find((t) => t.id === selectedTradeId);
 
-  // If trade has a screenshot, offer it
   useEffect(() => {
     if (selectedTrade?.screenshots && selectedTrade.screenshots.length > 0) {
       setChartUrl(selectedTrade.screenshots[0].url);
@@ -71,7 +63,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: `Welcome to your Trading Psychology & Performance Desk. I am your AI Performance Coach — connected directly to your trading database.\n\nI automatically pick the best available AI model for you (NVIDIA Nemotron 550B → Gemini). No setup needed.\n\nI can see your recent trades, setups, stop-losses, and rules. When you take a loss or get stopped out by a wick, you are not alone.\n\nHow are you feeling right now? Use the quick buttons above, or just type.`,
+      content: `Welcome to your Trading Psychology & Performance Desk. I am your AI Performance Coach — connected directly to your trading database.\n\nI automatically pick the best available AI model for you. No manual setup needed.\n\nI can see your recent trades, setups, stop-losses, and rules. When you take a loss or get stopped out by a wick, you are not alone.\n\nHow are you feeling right now? Use the quick buttons above, or just type.`,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);
@@ -101,7 +93,11 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
     setIsLoading(true);
 
     try {
-      const apiMessages = [...messages, userMsg].map((m) => ({
+      const filteredHistory = messages
+        .filter((m) => !m.content.startsWith("💡"))
+        .slice(-6);
+
+      const apiMessages = [...filteredHistory, userMsg].map((m) => ({
         role: m.role,
         content: m.content,
       }));
@@ -114,7 +110,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
           tradeId: selectedTradeId || undefined,
           imageUrl: chartUrl || undefined,
           provider,
-          model,
+          model: model || undefined,
         }),
       });
 
@@ -135,28 +131,22 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
       setMessages((prev) => [...prev, aiMsg]);
     } catch (err: any) {
       console.error("AI Coach Error:", err);
-      
-      // Parse error into a friendly message — never show raw JSON to the user
       const rawMsg = err.message || "Connection issue";
-      let friendlyMsg: string;
+      let friendlyMsg = "The AI is temporarily unavailable. Try switching providers using the toggle above, or retry in a moment.";
 
-      if (rawMsg.includes("429") || rawMsg.includes("rate-limit") || rawMsg.includes("quota")) {
-        friendlyMsg = "⏳ The AI is cooling down (free quota limit reached). It resets in about 30 seconds. In the meantime, switch to **NVIDIA 550B** using the toggle above — it's faster and has separate quota.";
+      if (rawMsg.includes("429") || rawMsg.includes("rate limit") || rawMsg.includes("quota")) {
+        friendlyMsg = "The AI quota reached a temporary cooldown. Swapping to backup model...";
       } else if (rawMsg.includes("401") || rawMsg.includes("Unauthorized")) {
-        friendlyMsg = "🔐 Session expired. Please refresh the page and sign in again.";
+        friendlyMsg = "Session expired. Please refresh the page and sign in again.";
       } else if (rawMsg.includes("API key") || rawMsg.includes("not configured")) {
-        friendlyMsg = "🔑 AI API key is not configured yet. Go to Settings or add your NVIDIA/Gemini API key in the .env file.";
-      } else if (rawMsg.includes("Failed to fetch") || rawMsg.includes("NetworkError")) {
-        friendlyMsg = "📡 Network connection lost. Check your internet and try again.";
-      } else {
-        friendlyMsg = `The AI is temporarily unavailable. Try switching providers using the toggle above, or retry in a moment.`;
+        friendlyMsg = "API key is not configured yet. Check your .env file.";
       }
 
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: `💡 **Quick Note:** ${friendlyMsg}\n\nWhile the AI reconnects, remember: *Your only job right now is capital preservation. No screen, no chart, no revenge trade. Tomorrow is a fresh market.*`,
+          content: `💡 **Quick Note:** ${friendlyMsg}\n\n*Remember: Capital preservation is rule #1. No revenge trade. Tomorrow is a fresh market.*`,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);
@@ -194,7 +184,6 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
 
   return (
     <div className="flex flex-col h-[calc(100vh-7rem)] sm:h-[calc(100vh-8.5rem)] space-y-2 sm:space-y-3">
-      {/* ── Top Bar: Desk Context & Model Selection ── */}
       <div className="card p-2.5 sm:p-3 rounded-xl sm:rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <div className="h-7 sm:h-9 w-7 sm:w-9 rounded-lg sm:rounded-xl bg-ai-muted text-ai flex items-center justify-center font-bold shrink-0">
@@ -211,7 +200,6 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
           </div>
         </div>
 
-        {/* Trade Context Selector */}
         <div className="flex items-center gap-2 flex-wrap">
           {initialTrades.length > 0 && (
             <div className="flex items-center gap-1 text-xs">
@@ -231,7 +219,6 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
             </div>
           )}
 
-          {/* AI Model Provider — Auto is default */}
           <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 bg-card-accent rounded-lg sm:rounded-xl text-[10px] sm:text-xs border border-border/40">
             <button
               onClick={() => {
@@ -246,17 +233,6 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
             </button>
             <button
               onClick={() => {
-                setProvider("NVIDIA NIM");
-                setModel("nvidia/nemotron-3-ultra-550b-a55b");
-              }}
-              className={`px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                provider === "NVIDIA NIM" ? "bg-ai text-white shadow-sm" : "text-muted hover:text-clean"
-              }`}
-            >
-              NVIDIA
-            </button>
-            <button
-              onClick={() => {
                 setProvider("Google Gemini");
                 setModel("gemini-3.6-flash");
               }}
@@ -266,11 +242,21 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
             >
               Gemini
             </button>
+            <button
+              onClick={() => {
+                setProvider("NVIDIA NIM");
+                setModel("nvidia/nemotron-3-ultra-550b-a55b");
+              }}
+              className={`px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                provider === "NVIDIA NIM" ? "bg-ai text-white shadow-sm" : "text-muted hover:text-clean"
+              }`}
+            >
+              NVIDIA
+            </button>
           </div>
         </div>
       </div>
 
-      {/* ── Quick Emergency Prompt Pills ── */}
       <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 shrink-0 scrollbar-none -mx-1 px-1">
         {quickPrompts.map((qp, i) => (
           <button
@@ -284,7 +270,6 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
         ))}
       </div>
 
-      {/* ── Chat Messages Stream ── */}
       <div className="card flex-1 flex flex-col min-h-0 overflow-hidden rounded-2xl border border-border/40">
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {messages.map((msg, idx) => {
@@ -300,7 +285,6 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
                 </div>
 
                 <div className={`space-y-2 max-w-[85%] sm:max-w-2xl ${isUser ? "items-end text-right" : ""}`}>
-                  {/* Reasoning accordion if available */}
                   {msg.reasoning && (
                     <div className="rounded-xl bg-elevated/70 border border-ai/20 p-2.5 text-left text-xs space-y-1">
                       <button
@@ -308,7 +292,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
                         className="flex items-center justify-between w-full text-dim hover:text-soft text-[11px] font-semibold cursor-pointer"
                       >
                         <span className="flex items-center gap-1.5 text-ai">
-                          <Brain className="h-3 w-3" /> Coach Chain of Thought (Thinking Process)
+                          <Brain className="h-3 w-3" /> Coach Chain of Thought
                         </span>
                         {expandedReasoning[idx] ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                       </button>
@@ -320,18 +304,16 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
                     </div>
                   )}
 
-                  {/* Message Bubble */}
                   <div
-                    className={`p-4 rounded-2xl text-xs sm:text-[13px] leading-relaxed text-left whitespace-pre-wrap ${
+                    className={`p-4 rounded-2xl text-xs sm:text-[13px] leading-relaxed text-left ${
                       isUser
-                        ? "bg-accent/15 text-clean border border-accent/30 font-medium"
+                        ? "bg-accent/15 text-clean border border-accent/30 font-medium whitespace-pre-wrap"
                         : "bg-card-accent text-soft border border-border/40 shadow-sm"
                     }`}
                   >
-                    {msg.content}
+                    {isUser ? msg.content : <FormattedMessage content={msg.content} />}
                   </div>
 
-                  {/* Timestamp & Model Tag */}
                   <div className={`flex items-center gap-2 text-[10px] text-dim px-1 ${isUser ? "justify-end" : "justify-start"}`}>
                     <span>{msg.timestamp}</span>
                     {msg.modelUsed && (
@@ -359,7 +341,6 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
           <div ref={messagesEndRef} />
         </div>
 
-        {/* ── Chat Input Bar ── */}
         <div className="p-3 sm:p-4 bg-card border-t border-border/30 space-y-2 shrink-0">
           {chartUrl && (
             <div className="flex items-center justify-between p-2 rounded-xl bg-ai/10 border border-ai/20 text-xs text-ai">

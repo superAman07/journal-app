@@ -12,9 +12,6 @@ export interface AICoachResponse {
   provider: string;
 }
 
-/**
- * Fetches user trading history, rules, and streaks to feed as context into the AI
- */
 export async function getUserTradingContext(userId: string) {
   try {
     const today = new Date();
@@ -49,7 +46,6 @@ export async function getUserTradingContext(userId: string) {
       }),
     ]);
 
-    // Calculate current win/loss streak
     let streakCount = 0;
     let streakType: "WIN" | "LOSS" | "BREAKEVEN" | "NONE" = "NONE";
 
@@ -113,15 +109,10 @@ export async function getUserTradingContext(userId: string) {
   }
 }
 
-/**
- * Builds a TOKEN-EFFICIENT Trading Performance & Psychology System Prompt
- * Uses compact one-line trade summaries instead of full JSON to stay within free-tier token limits
- */
 export function buildTradingSystemPrompt(context: any, specificTrade?: any): string {
   let contextSummary = "No trade context available.";
 
   if (context) {
-    // Compact one-line trade summaries — saves ~70% tokens vs JSON.stringify
     const tradeSummaries = context.recentTrades.slice(0, 5).map((t: any) =>
       `${t.date} | ${t.instrument} | ${t.outcome} | PnL:${t.pnl} | RR:${t.actualRR} | Exit:${t.exitReason} | Emotions:${t.emotions.join(",") || "none"} | Rules:${t.rulesFollowed ? "yes" : "BROKEN"}`
     ).join("\n  ");
@@ -149,13 +140,11 @@ DIRECTIVES:
 3. If trader took a loss or is on a losing streak: LOCK THE TERMINAL. Give a clear discipline challenge.
 4. Use the trader's actual data (instrument, SL, RR, rules) in your response.
 5. Tone: Direct, brotherly, grounded. No generic filler. Speak like a senior trader who learned the hard way.
+6. Readability: Write in clean, comfortable paragraphs. Avoid symbol clutter and excessive asterisks. Keep it natural and easy to read.
 
 Reminder: "Survival first, execution second, profit takes care of itself."`;
 }
 
-/**
- * Call NVIDIA NIM API with Nemotron 550B or DeepSeek R1
- */
 export async function callNvidiaNIM(
   messages: AIChatMessage[],
   systemPrompt: string,
@@ -174,8 +163,8 @@ export async function callNvidiaNIM(
     ],
     temperature: 0.7,
     top_p: 0.9,
-    max_tokens: 2048,
-    chat_template_kwargs: { enable_thinking: true },
+    max_tokens: 800,
+    chat_template_kwargs: { enable_thinking: false },
   };
 
   const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
@@ -185,6 +174,7 @@ export async function callNvidiaNIM(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(25000),
   });
 
   if (!res.ok) {
@@ -206,14 +196,10 @@ export async function callNvidiaNIM(
   };
 }
 
-/**
- * Call Google Gemini API with retry for 429 rate limits
- */
 export async function callGemini(
   messages: AIChatMessage[],
   systemPrompt: string,
-  imageUrl?: string,
-  retryCount = 0
+  imageUrl?: string
 ): Promise<AICoachResponse> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.startsWith("your_")) {
@@ -222,11 +208,12 @@ export async function callGemini(
 
   const contents: any[] = [];
 
-  for (const msg of messages) {
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
     const role = msg.role === "assistant" ? "model" : "user";
     const parts: any[] = [{ text: msg.content }];
 
-    if (imageUrl && msg.role === "user") {
+    if (imageUrl && i === messages.length - 1 && msg.role === "user") {
       parts.push({
         file_data: {
           file_uri: imageUrl,
@@ -253,27 +240,17 @@ export async function callGemini(
         maxOutputTokens: 1024,
       },
     }),
+    signal: AbortSignal.timeout(15000),
   });
 
-  // Handle 429 rate limit with auto-retry (max 2 retries)
-  if (res.status === 429 && retryCount < 2) {
-    const retryBody = await res.json().catch(() => null);
-    const retryDelay = retryBody?.error?.details?.find((d: any) => d.retryDelay)?.retryDelay;
-    const waitMs = retryDelay ? parseInt(retryDelay) * 1000 : (retryCount + 1) * 15000;
-    const waitSec = Math.ceil(waitMs / 1000);
-    console.warn(`[callGemini] Rate limited (429). Retrying in ${waitSec}s (attempt ${retryCount + 1}/2)`);
-    await new Promise((resolve) => setTimeout(resolve, Math.min(waitMs, 30000)));
-    return callGemini(messages, systemPrompt, imageUrl, retryCount + 1);
-  }
-
   if (res.status === 429) {
-    throw new Error("Gemini is temporarily rate-limited. Your free quota resets in ~30 seconds. Please try again shortly, or switch to NVIDIA 550B.");
+    throw new Error("Gemini quota rate limit reached (429)");
   }
 
   if (!res.ok) {
     const errorText = await res.text();
     console.error("[callGemini] HTTP error:", res.status, errorText);
-    throw new Error(`Gemini is temporarily unavailable (${res.status}). Try switching to NVIDIA 550B.`);
+    throw new Error(`Gemini API error (${res.status}): ${errorText}`);
   }
 
   const data = await res.json();
