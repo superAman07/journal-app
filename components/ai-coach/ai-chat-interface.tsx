@@ -50,8 +50,8 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
   const preSelectedTradeId = searchParams.get("tradeId");
 
   const [selectedTradeId, setSelectedTradeId] = useState<string>(preSelectedTradeId || (initialTrades[0]?.id ?? ""));
-  const [provider, setProvider] = useState<"NVIDIA NIM" | "Google Gemini">("NVIDIA NIM");
-  const [model, setModel] = useState("nvidia/nemotron-3-ultra-550b-a55b");
+  const [provider, setProvider] = useState<"Auto" | "NVIDIA NIM" | "Google Gemini">("Auto");
+  const [model, setModel] = useState("");
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [expandedReasoning, setExpandedReasoning] = useState<{ [key: number]: boolean }>({});
@@ -71,7 +71,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: `Welcome to your Trading Psychology & Performance Desk. I am your Senior Risk Manager and Psychology Coach, powered by **NVIDIA Nemotron 550B**.\n\nI have direct access to your trading database, your recent setups, stop-losses, and rules. When you take a loss or get stopped out by a wick, you are not alone.\n\nHow are you feeling right now? If you just exited a trade, let's break down the execution together before you make any impulsive moves.`,
+      content: `Welcome to your Trading Psychology & Performance Desk. I am your AI Performance Coach — connected directly to your trading database.\n\nI automatically pick the best available AI model for you (NVIDIA Nemotron 550B → Gemini). No setup needed.\n\nI can see your recent trades, setups, stop-losses, and rules. When you take a loss or get stopped out by a wick, you are not alone.\n\nHow are you feeling right now? Use the quick buttons above, or just type.`,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);
@@ -231,29 +231,40 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
             </div>
           )}
 
-          {/* AI Model Provider */}
+          {/* AI Model Provider — Auto is default */}
           <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 bg-card-accent rounded-lg sm:rounded-xl text-[10px] sm:text-xs border border-border/40">
+            <button
+              onClick={() => {
+                setProvider("Auto");
+                setModel("");
+              }}
+              className={`px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                provider === "Auto" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-clean"
+              }`}
+            >
+              ⚡ Auto
+            </button>
             <button
               onClick={() => {
                 setProvider("NVIDIA NIM");
                 setModel("nvidia/nemotron-3-ultra-550b-a55b");
               }}
-              className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+              className={`px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                 provider === "NVIDIA NIM" ? "bg-ai text-white shadow-sm" : "text-muted hover:text-clean"
               }`}
             >
-              NVIDIA 550B
+              NVIDIA
             </button>
             <button
               onClick={() => {
                 setProvider("Google Gemini");
                 setModel("gemini-3.6-flash");
               }}
-              className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+              className={`px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                 provider === "Google Gemini" ? "bg-ai text-white shadow-sm" : "text-muted hover:text-clean"
               }`}
             >
-              Gemini Vision
+              Gemini
             </button>
           </div>
         </div>
