@@ -39,6 +39,7 @@ interface Message {
   reasoning?: string;
   modelUsed?: string;
   timestamp: string;
+  isTyping?: boolean;
 }
 
 export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatInterfaceProps) {
@@ -124,15 +125,59 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
         throw new Error(data.error || "Failed to reach AI mentor");
       }
 
+      setIsLoading(false);
+
+      const fullContent: string = data.message || "";
+      const timestamp = new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
       const aiMsg: Message = {
         role: "assistant",
-        content: data.message,
+        content: "",
         reasoning: data.reasoning || undefined,
         modelUsed: data.modelUsed,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        timestamp,
+        isTyping: true,
       };
 
       setMessages((prev) => [...prev, aiMsg]);
+
+      // Character-by-character live typewriter animation
+      await new Promise<void>((resolve) => {
+        let currentLen = 0;
+        const total = fullContent.length;
+        const step = total > 1000 ? 5 : total > 500 ? 3 : 2;
+
+        const interval = setInterval(() => {
+          currentLen += step;
+          if (currentLen >= total) {
+            currentLen = total;
+            clearInterval(interval);
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last && last.role === "assistant") {
+                last.content = fullContent;
+                last.isTyping = false;
+              }
+              return updated;
+            });
+            resolve();
+          } else {
+            const partial = fullContent.slice(0, currentLen);
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last && last.role === "assistant") {
+                last.content = partial;
+              }
+              return updated;
+            });
+          }
+        }, 16);
+      });
     } catch (err: any) {
       console.error("AI Coach Error:", err);
       const rawMsg = err.message || "Connection issue";
@@ -340,7 +385,14 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
                         : "bg-card-accent text-soft border border-border/40 shadow-sm"
                     }`}
                   >
-                    {isUser ? msg.content : <FormattedMessage content={msg.content} />}
+                    {isUser ? (
+                      msg.content
+                    ) : (
+                      <FormattedMessage
+                        content={msg.content}
+                        isTyping={msg.isTyping}
+                      />
+                    )}
                   </div>
 
                   <div className={`flex items-center gap-2 text-[10px] text-dim px-1 ${isUser ? "justify-end" : "justify-start"}`}>
