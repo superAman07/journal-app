@@ -174,7 +174,7 @@ export function SmartTextarea({
             type="button"
             onClick={handleAutoFormat}
             disabled={!value.trim()}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-gradient-to-r from-accent to-ai text-white hover:opacity-90 active:scale-95 transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-linear-to-r from-accent to-ai text-white hover:opacity-90 active:scale-95 transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title="Auto-format text: numbers, clean spacing, capitalize SL/TP/VWAP/EMA"
           >
             {formattedNotice ? (

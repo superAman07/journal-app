@@ -90,7 +90,7 @@ export function ReportCard() {
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-accent to-ai flex items-center justify-center shadow-xs">
+          <div className="h-9 w-9 rounded-xl bg-linear-to-br from-accent to-ai flex items-center justify-center shadow-xs">
             <FileText className="h-5 w-5 text-white" />
           </div>
           <div>
@@ -126,7 +126,7 @@ export function ReportCard() {
 
       {!data && !loading && !error && (
         <div className="card p-8 sm:p-12 text-center space-y-4 rounded-2xl border border-border-solid bg-card shadow-sm">
-          <div className="mx-auto h-14 w-14 rounded-2xl bg-gradient-to-br from-accent/20 to-ai/20 flex items-center justify-center">
+          <div className="mx-auto h-14 w-14 rounded-2xl bg-linear-to-br from-accent/20 to-ai/20 flex items-center justify-center">
             <Award className="h-7 w-7 text-accent" />
           </div>
           <div className="space-y-1.5 max-w-md mx-auto">

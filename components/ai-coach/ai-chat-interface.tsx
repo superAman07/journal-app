@@ -14,6 +14,9 @@ import {
   FileText,
   MessageSquare,
   ArrowDown,
+  Square,
+  Sparkles,
+  Database,
 } from "lucide-react";
 import { FormattedMessage } from "./formatted-message";
 import { ReportCard } from "./report-card";
@@ -81,6 +84,21 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
   const isUserScrolledUpRef = useRef(false);
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const abortTypewriterRef = useRef<boolean>(false);
+  const typewriterTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const stageTimerRef = useRef<NodeJS.Timeout[]>([]);
+
+  const [aiStage, setAiStage] = useState<{
+    text: string;
+    icon: "db" | "sparkles" | "brain" | "bot";
+  }>({
+    text: "Retrieving trade records & discipline history...",
+    icon: "db",
+  });
+
+  const isGenerating = isLoading || messages.some((m) => m.isTyping);
+
   const handleScroll = () => {
     const el = messagesContainerRef.current;
     if (!el) return;
@@ -108,9 +126,55 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
     scrollToBottom(false, false);
   }, [messages, isLoading]);
 
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    abortTypewriterRef.current = true;
+    if (typewriterTimerRef.current) {
+      clearTimeout(typewriterTimerRef.current);
+      typewriterTimerRef.current = null;
+    }
+
+    stageTimerRef.current.forEach(clearTimeout);
+    stageTimerRef.current = [];
+
+    setIsLoading(false);
+
+    setMessages((prev) => {
+      const updated = [...prev];
+      const last = updated[updated.length - 1];
+      if (last && last.role === "assistant" && last.isTyping) {
+        last.isTyping = false;
+        if (!last.content.trim()) {
+          last.content = "_Response stopped._";
+        }
+      }
+      return updated;
+    });
+  };
+
   const handleSend = async (customText?: string) => {
     const textToSend = customText || input;
-    if (!textToSend.trim() || isLoading) return;
+    if (!textToSend.trim() || isGenerating) return;
+
+    abortTypewriterRef.current = false;
+    stageTimerRef.current.forEach(clearTimeout);
+    stageTimerRef.current = [];
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setAiStage({ text: "Retrieving trade records & discipline history...", icon: "db" });
+    const t1 = setTimeout(() => {
+      setAiStage({ text: "Analyzing risk-to-reward & execution psychology...", icon: "sparkles" });
+    }, 1300);
+    const t2 = setTimeout(() => {
+      setAiStage({ text: "Synthesizing psychology coach response...", icon: "brain" });
+    }, 2800);
+    stageTimerRef.current.push(t1, t2);
 
     const userMsg: Message = {
       role: "user",
@@ -149,6 +213,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
           provider,
           model: model || undefined,
         }),
+        signal: controller.signal,
       });
 
       const data = await res.json();
@@ -157,7 +222,11 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
         throw new Error(data.error || "Failed to reach AI mentor");
       }
 
+      stageTimerRef.current.forEach(clearTimeout);
+      stageTimerRef.current = [];
       setIsLoading(false);
+
+      if (abortTypewriterRef.current) return;
 
       const fullContent: string = data.message || "";
       const timestamp = new Date().toLocaleTimeString([], {
@@ -182,12 +251,14 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
         const total = fullContent.length;
 
         const typeNext = () => {
-          if (currentLen >= total) {
+          if (abortTypewriterRef.current || currentLen >= total) {
             setMessages((prev) => {
               const updated = [...prev];
               const last = updated[updated.length - 1];
               if (last && last.role === "assistant") {
-                last.content = fullContent;
+                if (!abortTypewriterRef.current) {
+                  last.content = fullContent;
+                }
                 last.isTyping = false;
               }
               return updated;
@@ -229,12 +300,17 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
             return updated;
           });
 
-          setTimeout(typeNext, delay);
+          typewriterTimerRef.current = setTimeout(typeNext, delay);
         };
 
         typeNext();
       });
     } catch (err: any) {
+      if (err.name === "AbortError" || abortTypewriterRef.current) {
+        setIsLoading(false);
+        return;
+      }
+
       console.error("AI Coach Error:", err);
       const rawMsg = err.message || "Connection issue";
       let friendlyMsg = "The AI is temporarily unavailable. Try switching providers using the toggle above, or retry in a moment.";
@@ -256,6 +332,9 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
         },
       ]);
     } finally {
+      abortControllerRef.current = null;
+      stageTimerRef.current.forEach(clearTimeout);
+      stageTimerRef.current = [];
       setIsLoading(false);
     }
   };
@@ -400,7 +479,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
               <button
                 key={i}
                 onClick={() => handleSend(qp.prompt)}
-                disabled={isLoading}
+                disabled={isGenerating}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-card-accent/80 hover:bg-ai/15 hover:border-ai/40 border border-border/40 text-[10px] sm:text-[11px] font-semibold text-soft hover:text-clean transition-all cursor-pointer whitespace-nowrap shrink-0"
               >
                 <span>{qp.label}</span>
@@ -478,18 +557,39 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
 
           {isLoading && (
             <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-xl bg-ai-muted text-ai flex items-center justify-center shrink-0 animate-pulse">
-                <Bot className="h-4 w-4" />
+              <div className="h-8 w-8 rounded-xl bg-ai-muted text-ai flex items-center justify-center shrink-0 animate-pulse border border-ai/20">
+                {aiStage.icon === "db" && <Database className="h-4 w-4 text-ai" />}
+                {aiStage.icon === "sparkles" && <Sparkles className="h-4 w-4 text-ai" />}
+                {aiStage.icon === "brain" && <Brain className="h-4 w-4 text-ai" />}
+                {aiStage.icon === "bot" && <Bot className="h-4 w-4 text-ai" />}
               </div>
-              <div className="p-3.5 rounded-2xl bg-card-accent border border-border/40 text-xs text-muted flex items-center gap-2">
-                <RefreshCw className="h-3.5 w-3.5 animate-spin text-ai" />
-                <span>Coach is analyzing your trade context and calculating response...</span>
+              <div className="p-3 sm:p-3.5 rounded-2xl bg-card-accent border border-border/40 text-xs text-soft flex items-center gap-2.5 shadow-xs">
+                <div className="relative flex h-2 w-2 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ai opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-ai" />
+                </div>
+                <span className="font-medium text-clean transition-all duration-300">
+                  {aiStage.text}
+                </span>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Floating Stop Button (Centered in the middle) */}
+        {isGenerating && (
+          <button
+            type="button"
+            onClick={handleStop}
+            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface/95 backdrop-blur-md border border-border/80 hover:border-loss/60 shadow-lg text-xs font-semibold text-soft hover:text-loss transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2 group"
+          >
+            <Square className="h-3 w-3 fill-current text-loss group-hover:scale-110 transition-transform" />
+            <span>Stop generating</span>
+          </button>
+        )}
+
+        {/* Floating Jump to Latest Button (Right side) */}
         {isUserScrolledUp && (
           <button
             type="button"
@@ -501,7 +601,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
             className="absolute bottom-20 right-5 sm:right-7 z-20 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-surface/95 backdrop-blur-md border border-border/80 shadow-lg text-xs font-semibold text-soft hover:text-clean hover:border-accent hover:shadow-accent/20 transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2"
           >
             <ArrowDown className="h-3.5 w-3.5 text-accent animate-bounce" />
-            <span>{messages.some((m) => m.isTyping) || isLoading ? "Generating below..." : "Jump to latest"}</span>
+            <span>{isGenerating ? "Generating below..." : "Jump to latest"}</span>
           </button>
         )}
 
@@ -521,19 +621,32 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-              placeholder="Ask your Coach (e.g. I took a loss today, review my trade execution...)"
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && !isGenerating && handleSend()}
+              placeholder={isGenerating ? "AI Coach is generating response..." : "Ask your Coach (e.g. I took a loss today, review my trade execution...)"}
               className="input-field flex-1 text-xs sm:text-sm py-2.5"
-              disabled={isLoading}
+              disabled={isGenerating}
             />
 
-            <button
-              onClick={() => handleSend()}
-              disabled={isLoading || !input.trim()}
-              className="btn-primary rounded-xl! px-4! py-2.5! cursor-pointer disabled:opacity-50 shrink-0"
-            >
-              <Send className="h-4 w-4" />
-            </button>
+            {isGenerating ? (
+              <button
+                type="button"
+                onClick={handleStop}
+                title="Stop generating"
+                className="h-9 px-3.5 rounded-xl bg-loss/15 hover:bg-loss/25 border border-loss/30 text-loss flex items-center justify-center gap-1.5 text-xs font-bold cursor-pointer transition-all shrink-0"
+              >
+                <Square className="h-3.5 w-3.5 fill-current" />
+                <span className="hidden sm:inline">Stop</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleSend()}
+                disabled={!input.trim()}
+                className="btn-primary rounded-xl! px-4! py-2.5! cursor-pointer disabled:opacity-50 shrink-0"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>

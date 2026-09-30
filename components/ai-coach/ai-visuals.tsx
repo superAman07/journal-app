@@ -84,11 +84,11 @@ export function AIVisualChart({ type = "bar", title, data = [], summary }: Visua
         <div className="h-4 w-full bg-elevated rounded-full overflow-hidden flex p-0.5 gap-0.5">
           <div
             style={{ width: `${winRate}%` }}
-            className="h-full bg-gradient-to-r from-profit to-profit/80 rounded-full transition-all duration-500"
+            className="h-full bg-linear-to-r from-profit to-profit/80 rounded-full transition-all duration-500"
           />
           <div
             style={{ width: `${100 - winRate}%` }}
-            className="h-full bg-gradient-to-r from-loss/80 to-loss rounded-full transition-all duration-500"
+            className="h-full bg-linear-to-r from-loss/80 to-loss rounded-full transition-all duration-500"
           />
         </div>
 
@@ -135,8 +135,8 @@ export function AIVisualChart({ type = "bar", title, data = [], summary }: Visua
                   style={{ width: `${Math.max(5, pct)}%` }}
                   className={`h-full rounded-full transition-all duration-300 ${
                     isPositive
-                      ? "bg-gradient-to-r from-profit/70 to-profit"
-                      : "bg-gradient-to-r from-loss/70 to-loss"
+                      ? "bg-linear-to-r from-profit/70 to-profit"
+                      : "bg-linear-to-r from-loss/70 to-loss"
                   }`}
                 />
               </div>
@@ -309,7 +309,7 @@ export function AIVisualGauge({ title, value = 0, max = 100, label, summary }: V
       <div className="h-2.5 w-full bg-elevated rounded-full overflow-hidden">
         <div
           style={{ width: `${pct}%` }}
-          className={`h-full rounded-full bg-gradient-to-r ${bgGradient} transition-all duration-500`}
+          className={`h-full rounded-full bg-linear-to-r ${bgGradient} transition-all duration-500`}
         />
       </div>
 
