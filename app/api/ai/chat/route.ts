@@ -55,12 +55,12 @@ export async function POST(req: Request) {
 
     if (provider === "Google Gemini") {
       try {
-        response = await callGemini(messages, systemPrompt, imageUrl);
+        response = await callGemini(messages, systemPrompt, imageUrl, model);
       } catch (err: any) {
         errors.push(`Gemini: ${err.message}`);
         if (hasNvidiaKey()) {
           try {
-            response = await callNvidiaNIM(messages, systemPrompt, model);
+            response = await callNvidiaNIM(messages, systemPrompt, undefined, imageUrl);
           } catch (nErr: any) {
             errors.push(`NVIDIA fallback: ${nErr.message}`);
           }
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
       }
     } else if (provider === "NVIDIA NIM") {
       try {
-        response = await callNvidiaNIM(messages, systemPrompt, model);
+        response = await callNvidiaNIM(messages, systemPrompt, model, imageUrl);
       } catch (err: any) {
         errors.push(`NVIDIA: ${err.message}`);
         if (hasGeminiKey()) {
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
 
       if (!response && hasNvidiaKey()) {
         try {
-          response = await callNvidiaNIM(messages, systemPrompt, model);
+          response = await callNvidiaNIM(messages, systemPrompt, undefined, imageUrl);
         } catch (err: any) {
           errors.push(`NVIDIA: ${err.message}`);
         }

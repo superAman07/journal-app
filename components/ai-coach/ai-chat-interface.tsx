@@ -263,7 +263,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
             <button
               onClick={() => {
                 setProvider("Google Gemini");
-                setModel("gemini-3.8-flash");
+                setModel("gemini-flash-lite-latest");
               }}
               className={`px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                 provider === "Google Gemini" ? "bg-ai text-white shadow-sm" : "text-muted hover:text-clean"

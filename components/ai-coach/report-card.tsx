@@ -90,7 +90,7 @@ export function ReportCard() {
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-xl bg-linear-to-br from-accent to-ai flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-accent to-ai flex items-center justify-center shadow-xs">
             <FileText className="h-5 w-5 text-white" />
           </div>
           <div>
@@ -126,7 +126,7 @@ export function ReportCard() {
 
       {!data && !loading && !error && (
         <div className="card p-8 sm:p-12 text-center space-y-4 rounded-2xl border border-border-solid bg-card shadow-sm">
-          <div className="mx-auto h-14 w-14 rounded-2xl bg-linear-to-br from-accent/20 to-ai/20 flex items-center justify-center">
+          <div className="mx-auto h-14 w-14 rounded-2xl bg-gradient-to-br from-accent/20 to-ai/20 flex items-center justify-center">
             <Award className="h-7 w-7 text-accent" />
           </div>
           <div className="space-y-1.5 max-w-md mx-auto">
@@ -139,12 +139,26 @@ export function ReportCard() {
               and personalized coaching challenges.
             </p>
           </div>
-          <button
-            onClick={() => generateReport("week")}
-            className="btn-primary text-xs mx-auto cursor-pointer"
-          >
-            <Flame className="h-4 w-4" /> Generate Weekly Report
-          </button>
+          <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
+            <button
+              onClick={() => generateReport("week")}
+              className="btn-primary text-xs cursor-pointer"
+            >
+              <Calendar className="h-4 w-4" /> This Week
+            </button>
+            <button
+              onClick={() => generateReport("month")}
+              className="btn-secondary text-xs cursor-pointer"
+            >
+              <BarChart3 className="h-4 w-4" /> This Month
+            </button>
+            <button
+              onClick={() => generateReport("overall")}
+              className="btn-secondary text-xs cursor-pointer"
+            >
+              <Trophy className="h-4 w-4" /> Overall (12M)
+            </button>
+          </div>
         </div>
       )}
 
@@ -200,8 +214,22 @@ export function ReportCard() {
           )}
 
           {m.total === 0 ? (
-            <div className="card p-6 text-center space-y-2 rounded-2xl border border-border-solid bg-card">
-              <p className="text-sm text-muted">{data.message}</p>
+            <div className="card p-8 text-center space-y-3 rounded-2xl border border-border-solid bg-card shadow-sm">
+              <p className="text-xs sm:text-sm text-muted">{data.message}</p>
+              <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
+                <button
+                  onClick={() => generateReport("month")}
+                  className="btn-primary text-xs cursor-pointer"
+                >
+                  <BarChart3 className="h-3.5 w-3.5" /> View This Month
+                </button>
+                <button
+                  onClick={() => generateReport("overall")}
+                  className="btn-secondary text-xs cursor-pointer"
+                >
+                  <Trophy className="h-3.5 w-3.5" /> View Overall
+                </button>
+              </div>
             </div>
           ) : (
             <>

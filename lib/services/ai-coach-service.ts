@@ -148,24 +148,46 @@ Reminder: "Survival first, execution second, profit takes care of itself."`;
 export async function callNvidiaNIM(
   messages: AIChatMessage[],
   systemPrompt: string,
-  model = "nvidia/nemotron-3-ultra-550b-a55b"
+  model?: string,
+  imageUrl?: string
 ): Promise<AICoachResponse> {
   const apiKey = process.env.NVIDIA_API_KEY;
   if (!apiKey || apiKey === "nvapi-YourNvidiaKeyHere") {
     throw new Error("NVIDIA_API_KEY is not configured in .env");
   }
 
-  const payload = {
-    model: process.env.NVIDIA_MODEL || model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...messages,
-    ],
+  const effectiveModel = imageUrl
+    ? "meta/llama-3.2-11b-vision-instruct"
+    : (model || process.env.NVIDIA_MODEL || "nvidia/nemotron-3-ultra-550b-a55b");
+
+  const formattedMessages: any[] = [{ role: "system", content: systemPrompt }];
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (imageUrl && i === messages.length - 1 && msg.role === "user") {
+      formattedMessages.push({
+        role: "user",
+        content: [
+          { type: "text", text: msg.content },
+          { type: "image_url", image_url: { url: imageUrl } },
+        ],
+      });
+    } else {
+      formattedMessages.push({ role: msg.role, content: msg.content });
+    }
+  }
+
+  const payload: any = {
+    model: effectiveModel,
+    messages: formattedMessages,
     temperature: 0.7,
     top_p: 0.9,
     max_tokens: 800,
-    chat_template_kwargs: { enable_thinking: false },
   };
+
+  if (!imageUrl) {
+    payload.chat_template_kwargs = { enable_thinking: false };
+  }
 
   const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
@@ -191,7 +213,7 @@ export async function callNvidiaNIM(
   return {
     content,
     reasoning,
-    modelUsed: data.model || model,
+    modelUsed: data.model || effectiveModel,
     provider: "NVIDIA NIM",
   };
 }
@@ -199,7 +221,8 @@ export async function callNvidiaNIM(
 export async function callGemini(
   messages: AIChatMessage[],
   systemPrompt: string,
-  imageUrl?: string
+  imageUrl?: string,
+  preferredModel = "gemini-flash-lite-latest"
 ): Promise<AICoachResponse> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.startsWith("your_")) {
@@ -214,52 +237,80 @@ export async function callGemini(
     const parts: any[] = [{ text: msg.content }];
 
     if (imageUrl && i === messages.length - 1 && msg.role === "user") {
-      parts.push({
-        file_data: {
-          file_uri: imageUrl,
-          mime_type: "image/jpeg",
-        },
-      });
+      if (imageUrl.startsWith("data:")) {
+        const matches = imageUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+        if (matches) {
+          parts.push({
+            inline_data: {
+              mime_type: matches[1],
+              data: matches[2],
+            },
+          });
+        }
+      } else {
+        parts.push({
+          file_data: {
+            file_uri: imageUrl,
+            mime_type: "image/jpeg",
+          },
+        });
+      }
     }
 
     contents.push({ role, parts });
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+  const modelsToTry = [
+    preferredModel || "gemini-flash-lite-latest",
+    "gemini-flash-lite-latest",
+    "gemini-flash-latest",
+    "gemini-3.8-flash",
+    "gemini-3.5-flash",
+  ].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
 
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system_instruction: {
-        parts: [{ text: systemPrompt }],
-      },
-      contents,
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1024,
-      },
-    }),
-    signal: AbortSignal.timeout(15000),
-  });
+  let lastError: Error | null = null;
 
-  if (res.status === 429) {
-    throw new Error("Gemini quota rate limit reached (429)");
+  for (const model of modelsToTry) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: systemPrompt }],
+          },
+          contents,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1024,
+          },
+        }),
+        signal: AbortSignal.timeout(18000),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.warn(`[callGemini] ${model} returned ${res.status}:`, errorText);
+        lastError = new Error(`Gemini (${model}) error (${res.status}): ${errorText}`);
+        continue;
+      }
+
+      const data = await res.json();
+      const candidate = data.candidates?.[0];
+      const content = candidate?.content?.parts?.[0]?.text || "No response received.";
+
+      return {
+        content,
+        modelUsed: model,
+        provider: "Google Gemini",
+      };
+    } catch (err: any) {
+      console.warn(`[callGemini] Exception on model ${model}:`, err.message);
+      lastError = err;
+    }
   }
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("[callGemini] HTTP error:", res.status, errorText);
-    throw new Error(`Gemini API error (${res.status}): ${errorText}`);
-  }
-
-  const data = await res.json();
-  const candidate = data.candidates?.[0];
-  const content = candidate?.content?.parts?.[0]?.text || "No response received.";
-
-  return {
-    content,
-    modelUsed: "gemini-3.8-flash",
-    provider: "Google Gemini",
-  };
+  throw lastError || new Error("Gemini API call failed across all candidate models");
 }
