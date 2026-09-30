@@ -47,7 +47,9 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
   const searchParams = useSearchParams();
   const preSelectedTradeId = searchParams.get("tradeId");
 
-  const [selectedTradeId, setSelectedTradeId] = useState<string>(preSelectedTradeId || (initialTrades[0]?.id ?? ""));
+  const [selectedTradeId, setSelectedTradeId] = useState<string>(
+    preSelectedTradeId || ""
+  );
   const [provider, setProvider] = useState<"Auto" | "NVIDIA NIM" | "Google Gemini">("Auto");
   const [model, setModel] = useState("");
   const [input, setInput] = useState("");
@@ -58,12 +60,12 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
   const selectedTrade = initialTrades.find((t) => t.id === selectedTradeId);
 
   useEffect(() => {
-    if (selectedTrade?.screenshots && selectedTrade.screenshots.length > 0) {
+    if (selectedTradeId && selectedTrade?.screenshots && selectedTrade.screenshots.length > 0) {
       setChartUrl(selectedTrade.screenshots[0].url);
     } else {
       setChartUrl("");
     }
-  }, [selectedTrade]);
+  }, [selectedTradeId, selectedTrade]);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -93,8 +95,10 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
+    const sentChartUrl = chartUrl;
     setMessages((prev) => [...prev, userMsg]);
     if (!customText) setInput("");
+    setChartUrl(""); // Clear screenshot so future messages are clean
     setIsLoading(true);
 
     try {
@@ -113,7 +117,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
         body: JSON.stringify({
           messages: apiMessages,
           tradeId: selectedTradeId || undefined,
-          imageUrl: chartUrl || undefined,
+          imageUrl: sentChartUrl || undefined,
           provider,
           model: model || undefined,
         }),
@@ -256,24 +260,105 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
   ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-7rem)] sm:h-[calc(100vh-8.5rem)] space-y-2 sm:space-y-3">
-      <div className="flex items-center gap-1 p-0.5 bg-surface border border-border-solid rounded-xl shrink-0 self-start">
-        <button
-          onClick={() => setActiveTab("chat")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "chat" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-clean"
-          }`}
-        >
-          <MessageSquare className="h-3.5 w-3.5" /> Chat Coach
-        </button>
-        <button
-          onClick={() => setActiveTab("report")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "report" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-clean"
-          }`}
-        >
-          <FileText className="h-3.5 w-3.5" /> Report Card
-        </button>
+    <div className="flex flex-col h-[calc(100vh-4.6rem)] sm:h-[calc(100vh-5.2rem)] space-y-2 min-h-0">
+      {/* Unified Sleek Top Bar */}
+      <div className="card p-2 sm:p-2.5 rounded-xl sm:rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0 border border-border/40 shadow-xs">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1 p-0.5 bg-surface border border-border-solid rounded-xl shrink-0">
+            <button
+              onClick={() => setActiveTab("chat")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeTab === "chat"
+                  ? "bg-accent text-white shadow-xs"
+                  : "text-muted hover:text-clean"
+              }`}
+            >
+              <MessageSquare className="h-3.5 w-3.5" /> Chat Coach
+            </button>
+            <button
+              onClick={() => setActiveTab("report")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeTab === "report"
+                  ? "bg-accent text-white shadow-xs"
+                  : "text-muted hover:text-clean"
+              }`}
+            >
+              <FileText className="h-3.5 w-3.5" /> Report Card
+            </button>
+          </div>
+
+          <div className="hidden md:flex items-center gap-2 pl-2 border-l border-border/40">
+            <div className="h-6 w-6 rounded-lg bg-ai-muted text-ai flex items-center justify-center font-bold shrink-0">
+              <Brain className="h-3.5 w-3.5" />
+            </div>
+            <span className="badge badge-ai text-[9px]">DB Live</span>
+            <span className="text-[11px] text-muted truncate">Prop Desk Methodology</span>
+          </div>
+        </div>
+
+        {activeTab === "chat" && (
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {initialTrades.length > 0 && (
+              <div className="flex items-center gap-1 text-xs">
+                <span className="text-dim text-[10px] hidden lg:inline">Focus:</span>
+                <select
+                  value={selectedTradeId}
+                  onChange={(e) => setSelectedTradeId(e.target.value)}
+                  className="input-field py-1 text-[10px] sm:text-xs max-w-36 sm:max-w-48 truncate font-mono"
+                >
+                  <option value="">All Trades</option>
+                  {initialTrades.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.instrument} ({t.outcome} ₹{t.pnl})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex items-center gap-0.5 p-0.5 bg-card-accent rounded-lg text-[10px] sm:text-xs border border-border/40 shrink-0">
+              <button
+                onClick={() => {
+                  setProvider("Auto");
+                  setModel("");
+                }}
+                className={`px-2 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                  provider === "Auto"
+                    ? "bg-accent text-white shadow-xs"
+                    : "text-muted hover:text-clean"
+                }`}
+              >
+                ⚡ Auto
+              </button>
+              <button
+                onClick={() => {
+                  setProvider("Google Gemini");
+                  setModel("gemini-flash-lite-latest");
+                }}
+                className={`px-2 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                  provider === "Google Gemini"
+                    ? "bg-ai text-white shadow-xs"
+                    : "text-muted hover:text-clean"
+                }`}
+              >
+                Gemini
+              </button>
+              <button
+                onClick={() => {
+                  setProvider("NVIDIA NIM");
+                  setModel("nvidia/nemotron-3-ultra-550b-a55b");
+                }}
+                className={`px-2 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                  provider === "NVIDIA NIM"
+                    ? "bg-ai text-white shadow-xs"
+                    : "text-muted hover:text-clean"
+                }`}
+              >
+                NVIDIA
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {activeTab === "report" ? (
@@ -281,95 +366,22 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
           <ReportCard />
         </div>
       ) : (
-      <>
-      <div className="card p-2.5 sm:p-3 rounded-xl sm:rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="h-7 sm:h-9 w-7 sm:w-9 rounded-lg sm:rounded-xl bg-ai-muted text-ai flex items-center justify-center font-bold shrink-0">
-            <Brain className="h-4 sm:h-5 w-4 sm:w-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-              <h1 className="text-xs sm:text-sm font-bold text-clean truncate">AI Trading Coach</h1>
-              <span className="badge badge-ai text-[9px] sm:text-[10px] hidden xs:inline-flex">DB Connected</span>
-            </div>
-            <p className="text-[10px] sm:text-[11px] text-muted truncate">
-              Live Database · Prop Desk Methodology
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {initialTrades.length > 0 && (
-            <div className="flex items-center gap-1 text-xs">
-              <span className="text-dim text-[10px] sm:text-[11px] hidden sm:inline">Focus:</span>
-              <select
-                value={selectedTradeId}
-                onChange={(e) => setSelectedTradeId(e.target.value)}
-                className="input-field py-1 text-[10px] sm:text-xs max-w-32 sm:max-w-45 truncate font-mono"
+        <>
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-0.5 shrink-0 scrollbar-none -mx-1 px-1">
+            {quickPrompts.map((qp, i) => (
+              <button
+                key={i}
+                onClick={() => handleSend(qp.prompt)}
+                disabled={isLoading}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-card-accent/80 hover:bg-ai/15 hover:border-ai/40 border border-border/40 text-[10px] sm:text-[11px] font-semibold text-soft hover:text-clean transition-all cursor-pointer whitespace-nowrap shrink-0"
               >
-                <option value="">All Trades</option>
-                {initialTrades.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.instrument} ({t.outcome} ₹{t.pnl})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 bg-card-accent rounded-lg sm:rounded-xl text-[10px] sm:text-xs border border-border/40">
-            <button
-              onClick={() => {
-                setProvider("Auto");
-                setModel("");
-              }}
-              className={`px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                provider === "Auto" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-clean"
-              }`}
-            >
-              ⚡ Auto
-            </button>
-            <button
-              onClick={() => {
-                setProvider("Google Gemini");
-                setModel("gemini-flash-lite-latest");
-              }}
-              className={`px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                provider === "Google Gemini" ? "bg-ai text-white shadow-sm" : "text-muted hover:text-clean"
-              }`}
-            >
-              Gemini
-            </button>
-            <button
-              onClick={() => {
-                setProvider("NVIDIA NIM");
-                setModel("nvidia/nemotron-3-ultra-550b-a55b");
-              }}
-              className={`px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                provider === "NVIDIA NIM" ? "bg-ai text-white shadow-sm" : "text-muted hover:text-clean"
-              }`}
-            >
-              NVIDIA
-            </button>
+                <span>{qp.label}</span>
+              </button>
+            ))}
           </div>
-        </div>
-      </div>
 
-      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 shrink-0 scrollbar-none -mx-1 px-1">
-        {quickPrompts.map((qp, i) => (
-          <button
-            key={i}
-            onClick={() => handleSend(qp.prompt)}
-            disabled={isLoading}
-            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg sm:rounded-xl bg-card-accent/80 hover:bg-ai/15 hover:border-ai/40 border border-border/40 text-[10px] sm:text-xs font-semibold text-soft hover:text-clean transition-all cursor-pointer whitespace-nowrap"
-          >
-            <span>{qp.label}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="card flex-1 flex flex-col min-h-0 overflow-hidden rounded-2xl border border-border/40">
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+          <div className="card flex-1 flex flex-col min-h-0 overflow-hidden rounded-2xl border border-border/40 shadow-sm">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {messages.map((msg, idx) => {
             const isUser = msg.role === "user";
             return (
