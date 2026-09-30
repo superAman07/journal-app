@@ -144,17 +144,13 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
 
       setMessages((prev) => [...prev, aiMsg]);
 
-      // Character-by-character live typewriter animation
+      // Natural ChatGPT-like typewriter animation with punctuation pacing
       await new Promise<void>((resolve) => {
         let currentLen = 0;
         const total = fullContent.length;
-        const step = total > 1000 ? 5 : total > 500 ? 3 : 2;
 
-        const interval = setInterval(() => {
-          currentLen += step;
+        const typeNext = () => {
           if (currentLen >= total) {
-            currentLen = total;
-            clearInterval(interval);
             setMessages((prev) => {
               const updated = [...prev];
               const last = updated[updated.length - 1];
@@ -165,18 +161,46 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
               return updated;
             });
             resolve();
-          } else {
-            const partial = fullContent.slice(0, currentLen);
-            setMessages((prev) => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last && last.role === "assistant") {
-                last.content = partial;
-              }
-              return updated;
-            });
+            return;
           }
-        }, 16);
+
+          // Check if we are inside a code/visual block
+          const isInsideCode =
+            fullContent.slice(0, currentLen).split("```").length % 2 === 0;
+
+          let step = 1;
+          let delay = 22; // Natural ChatGPT reading cadence (~45 chars/sec)
+
+          if (isInsideCode) {
+            // Speed up through raw visual JSON so charts render smoothly
+            step = 8;
+            delay = 12;
+          } else {
+            const nextChar = fullContent[currentLen];
+            if (nextChar === "." || nextChar === "!" || nextChar === "?") {
+              delay = 65; // Natural pause at end of sentence
+            } else if (nextChar === "\n") {
+              delay = 45; // Subtle pause at line breaks
+            } else if (nextChar === ",") {
+              delay = 35; // Micro pause at commas
+            }
+          }
+
+          currentLen = Math.min(total, currentLen + step);
+
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last && last.role === "assistant") {
+              last.content = fullContent.slice(0, currentLen);
+            }
+            return updated;
+          });
+
+          setTimeout(typeNext, delay);
+        };
+
+        typeNext();
       });
     } catch (err: any) {
       console.error("AI Coach Error:", err);
