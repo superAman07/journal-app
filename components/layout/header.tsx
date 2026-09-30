@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { Plus, Sparkles, User, LogOut } from "lucide-react";
+import { Plus, Sparkles, User, LogOut, ShieldCheck } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { LiveTicker } from "@/components/layout/live-ticker";
 import { Logo } from "@/components/ui/logo";
@@ -21,6 +21,19 @@ export function Header() {
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <ThemeToggle />
+
+        <button
+          onClick={() => {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("open_guardrail"));
+            }
+          }}
+          title="Trader Guardrail (Execution Discipline & Checklist)"
+          className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface border border-border-solid text-soft hover:text-clean hover:border-accent text-xs font-semibold transition-all cursor-pointer shadow-xs"
+        >
+          <ShieldCheck className="h-3.5 w-3.5 text-profit" />
+          <span className="hidden md:inline">Guardrail</span>
+        </button>
 
         <Link
           href="/ai-coach"

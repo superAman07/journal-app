@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { Providers } from "@/components/providers/providers";
 import { CommandPalette } from "@/components/ui/command-palette";
+import { TraderGuardrail } from "@/components/guardrail/trader-guardrail";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -55,6 +56,9 @@ export default function RootLayout({
 
           {/* Global Command Palette (Ctrl+K) */}
           <CommandPalette />
+
+          {/* Floating Persistent Trader Guardrail */}
+          <TraderGuardrail />
         </Providers>
       </body>
     </html>
