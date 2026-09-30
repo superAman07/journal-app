@@ -11,8 +11,11 @@ import {
   Brain,
   Bot,
   X,
+  FileText,
+  MessageSquare,
 } from "lucide-react";
 import { FormattedMessage } from "./formatted-message";
+import { ReportCard } from "./report-card";
 
 interface TradeOption {
   id: string;
@@ -39,6 +42,7 @@ interface Message {
 }
 
 export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatInterfaceProps) {
+  const [activeTab, setActiveTab] = useState<"chat" | "report">("chat");
   const searchParams = useSearchParams();
   const preSelectedTradeId = searchParams.get("tradeId");
 
@@ -184,6 +188,31 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
 
   return (
     <div className="flex flex-col h-[calc(100vh-7rem)] sm:h-[calc(100vh-8.5rem)] space-y-2 sm:space-y-3">
+      <div className="flex items-center gap-1 p-0.5 bg-surface border border-border-solid rounded-xl shrink-0 self-start">
+        <button
+          onClick={() => setActiveTab("chat")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            activeTab === "chat" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-clean"
+          }`}
+        >
+          <MessageSquare className="h-3.5 w-3.5" /> Chat Coach
+        </button>
+        <button
+          onClick={() => setActiveTab("report")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            activeTab === "report" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-clean"
+          }`}
+        >
+          <FileText className="h-3.5 w-3.5" /> Report Card
+        </button>
+      </div>
+
+      {activeTab === "report" ? (
+        <div className="flex-1 overflow-y-auto">
+          <ReportCard />
+        </div>
+      ) : (
+      <>
       <div className="card p-2.5 sm:p-3 rounded-xl sm:rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <div className="h-7 sm:h-9 w-7 sm:w-9 rounded-lg sm:rounded-xl bg-ai-muted text-ai flex items-center justify-center font-bold shrink-0">
@@ -234,7 +263,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
             <button
               onClick={() => {
                 setProvider("Google Gemini");
-                setModel("gemini-3.6-flash");
+                setModel("gemini-3.8-flash");
               }}
               className={`px-2 sm:px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                 provider === "Google Gemini" ? "bg-ai text-white shadow-sm" : "text-muted hover:text-clean"
@@ -373,6 +402,8 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
