@@ -17,6 +17,12 @@ import {
   Square,
   Sparkles,
   Database,
+  Bookmark,
+  History,
+  Plus,
+  Trash2,
+  Download,
+  Check,
 } from "lucide-react";
 import { FormattedMessage } from "./formatted-message";
 import { ReportCard } from "./report-card";
@@ -46,6 +52,16 @@ interface Message {
   isTyping?: boolean;
 }
 
+export interface SavedChatSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+  messages: Message[];
+  tradeId?: string;
+}
+
 export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatInterfaceProps) {
   const [activeTab, setActiveTab] = useState<"chat" | "report">("chat");
   const searchParams = useSearchParams();
@@ -58,8 +74,14 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
   const [model, setModel] = useState("");
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [expandedReasoning, setExpandedReasoning] = useState<{ [key: number]: boolean }>({});
   const [chartUrl, setChartUrl] = useState<string>("");
+
+  const [savedSessions, setSavedSessions] = useState<SavedChatSession[]>([]);
+  const [showSavedModal, setShowSavedModal] = useState(false);
+  const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
+  const [currentChatId, setCurrentChatId] = useState<string>("");
 
   const selectedTrade = initialTrades.find((t) => t.id === selectedTradeId);
 
@@ -79,6 +101,42 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
     },
   ]);
 
+  // Restore saved sessions and active chat from browser storage
+  useEffect(() => {
+    try {
+      const savedList = localStorage.getItem("trading_journal_saved_chats");
+      if (savedList) {
+        setSavedSessions(JSON.parse(savedList));
+      }
+
+      const activeRaw = localStorage.getItem("trading_journal_active_chat");
+      if (activeRaw) {
+        const parsed = JSON.parse(activeRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      }
+
+      const activeId = localStorage.getItem("trading_journal_active_chat_id");
+      if (activeId) {
+        setCurrentChatId(activeId);
+      }
+    } catch (e) {
+      console.error("Error restoring chat session:", e);
+    }
+  }, []);
+
+  // Auto-sync active conversation to localStorage so refreshes never lose messages
+  useEffect(() => {
+    try {
+      if (messages.length > 1 || (messages.length === 1 && messages[0].role === "user")) {
+        localStorage.setItem("trading_journal_active_chat", JSON.stringify(messages));
+      }
+    } catch (e) {
+      console.error("Error auto-saving active chat:", e);
+    }
+  }, [messages]);
+
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isUserScrolledUpRef = useRef(false);
@@ -96,8 +154,6 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
     text: "Retrieving trade records & discipline history...",
     icon: "db",
   });
-
-  const isGenerating = isLoading || messages.some((m) => m.isTyping);
 
   const handleScroll = () => {
     const el = messagesContainerRef.current;
@@ -142,6 +198,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
     stageTimerRef.current = [];
 
     setIsLoading(false);
+    setIsGenerating(false);
 
     setMessages((prev) => {
       const updated = [...prev];
@@ -156,6 +213,110 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
     });
   };
 
+  const handleSaveChat = () => {
+    if (messages.length <= 1 && messages[0].role === "assistant") return;
+
+    try {
+      const firstUserMsg = messages.find((m) => m.role === "user");
+      let title = firstUserMsg
+        ? firstUserMsg.content.slice(0, 50).trim()
+        : "Trading Coaching Session";
+      if (title.length >= 50) title += "...";
+
+      const sessionId = currentChatId || `chat_${Date.now()}`;
+      setCurrentChatId(sessionId);
+      localStorage.setItem("trading_journal_active_chat_id", sessionId);
+
+      const newSession: SavedChatSession = {
+        id: sessionId,
+        title,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        messageCount: messages.length,
+        messages: messages,
+        tradeId: selectedTradeId || undefined,
+      };
+
+      setSavedSessions((prev) => {
+        const existingIdx = prev.findIndex((s) => s.id === sessionId);
+        let updated: SavedChatSession[];
+        if (existingIdx >= 0) {
+          updated = [...prev];
+          updated[existingIdx] = newSession;
+        } else {
+          updated = [newSession, ...prev];
+        }
+        localStorage.setItem("trading_journal_saved_chats", JSON.stringify(updated));
+        return updated;
+      });
+
+      setSaveSuccessNotice(true);
+      setTimeout(() => setSaveSuccessNotice(false), 2500);
+    } catch (e) {
+      console.error("Error saving chat session:", e);
+    }
+  };
+
+  const handleLoadSession = (session: SavedChatSession) => {
+    setCurrentChatId(session.id);
+    localStorage.setItem("trading_journal_active_chat_id", session.id);
+    localStorage.setItem("trading_journal_active_chat", JSON.stringify(session.messages));
+    setMessages(session.messages);
+    if (session.tradeId) {
+      setSelectedTradeId(session.tradeId);
+    }
+    setShowSavedModal(false);
+  };
+
+  const handleDeleteSession = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSavedSessions((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      localStorage.setItem("trading_journal_saved_chats", JSON.stringify(updated));
+      return updated;
+    });
+    if (currentChatId === id) {
+      setCurrentChatId("");
+      localStorage.removeItem("trading_journal_active_chat_id");
+    }
+  };
+
+  const handleExportSession = (session: SavedChatSession, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const mdContent =
+      `# ${session.title}\n*Saved: ${new Date(session.createdAt).toLocaleString()}*\n\n---\n\n` +
+      session.messages
+        .map(
+          (m) =>
+            `### **${m.role === "user" ? "You" : "AI Performance Coach"}** (${m.timestamp})\n\n${m.content}\n\n`
+        )
+        .join("---\n\n");
+
+    const blob = new Blob([mdContent], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `trading_coach_${session.id}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleNewChat = () => {
+    if (messages.length > 1) {
+      handleSaveChat();
+    }
+    setCurrentChatId("");
+    localStorage.removeItem("trading_journal_active_chat_id");
+    localStorage.removeItem("trading_journal_active_chat");
+    setMessages([
+      {
+        role: "assistant",
+        content: `Started a fresh coaching session. I am connected directly to your trading database.\n\nWhat would you like to review or work on?`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]);
+  };
+
   const handleSend = async (customText?: string) => {
     const textToSend = customText || input;
     if (!textToSend.trim() || isGenerating) return;
@@ -163,6 +324,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
     abortTypewriterRef.current = false;
     stageTimerRef.current.forEach(clearTimeout);
     stageTimerRef.current = [];
+    setIsGenerating(true);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -263,6 +425,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
               }
               return updated;
             });
+            setIsGenerating(false);
             resolve();
             return;
           }
@@ -306,6 +469,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
         typeNext();
       });
     } catch (err: any) {
+      setIsGenerating(false);
       if (err.name === "AbortError" || abortTypewriterRef.current) {
         setIsLoading(false);
         return;
@@ -336,6 +500,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
       stageTimerRef.current.forEach(clearTimeout);
       stageTimerRef.current = [];
       setIsLoading(false);
+      setIsGenerating(false);
     }
   };
 
@@ -404,7 +569,58 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
         </div>
 
         {activeTab === "chat" && (
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap">
+            {/* New Chat Button */}
+            <button
+              onClick={handleNewChat}
+              title="Start a fresh chat (current chat will be saved)"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold bg-surface border border-border-solid text-soft hover:text-clean hover:border-accent transition-all cursor-pointer shrink-0"
+            >
+              <Plus className="h-3.5 w-3.5 text-accent" />
+              <span className="hidden sm:inline">New Chat</span>
+            </button>
+
+            {/* Save Chat Button */}
+            <button
+              onClick={handleSaveChat}
+              disabled={messages.length <= 1}
+              title="Save current chat session in browser"
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition-all cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
+                saveSuccessNotice
+                  ? "bg-profit/20 border border-profit text-profit shadow-xs"
+                  : "bg-surface border border-border-solid text-soft hover:text-clean hover:border-ai"
+              }`}
+            >
+              {saveSuccessNotice ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-profit" />
+                  <span>Saved!</span>
+                </>
+              ) : (
+                <>
+                  <Bookmark className="h-3.5 w-3.5 text-ai" />
+                  <span className="hidden sm:inline">Save Chat</span>
+                  <span className="sm:hidden">Save</span>
+                </>
+              )}
+            </button>
+
+            {/* Saved Chats Library Button */}
+            <button
+              onClick={() => setShowSavedModal(true)}
+              title="View your saved coaching conversations"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold bg-surface border border-border-solid text-soft hover:text-clean hover:border-border transition-all cursor-pointer shrink-0"
+            >
+              <History className="h-3.5 w-3.5 text-muted" />
+              <span className="hidden sm:inline">Saved Chats</span>
+              <span className="sm:hidden">Saved</span>
+              {savedSessions.length > 0 && (
+                <span className="bg-ai/20 text-ai text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold">
+                  {savedSessions.length}
+                </span>
+              )}
+            </button>
+
             {initialTrades.length > 0 && (
               <div className="flex items-center gap-1 text-xs">
                 <span className="text-dim text-[10px] hidden lg:inline">Focus:</span>
@@ -577,35 +793,39 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Floating Stop Button (Centered in the middle) */}
-        {isGenerating && (
-          <button
-            type="button"
-            onClick={handleStop}
-            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface/95 backdrop-blur-md border border-border/80 hover:border-loss/60 shadow-lg text-xs font-semibold text-soft hover:text-loss transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2 group"
-          >
-            <Square className="h-3 w-3 fill-current text-loss group-hover:scale-110 transition-transform" />
-            <span>Stop generating</span>
-          </button>
-        )}
+        <div className="p-3 sm:p-4 bg-card border-t border-border/30 space-y-2 shrink-0 relative">
+          {/* Centered Floating Stop Button (Always visible and positioned above the input box) */}
+          {isGenerating && (
+            <div className="absolute -top-11 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+              <button
+                type="button"
+                onClick={handleStop}
+                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface border-2 border-loss/70 text-loss shadow-2xl text-xs font-bold hover:bg-loss/15 active:scale-95 transition-all cursor-pointer group"
+              >
+                <Square className="h-3.5 w-3.5 fill-current text-loss group-hover:scale-110 transition-transform" />
+                <span>Stop generating</span>
+              </button>
+            </div>
+          )}
 
-        {/* Floating Jump to Latest Button (Right side) */}
-        {isUserScrolledUp && (
-          <button
-            type="button"
-            onClick={() => {
-              isUserScrolledUpRef.current = false;
-              setIsUserScrolledUp(false);
-              messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-            }}
-            className="absolute bottom-20 right-5 sm:right-7 z-20 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-surface/95 backdrop-blur-md border border-border/80 shadow-lg text-xs font-semibold text-soft hover:text-clean hover:border-accent hover:shadow-accent/20 transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2"
-          >
-            <ArrowDown className="h-3.5 w-3.5 text-accent animate-bounce" />
-            <span>{isGenerating ? "Generating below..." : "Jump to latest"}</span>
-          </button>
-        )}
+          {/* Floating Jump to Latest Button (Positioned on the right above the input box) */}
+          {isUserScrolledUp && (
+            <div className="absolute -top-11 right-4 sm:right-6 z-30 pointer-events-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  isUserScrolledUpRef.current = false;
+                  setIsUserScrolledUp(false);
+                  messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-surface/95 backdrop-blur-md border border-border/80 shadow-lg text-xs font-semibold text-soft hover:text-clean hover:border-accent hover:shadow-accent/20 transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2"
+              >
+                <ArrowDown className="h-3.5 w-3.5 text-accent animate-bounce" />
+                <span>{isGenerating ? "Generating below..." : "Jump to latest"}</span>
+              </button>
+            </div>
+          )}
 
-        <div className="p-3 sm:p-4 bg-card border-t border-border/30 space-y-2 shrink-0">
           {chartUrl && (
             <div className="flex items-center justify-between p-2 rounded-xl bg-ai/10 border border-ai/20 text-xs text-ai">
               <span className="flex items-center gap-2 truncate">
@@ -631,11 +851,11 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
               <button
                 type="button"
                 onClick={handleStop}
-                title="Stop generating"
-                className="h-9 px-3.5 rounded-xl bg-loss/15 hover:bg-loss/25 border border-loss/30 text-loss flex items-center justify-center gap-1.5 text-xs font-bold cursor-pointer transition-all shrink-0"
+                title="Stop generating response"
+                className="h-10 px-4 rounded-xl bg-loss text-white font-bold flex items-center justify-center gap-1.5 text-xs cursor-pointer shadow-md hover:bg-loss/90 active:scale-95 transition-all shrink-0 animate-pulse"
               >
                 <Square className="h-3.5 w-3.5 fill-current" />
-                <span className="hidden sm:inline">Stop</span>
+                <span>Stop</span>
               </button>
             ) : (
               <button
@@ -651,6 +871,124 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
         </div>
       </div>
       </>
+      )}
+
+      {/* Floating Toast Notification when chat is saved */}
+      {saveSuccessNotice && (
+        <div className="fixed top-20 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-profit text-white font-semibold text-xs shadow-xl animate-in fade-in slide-in-from-top-2">
+          <Check className="h-4 w-4" />
+          <span>Chat saved to browser! You can return to it anytime from Saved Chats.</span>
+        </div>
+      )}
+
+      {/* Saved Coaching Sessions Modal */}
+      {showSavedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="card w-full max-w-lg rounded-2xl border border-border shadow-2xl flex flex-col max-h-[85vh] overflow-hidden bg-card">
+            {/* Modal Header */}
+            <div className="p-4 border-b border-border/40 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-xl bg-ai-muted text-ai flex items-center justify-center font-bold">
+                  <Bookmark className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-clean flex items-center gap-2">
+                    Saved Coaching Sessions
+                    <span className="badge badge-ai text-[10px]">{savedSessions.length}</span>
+                  </h3>
+                  <p className="text-[11px] text-muted">Stored locally in your browser storage</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSavedModal(false)}
+                className="h-8 w-8 rounded-xl bg-surface hover:bg-elevated text-muted hover:text-clean flex items-center justify-center cursor-pointer transition-all"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Sessions List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {savedSessions.length === 0 ? (
+                <div className="text-center py-10 space-y-3">
+                  <div className="h-12 w-12 rounded-2xl bg-surface mx-auto flex items-center justify-center text-muted border border-border/40">
+                    <Bookmark className="h-6 w-6 text-dim" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-clean">No saved sessions yet</p>
+                    <p className="text-xs text-muted max-w-xs mx-auto">
+                      Click the <span className="text-ai font-semibold">&quot;Save Chat&quot;</span> button in the toolbar anytime to bookmark important trading psychology audits.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                savedSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    onClick={() => handleLoadSession(session)}
+                    className="p-3.5 rounded-xl border border-border/40 hover:border-ai/40 bg-surface/60 hover:bg-surface transition-all cursor-pointer group space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="text-xs font-bold text-clean group-hover:text-ai transition-colors line-clamp-2">
+                        {session.title}
+                      </h4>
+                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={(e) => handleExportSession(session, e)}
+                          title="Download Markdown"
+                          className="h-7 w-7 rounded-lg hover:bg-elevated text-muted hover:text-clean flex items-center justify-center transition-all cursor-pointer"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteSession(session.id, e)}
+                          title="Delete saved session"
+                          className="h-7 w-7 rounded-lg hover:bg-loss/15 text-muted hover:text-loss flex items-center justify-center transition-all cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-muted font-mono pt-1 border-t border-border/20">
+                      <span>
+                        {new Date(session.createdAt).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      <span className="bg-elevated px-2 py-0.5 rounded text-soft">
+                        {session.messageCount} messages
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 bg-surface/40 border-t border-border/30 flex items-center justify-between shrink-0">
+              <button
+                onClick={() => {
+                  setShowSavedModal(false);
+                  handleNewChat();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-accent text-white shadow-xs cursor-pointer hover:opacity-90 transition-all"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Start New Chat</span>
+              </button>
+              <button
+                onClick={() => setShowSavedModal(false)}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-muted hover:text-clean cursor-pointer transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
