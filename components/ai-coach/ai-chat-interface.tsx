@@ -13,6 +13,7 @@ import {
   X,
   FileText,
   MessageSquare,
+  ArrowDown,
 } from "lucide-react";
 import { FormattedMessage } from "./formatted-message";
 import { ReportCard } from "./report-card";
@@ -75,14 +76,36 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
     },
   ]);
 
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isUserScrolledUpRef = useRef(false);
+  const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const handleScroll = () => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    // User is considered scrolled up if more than 70px from the bottom
+    const scrolledUp = distanceFromBottom > 70;
+    if (scrolledUp !== isUserScrolledUpRef.current) {
+      isUserScrolledUpRef.current = scrolledUp;
+      setIsUserScrolledUp(scrolledUp);
+    }
+  };
+
+  const scrollToBottom = (force = false, smooth = false) => {
+    if (!force && isUserScrolledUpRef.current) return;
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    if (smooth) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      el.scrollTop = el.scrollHeight;
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    scrollToBottom(false, false);
   }, [messages, isLoading]);
 
   const handleSend = async (customText?: string) => {
@@ -100,6 +123,11 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
     if (!customText) setInput("");
     setChartUrl(""); // Clear screenshot so future messages are clean
     setIsLoading(true);
+    isUserScrolledUpRef.current = false;
+    setIsUserScrolledUp(false);
+    setTimeout(() => {
+      scrollToBottom(true, true);
+    }, 20);
 
     try {
       const filteredHistory = messages
@@ -380,8 +408,12 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
             ))}
           </div>
 
-          <div className="card flex-1 flex flex-col min-h-0 overflow-hidden rounded-2xl border border-border/40 shadow-sm">
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+          <div className="card flex-1 flex flex-col min-h-0 overflow-hidden rounded-2xl border border-border/40 shadow-sm relative">
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4"
+            >
           {messages.map((msg, idx) => {
             const isUser = msg.role === "user";
             return (
@@ -457,6 +489,21 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
           )}
           <div ref={messagesEndRef} />
         </div>
+
+        {isUserScrolledUp && (
+          <button
+            type="button"
+            onClick={() => {
+              isUserScrolledUpRef.current = false;
+              setIsUserScrolledUp(false);
+              messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="absolute bottom-20 right-5 sm:right-7 z-20 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-surface/95 backdrop-blur-md border border-border/80 shadow-lg text-xs font-semibold text-soft hover:text-clean hover:border-accent hover:shadow-accent/20 transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2"
+          >
+            <ArrowDown className="h-3.5 w-3.5 text-accent animate-bounce" />
+            <span>{messages.some((m) => m.isTyping) || isLoading ? "Generating below..." : "Jump to latest"}</span>
+          </button>
+        )}
 
         <div className="p-3 sm:p-4 bg-card border-t border-border/30 space-y-2 shrink-0">
           {chartUrl && (
