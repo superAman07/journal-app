@@ -656,7 +656,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
               <button
                 onClick={() => {
                   setProvider("Google Gemini");
-                  setModel("gemini-flash-lite-latest");
+                  setModel("gemini-3.6-flash");
                 }}
                 className={`px-2 py-1 rounded-md font-semibold transition-all cursor-pointer ${
                   provider === "Google Gemini"
@@ -669,7 +669,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
               <button
                 onClick={() => {
                   setProvider("NVIDIA NIM");
-                  setModel("nvidia/nemotron-3-ultra-550b-a55b");
+                  setModel("meta/llama-3.2-11b-vision-instruct");
                 }}
                 className={`px-2 py-1 rounded-md font-semibold transition-all cursor-pointer ${
                   provider === "NVIDIA NIM"

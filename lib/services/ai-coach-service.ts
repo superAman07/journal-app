@@ -213,9 +213,19 @@ export async function callNvidiaNIM(
     throw new Error("NVIDIA_API_KEY is not configured in .env");
   }
 
-  const effectiveModel = imageUrl
+  const configuredDefault = process.env.NVIDIA_MODEL || "meta/llama-3.2-11b-vision-instruct";
+  const primaryModel = imageUrl
     ? "meta/llama-3.2-11b-vision-instruct"
-    : (model || process.env.NVIDIA_MODEL || "nvidia/nemotron-3-ultra-550b-a55b");
+    : (model || configuredDefault);
+
+  const candidateModels = imageUrl
+    ? ["meta/llama-3.2-11b-vision-instruct"]
+    : [
+        primaryModel,
+        "meta/llama-3.2-11b-vision-instruct",
+        "openai/gpt-oss-20b",
+        "nvidia/nemotron-3-super-120b-a12b",
+      ].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
 
   const formattedMessages: any[] = [{ role: "system", content: systemPrompt }];
 
@@ -234,52 +244,69 @@ export async function callNvidiaNIM(
     }
   }
 
-  const payload: any = {
-    model: effectiveModel,
-    messages: formattedMessages,
-    temperature: 0.7,
-    top_p: 0.9,
-    max_tokens: 800,
-  };
+  let lastError: Error | null = null;
 
-  if (!imageUrl) {
-    payload.chat_template_kwargs = { enable_thinking: false };
+  for (const currentModel of candidateModels) {
+    try {
+      const payload: any = {
+        model: currentModel,
+        messages: formattedMessages,
+        temperature: 0.7,
+        top_p: 0.9,
+        max_tokens: 800,
+      };
+
+      if (!imageUrl && !currentModel.includes("gpt-oss")) {
+        payload.chat_template_kwargs = { enable_thinking: false };
+      }
+
+      const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(22000),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.warn(`[callNvidiaNIM] ${currentModel} returned ${res.status}:`, errorText.slice(0, 150));
+        lastError = new Error(`NVIDIA API error (${res.status}): ${errorText}`);
+        continue;
+      }
+
+      const data = await res.json();
+      const choice = data.choices?.[0];
+      const content = choice?.message?.content || choice?.message?.reasoning_content || "";
+      const reasoning = choice?.message?.reasoning_content || "";
+
+      if (!content.trim()) {
+        console.warn(`[callNvidiaNIM] ${currentModel} returned empty text, trying next fallback...`);
+        continue;
+      }
+
+      return {
+        content,
+        reasoning,
+        modelUsed: data.model || currentModel,
+        provider: "NVIDIA NIM",
+      };
+    } catch (err: any) {
+      console.warn(`[callNvidiaNIM] Exception on ${currentModel}:`, err.message);
+      lastError = err;
+    }
   }
 
-  const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(25000),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("[callNvidiaNIM] HTTP error:", res.status, errorText);
-    throw new Error(`NVIDIA API error (${res.status}): ${errorText}`);
-  }
-
-  const data = await res.json();
-  const choice = data.choices?.[0];
-  const content = choice?.message?.content || "";
-  const reasoning = choice?.message?.reasoning_content || "";
-
-  return {
-    content,
-    reasoning,
-    modelUsed: data.model || effectiveModel,
-    provider: "NVIDIA NIM",
-  };
+  throw lastError || new Error("NVIDIA NIM API call failed across all candidate models");
 }
 
 export async function callGemini(
   messages: AIChatMessage[],
   systemPrompt: string,
   imageUrl?: string,
-  preferredModel = "gemini-flash-lite-latest"
+  preferredModel = "gemini-3.6-flash"
 ): Promise<AICoachResponse> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.startsWith("your_")) {
@@ -318,11 +345,11 @@ export async function callGemini(
   }
 
   const modelsToTry = [
-    preferredModel || "gemini-flash-lite-latest",
-    "gemini-flash-lite-latest",
+    preferredModel || "gemini-3.6-flash",
+    "gemini-3.6-flash",
     "gemini-flash-latest",
     "gemini-3.8-flash",
-    "gemini-3.5-flash",
+    "gemini-flash-lite-latest",
   ].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
 
   let lastError: Error | null = null;
@@ -349,7 +376,7 @@ export async function callGemini(
 
       if (!res.ok) {
         const errorText = await res.text();
-        console.warn(`[callGemini] ${model} returned ${res.status}:`, errorText);
+        console.warn(`[callGemini] ${model} returned ${res.status}:`, errorText.slice(0, 150));
         lastError = new Error(`Gemini (${model}) error (${res.status}): ${errorText}`);
         continue;
       }

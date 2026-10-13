@@ -80,19 +80,19 @@ export async function POST(req: Request) {
         }
       }
     } else {
-      if (hasGeminiKey()) {
-        try {
-          response = await callGemini(messages, systemPrompt, imageUrl);
-        } catch (err: any) {
-          errors.push(`Gemini: ${err.message}`);
-        }
-      }
-
-      if (!response && hasNvidiaKey()) {
+      if (hasNvidiaKey()) {
         try {
           response = await callNvidiaNIM(messages, systemPrompt, undefined, imageUrl);
         } catch (err: any) {
           errors.push(`NVIDIA: ${err.message}`);
+        }
+      }
+
+      if (!response && hasGeminiKey()) {
+        try {
+          response = await callGemini(messages, systemPrompt, imageUrl);
+        } catch (err: any) {
+          errors.push(`Gemini: ${err.message}`);
         }
       }
     }
