@@ -84,8 +84,16 @@ export async function getUserTradingContext(userId: string) {
         exitReason: t.exitReason,
         rulesFollowed: t.rulesFollowed,
         ruleBreakReason: t.ruleBreakReason,
+        mindsetBefore: t.mindsetBefore,
+        mindsetDuring: t.mindsetDuring,
         mindsetAfter: t.mindsetAfter,
+        notes: t.notes,
         emotions: t.emotions.map((e) => e.emotion),
+        emotionsByStage: {
+          before: t.emotions.filter((e) => e.stage === "BEFORE").map((e) => e.emotion),
+          during: t.emotions.filter((e) => e.stage === "DURING").map((e) => e.emotion),
+          after: t.emotions.filter((e) => e.stage === "AFTER").map((e) => e.emotion),
+        },
         mistakes: t.mistakes.map((m) => m.mistake),
         hasScreenshot: t.screenshots.length > 0,
         screenshotUrl: t.screenshots[0]?.url,
@@ -113,21 +121,64 @@ export function buildTradingSystemPrompt(context: any, specificTrade?: any): str
   let contextSummary = "No trade context available.";
 
   if (context) {
-    const tradeSummaries = context.recentTrades.slice(0, 5).map((t: any) =>
-      `${t.date} | ${t.instrument} | ${t.outcome} | PnL:${t.pnl} | RR:${t.actualRR} | Exit:${t.exitReason} | Emotions:${t.emotions.join(",") || "none"} | Rules:${t.rulesFollowed ? "yes" : "BROKEN"}`
-    ).join("\n  ");
+    const tradeSummaries = context.recentTrades.slice(0, 5).map((t: any) => {
+      const psychParts: string[] = [];
+      if (t.mindsetBefore || t.emotionsByStage?.before?.length) {
+        psychParts.push(`Before: "${t.mindsetBefore || "N/A"}" (${t.emotionsByStage?.before?.join(", ") || "neutral"})`);
+      }
+      if (t.mindsetDuring || t.emotionsByStage?.during?.length) {
+        psychParts.push(`During: "${t.mindsetDuring || "N/A"}" (${t.emotionsByStage?.during?.join(", ") || "neutral"})`);
+      }
+      if (t.mindsetAfter || t.emotionsByStage?.after?.length) {
+        psychParts.push(`After: "${t.mindsetAfter || "N/A"}" (${t.emotionsByStage?.after?.join(", ") || "neutral"})`);
+      }
+      if (t.notes) {
+        psychParts.push(`Notes: "${t.notes}"`);
+      }
+      const psychStr = psychParts.length > 0 ? `\n    • Mindset Arc: ${psychParts.join(" ➔ ")}` : "";
+      const mistakesStr = t.mistakes?.length > 0 ? ` | Mistakes: ${t.mistakes.join(", ")}` : "";
+
+      return `${t.date} | ${t.instrument} (${t.market}) | ${t.outcome} (₹${t.pnl}) | RR:${t.actualRR} | Exit:${t.exitReason} | Rules:${t.rulesFollowed ? "followed" : "BROKEN: " + (t.ruleBreakReason || "unspecified")}${mistakesStr}${psychStr}`;
+    }).join("\n  ");
 
     contextSummary = `=== TRADER DB CONTEXT ===
 Streak: ${context.currentStreak.count}x ${context.currentStreak.type} | Today PnL: ₹${context.todayPnL.toFixed(0)} | Today Trades: ${context.todayTrades.length} | Win Rate (last 10): ${context.recentWinRate}
 Rules: ${context.activeRules.length > 0 ? context.activeRules.join(" | ") : "None set"}
-Recent Trades:
+Recent Trades & Psychology:
   ${tradeSummaries || "No trades yet"}
 ========================`;
   }
 
   let specificSection = "";
   if (specificTrade) {
-    specificSection = `\n=== FOCUSED TRADE ===\n${specificTrade.instrument} | ${specificTrade.market} | ${specificTrade.outcome} | Entry:${Number(specificTrade.actualEntry)} SL:${Number(specificTrade.stopLoss)} Target:${Number(specificTrade.target)} Exit:${Number(specificTrade.actualExit)} | PnL:${specificTrade.pnl} | RR:${specificTrade.actualRR} | Exit Reason:${specificTrade.exitReason} | Rules:${specificTrade.rulesFollowed ? "followed" : "BROKEN: " + (specificTrade.ruleBreakReason || "unknown")}\n=====================`;
+    const beforeEmotions = specificTrade.emotions?.filter((e: any) => e.stage === "BEFORE").map((e: any) => e.emotion) || [];
+    const duringEmotions = specificTrade.emotions?.filter((e: any) => e.stage === "DURING").map((e: any) => e.emotion) || [];
+    const afterEmotions = specificTrade.emotions?.filter((e: any) => e.stage === "AFTER").map((e: any) => e.emotion) || [];
+    const mistakes = specificTrade.mistakes?.map((m: any) => m.mistake || m) || [];
+
+    specificSection = `
+=== FOCUSED TRADE & COMPLETE 3-PHASE PSYCHOLOGY JOURNAL ===
+Instrument: ${specificTrade.instrument} (${specificTrade.market}) | Setup: ${specificTrade.setup || "N/A"} | Bias: ${specificTrade.bias || "N/A"}
+Result: ${specificTrade.outcome} | PnL: ₹${specificTrade.pnl} | Planned RR: ${specificTrade.expectedRR} | Actual RR: ${specificTrade.actualRR}
+Execution Details: Entry: ${Number(specificTrade.actualEntry)} | Stop Loss: ${Number(specificTrade.stopLoss)} | Target: ${Number(specificTrade.target)} | Exit: ${Number(specificTrade.actualExit)} | Exit Reason: ${specificTrade.exitReason}
+Rule Discipline: ${specificTrade.rulesFollowed ? "Strictly Followed Rules" : "RULE BROKEN: " + (specificTrade.ruleBreakReason || "Unspecified rule break")}
+Mistakes Recorded: ${mistakes.length > 0 ? mistakes.join(", ") : "None logged"}
+
+--- TRADER'S 3-PHASE PSYCHOLOGY & JOURNAL NOTES ---
+1. BEFORE TRADE (Mental Preparation & Pre-Entry Headspace):
+   • Mindset / Reason: "${specificTrade.mindsetBefore || "No pre-entry notes logged."}"
+   • Emotions Felt: ${beforeEmotions.length > 0 ? beforeEmotions.join(", ") : "Neutral / none"}
+
+2. DURING TRADE (In-Flight Emotional Control & Trade Management):
+   • Mindset / In-trade Notes: "${specificTrade.mindsetDuring || "No in-trade notes logged."}"
+   • Emotions Felt: ${duringEmotions.length > 0 ? duringEmotions.join(", ") : "Neutral / none"}
+
+3. AFTER EXIT (Post-Trade Debrief, Acceptance & Psychology):
+   • Mindset / Thoughts: "${specificTrade.mindsetAfter || "No post-trade notes logged."}"
+   • Emotions Felt: ${afterEmotions.length > 0 ? afterEmotions.join(", ") : "Neutral / none"}
+
+General Reflection Notes: "${specificTrade.notes || "None"}"
+===========================================================`;
   }
 
   return `You are an elite Trading Performance Coach and Psychological Mentor. Philosophy: Mark Douglas (Trading in the Zone), Tom Hougaard (Best Loser Wins), Brett Steenbarger (The Daily Trading Coach).
@@ -144,10 +195,17 @@ DIRECTIVES:
 2. Losses and wick-outs are the cost of business. A planned stop-loss hit is 10/10 execution. Only true failure = revenge trading, moving stops, overtrading.
 3. Empathy + Firm Discipline: When analyzing trades, validate the psychological friction, then pivot to process and capital preservation.
 4. If discussing a loss or losing streak: Remind trader to preserve capital and provide a clear discipline challenge.
-5. Use the trader's actual data (instrument, SL, RR, rules) in your response when relevant to what they asked.
+5. Use the trader's actual data (instrument, SL, RR, rules, and 3-phase psychology) in your response when relevant to what they asked.
 6. Tone: Direct, brotherly, grounded. No generic filler. Speak like a senior trader who learned the hard way.
 7. Readability: Write in clean, comfortable paragraphs. Avoid symbol clutter and excessive asterisks. Keep it natural and easy to read.
-8. AUTONOMOUS VISUAL DRAWINGS (When helpful):
+8. 3-PHASE PSYCHOLOGY BREAKDOWN (BEFORE, DURING, AFTER):
+   - You have FULL, DIRECT ACCESS to the trader's personal journal notes across all 3 phases: Before Entry, During Trade, and After Exit.
+   - When the user asks about this trade or their mental state, ALWAYS review and reference their exact recorded thoughts and emotions:
+     * Assess their clarity and discipline before entering (did they wait patiently or rush?).
+     * Assess how they handled emotions while the trade was open (did fear or greed urge them to tamper with the trade?).
+     * Assess their post-exit debrief (process acceptance vs frustration / revenge urge).
+   - Never claim you don't have access to their personal notes — you have their exact 3-phase thoughts and emotions right in your context. Quote their words directly to guide and mentor them.
+9. AUTONOMOUS VISUAL DRAWINGS (When helpful):
 Whenever you believe an explanation, comparison, trade post-mortem, or performance review is best understood VISUALLY, you can emit ONE visual block using the trader's actual DB data:
 - Trade Setup Card:
 \`\`\`visual:setup

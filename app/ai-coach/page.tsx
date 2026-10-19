@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { getUserTrades } from "@/lib/actions/trade-actions";
+import { getSavedChatsFromDB } from "@/lib/actions/ai-chat-actions";
 import { prisma } from "@/lib/prisma";
 import { AIChatInterface } from "@/components/ai-coach/ai-chat-interface";
 import { Suspense } from "react";
@@ -16,17 +17,19 @@ export default async function AICoachPage() {
 
   let trades: any[] = [];
   let rulesCount = 0;
+  let savedChats: any[] = [];
 
   if (userId) {
-    [trades, rulesCount] = await Promise.all([
+    [trades, rulesCount, savedChats] = await Promise.all([
       getUserTrades(),
       prisma.tradingRule.count({ where: { userId, isActive: true } }),
+      getSavedChatsFromDB(),
     ]);
   }
 
   return (
     <Suspense fallback={<div className="p-8 text-center text-xs text-muted">Loading AI Coach Desk...</div>}>
-      <AIChatInterface initialTrades={trades} rulesCount={rulesCount} />
+      <AIChatInterface initialTrades={trades} rulesCount={rulesCount} initialSavedChats={savedChats} />
     </Suspense>
   );
 }

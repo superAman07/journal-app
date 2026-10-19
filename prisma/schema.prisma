@@ -25,6 +25,7 @@ model User {
   yearlyReviews  YearlyReview[]
   goals          Goal[]
   aiInsights     AIInsight[]
+  savedAIChats   SavedAIChat[]
 
   @@map("users")
 }
@@ -315,4 +316,21 @@ model StrategyRuleCompliance {
 
   @@index([tradeId])
   @@map("strategy_rule_compliance")
+}
+
+// Saved AI Coaching Chat Sessions
+model SavedAIChat {
+  id           String   @id @default(cuid())
+  userId       String
+  title        String
+  tradeId      String?
+  messages     Json
+  messageCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("saved_ai_chats")
 }

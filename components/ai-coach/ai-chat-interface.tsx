@@ -26,8 +26,9 @@ import {
 } from "lucide-react";
 import { FormattedMessage } from "./formatted-message";
 import { ReportCard } from "./report-card";
+import { saveChatToDB, deleteSavedChatFromDB } from "@/lib/actions/ai-chat-actions";
 
-interface TradeOption {
+export interface TradeOption {
   id: string;
   instrument: string;
   date: string;
@@ -35,12 +36,27 @@ interface TradeOption {
   pnl: number;
   setup: string;
   actualRR: number;
+  expectedRR?: number;
+  actualEntry?: number;
+  stopLoss?: number;
+  target?: number;
+  actualExit?: number;
+  exitReason?: string;
+  rulesFollowed?: boolean;
+  ruleBreakReason?: string | null;
+  mindsetBefore?: string | null;
+  mindsetDuring?: string | null;
+  mindsetAfter?: string | null;
+  notes?: string | null;
+  emotions?: { stage: string; emotion: string }[];
+  mistakes?: { mistake: string }[];
   screenshots?: { url: string }[];
 }
 
 interface AIChatInterfaceProps {
   initialTrades?: TradeOption[];
   rulesCount?: number;
+  initialSavedChats?: SavedChatSession[];
 }
 
 interface Message {
@@ -62,7 +78,11 @@ export interface SavedChatSession {
   tradeId?: string;
 }
 
-export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatInterfaceProps) {
+export function AIChatInterface({
+  initialTrades = [],
+  rulesCount = 0,
+  initialSavedChats = [],
+}: AIChatInterfaceProps) {
   const [activeTab, setActiveTab] = useState<"chat" | "report">("chat");
   const searchParams = useSearchParams();
   const preSelectedTradeId = searchParams.get("tradeId");
@@ -78,10 +98,11 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
   const [expandedReasoning, setExpandedReasoning] = useState<{ [key: number]: boolean }>({});
   const [chartUrl, setChartUrl] = useState<string>("");
 
-  const [savedSessions, setSavedSessions] = useState<SavedChatSession[]>([]);
+  const [savedSessions, setSavedSessions] = useState<SavedChatSession[]>(initialSavedChats);
   const [showSavedModal, setShowSavedModal] = useState(false);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string>("");
+  const [showPsychologyDetails, setShowPsychologyDetails] = useState(true);
 
   const selectedTrade = initialTrades.find((t) => t.id === selectedTradeId);
 
@@ -96,46 +117,60 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: `Welcome to your Trading Psychology & Performance Desk. I am your AI Performance Coach — connected directly to your trading database.\n\nI automatically pick the best available AI model for you. No manual setup needed.\n\nI can see your recent trades, setups, stop-losses, and rules. When you take a loss or get stopped out by a wick, you are not alone.\n\nHow are you feeling right now? Use the quick buttons above, or just type.`,
+      content: `Welcome to your Trading Psychology & Performance Desk. I am your AI Performance Coach — connected directly to your trading database and your 3-phase psychology journal.\n\nI automatically pick the best available AI model for you. No manual setup needed.\n\nI can see your recent trades, setups, stop-losses, and your exact thoughts Before, During, and After exit. When you take a loss or get stopped out by a wick, you are not alone.\n\nHow are you feeling right now? Use the quick buttons above, or just type.`,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);
 
-  // Restore saved sessions and active chat from browser storage
+  // Sync saved chats from DB prop, with localStorage fallback for offline cache
+  useEffect(() => {
+    if (initialSavedChats && initialSavedChats.length > 0) {
+      setSavedSessions(initialSavedChats);
+    } else {
+      try {
+        const cached = localStorage.getItem("trading_journal_saved_chats");
+        if (cached) {
+          setSavedSessions(JSON.parse(cached));
+        }
+      } catch (e) {
+        console.error("Error loading cached chats:", e);
+      }
+    }
+  }, [initialSavedChats]);
+
+  // Restore temporary active chat from sessionStorage (persists across hard reload & network drop, clears when tab is closed)
   useEffect(() => {
     try {
-      const savedList = localStorage.getItem("trading_journal_saved_chats");
-      if (savedList) {
-        setSavedSessions(JSON.parse(savedList));
-      }
-
-      const activeRaw = localStorage.getItem("trading_journal_active_chat");
-      if (activeRaw) {
-        const parsed = JSON.parse(activeRaw);
+      const tempChat = sessionStorage.getItem("trading_journal_temp_chat");
+      if (tempChat) {
+        const parsed = JSON.parse(tempChat);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setMessages(parsed);
         }
       }
 
-      const activeId = localStorage.getItem("trading_journal_active_chat_id");
-      if (activeId) {
-        setCurrentChatId(activeId);
+      const tempId = sessionStorage.getItem("trading_journal_temp_chat_id");
+      if (tempId) {
+        setCurrentChatId(tempId);
       }
     } catch (e) {
-      console.error("Error restoring chat session:", e);
+      console.error("Error restoring temp chat from sessionStorage:", e);
     }
   }, []);
 
-  // Auto-sync active conversation to localStorage so refreshes never lose messages
+  // Auto-sync active temporary conversation to sessionStorage on every message change
   useEffect(() => {
     try {
       if (messages.length > 1 || (messages.length === 1 && messages[0].role === "user")) {
-        localStorage.setItem("trading_journal_active_chat", JSON.stringify(messages));
+        sessionStorage.setItem("trading_journal_temp_chat", JSON.stringify(messages));
+        if (currentChatId) {
+          sessionStorage.setItem("trading_journal_temp_chat_id", currentChatId);
+        }
       }
     } catch (e) {
-      console.error("Error auto-saving active chat:", e);
+      console.error("Error auto-saving temp chat to sessionStorage:", e);
     }
-  }, [messages]);
+  }, [messages, currentChatId]);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -213,7 +248,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
     });
   };
 
-  const handleSaveChat = () => {
+  const handleSaveChat = async () => {
     if (messages.length <= 1 && messages[0].role === "assistant") return;
 
     try {
@@ -225,7 +260,15 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
 
       const sessionId = currentChatId || `chat_${Date.now()}`;
       setCurrentChatId(sessionId);
-      localStorage.setItem("trading_journal_active_chat_id", sessionId);
+      sessionStorage.setItem("trading_journal_temp_chat_id", sessionId);
+
+      // Save to PostgreSQL Database
+      await saveChatToDB({
+        id: sessionId,
+        title,
+        tradeId: selectedTradeId || undefined,
+        messages: messages,
+      });
 
       const newSession: SavedChatSession = {
         id: sessionId,
@@ -253,14 +296,14 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
       setSaveSuccessNotice(true);
       setTimeout(() => setSaveSuccessNotice(false), 2500);
     } catch (e) {
-      console.error("Error saving chat session:", e);
+      console.error("Error saving chat session to DB:", e);
     }
   };
 
   const handleLoadSession = (session: SavedChatSession) => {
     setCurrentChatId(session.id);
-    localStorage.setItem("trading_journal_active_chat_id", session.id);
-    localStorage.setItem("trading_journal_active_chat", JSON.stringify(session.messages));
+    sessionStorage.setItem("trading_journal_temp_chat_id", session.id);
+    sessionStorage.setItem("trading_journal_temp_chat", JSON.stringify(session.messages));
     setMessages(session.messages);
     if (session.tradeId) {
       setSelectedTradeId(session.tradeId);
@@ -268,16 +311,23 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
     setShowSavedModal(false);
   };
 
-  const handleDeleteSession = (id: string, e: React.MouseEvent) => {
+  const handleDeleteSession = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    try {
+      await deleteSavedChatFromDB(id);
+    } catch (err) {
+      console.error("Error deleting chat from DB:", err);
+    }
+
     setSavedSessions((prev) => {
       const updated = prev.filter((s) => s.id !== id);
       localStorage.setItem("trading_journal_saved_chats", JSON.stringify(updated));
       return updated;
     });
+
     if (currentChatId === id) {
       setCurrentChatId("");
-      localStorage.removeItem("trading_journal_active_chat_id");
+      sessionStorage.removeItem("trading_journal_temp_chat_id");
     }
   };
 
@@ -302,16 +352,13 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
   };
 
   const handleNewChat = () => {
-    if (messages.length > 1) {
-      handleSaveChat();
-    }
+    sessionStorage.removeItem("trading_journal_temp_chat");
+    sessionStorage.removeItem("trading_journal_temp_chat_id");
     setCurrentChatId("");
-    localStorage.removeItem("trading_journal_active_chat_id");
-    localStorage.removeItem("trading_journal_active_chat");
     setMessages([
       {
         role: "assistant",
-        content: `Started a fresh coaching session. I am connected directly to your trading database.\n\nWhat would you like to review or work on?`,
+        content: `Started a fresh coaching session. I am connected directly to your trading database and your 3-phase psychology journal.\n\nWhat would you like to review or work on?`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       },
     ]);
@@ -510,6 +557,12 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
 
   const quickPrompts = [
     {
+      label: "🧠 3-Phase Mindset Audit",
+      prompt: selectedTrade
+        ? `Review my 3-phase psychology journal for this trade (${selectedTrade.instrument}). Specifically evaluate my mindset Before entry, During the trade, and After exit. What emotional triggers or cognitive biases did I exhibit, and how can I improve my mental game?`
+        : "Review the psychology notes and emotional arcs across my recent trades. What recurring emotional patterns (FOMO, hesitation, greed, anxiety) are affecting my profitability?",
+    },
+    {
       label: "🛑 Stopped out by a wick",
       prompt: selectedTrade
         ? `I just got wicked out on ${selectedTrade.instrument} with a ${selectedTrade.outcome} (${selectedTrade.pnl}). It reversed right after hitting my SL. Talk me down before I revenge trade.`
@@ -534,8 +587,8 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
   return (
     <div className="flex flex-col h-[calc(100vh-4.6rem)] sm:h-[calc(100vh-5.2rem)] space-y-2 min-h-0">
       {/* Unified Sleek Top Bar */}
-      <div className="card p-2 sm:p-2.5 rounded-xl sm:rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0 border border-border/40 shadow-xs">
-        <div className="flex items-center gap-2 sm:gap-3">
+      <div className="card p-2 sm:p-2.5 rounded-xl sm:rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-2.5 shrink-0 border border-border/40 shadow-xs">
+        <div className="flex items-center gap-2 shrink-0">
           <div className="flex items-center gap-1 p-0.5 bg-surface border border-border-solid rounded-xl shrink-0">
             <button
               onClick={() => setActiveTab("chat")}
@@ -558,76 +611,71 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
               <FileText className="h-3.5 w-3.5" /> Report Card
             </button>
           </div>
-
-          <div className="hidden md:flex items-center gap-2 pl-2 border-l border-border/40">
-            <div className="h-6 w-6 rounded-lg bg-ai-muted text-ai flex items-center justify-center font-bold shrink-0">
-              <Brain className="h-3.5 w-3.5" />
-            </div>
-            <span className="badge badge-ai text-[9px]">DB Live</span>
-            <span className="text-[11px] text-muted truncate">Prop Desk Methodology</span>
-          </div>
         </div>
 
         {activeTab === "chat" && (
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap">
-            {/* New Chat Button */}
-            <button
-              onClick={handleNewChat}
-              title="Start a fresh chat (current chat will be saved)"
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold bg-surface border border-border-solid text-soft hover:text-clean hover:border-accent transition-all cursor-pointer shrink-0"
-            >
-              <Plus className="h-3.5 w-3.5 text-accent" />
-              <span className="hidden sm:inline">New Chat</span>
-            </button>
+          <div className="flex items-center gap-2 flex-wrap md:flex-nowrap justify-between md:justify-end w-full md:w-auto">
+            {/* Chat Action Buttons */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* New Chat Button */}
+              <button
+                onClick={handleNewChat}
+                title="Start a fresh chat (clears temporary session)"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-surface border border-border-solid text-soft hover:text-clean hover:border-accent transition-all cursor-pointer shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5 text-accent" />
+                <span className="hidden sm:inline">New Chat</span>
+              </button>
 
-            {/* Save Chat Button */}
-            <button
-              onClick={handleSaveChat}
-              disabled={messages.length <= 1}
-              title="Save current chat session in browser"
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition-all cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
-                saveSuccessNotice
-                  ? "bg-profit/20 border border-profit text-profit shadow-xs"
-                  : "bg-surface border border-border-solid text-soft hover:text-clean hover:border-ai"
-              }`}
-            >
-              {saveSuccessNotice ? (
-                <>
-                  <Check className="h-3.5 w-3.5 text-profit" />
-                  <span>Saved!</span>
-                </>
-              ) : (
-                <>
-                  <Bookmark className="h-3.5 w-3.5 text-ai" />
-                  <span className="hidden sm:inline">Save Chat</span>
-                  <span className="sm:hidden">Save</span>
-                </>
-              )}
-            </button>
+              {/* Save Chat Button (Saved to DB) */}
+              <button
+                onClick={handleSaveChat}
+                disabled={messages.length <= 1}
+                title="Save this conversation permanently to database"
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
+                  saveSuccessNotice
+                    ? "bg-profit/20 border border-profit text-profit shadow-xs"
+                    : "bg-surface border border-border-solid text-soft hover:text-clean hover:border-ai"
+                }`}
+              >
+                {saveSuccessNotice ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-profit" />
+                    <span>Saved to DB!</span>
+                  </>
+                ) : (
+                  <>
+                    <Bookmark className="h-3.5 w-3.5 text-ai" />
+                    <span className="hidden sm:inline">Save Chat</span>
+                    <span className="sm:hidden">Save</span>
+                  </>
+                )}
+              </button>
 
-            {/* Saved Chats Library Button */}
-            <button
-              onClick={() => setShowSavedModal(true)}
-              title="View your saved coaching conversations"
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold bg-surface border border-border-solid text-soft hover:text-clean hover:border-border transition-all cursor-pointer shrink-0"
-            >
-              <History className="h-3.5 w-3.5 text-muted" />
-              <span className="hidden sm:inline">Saved Chats</span>
-              <span className="sm:hidden">Saved</span>
-              {savedSessions.length > 0 && (
-                <span className="bg-ai/20 text-ai text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold">
-                  {savedSessions.length}
-                </span>
-              )}
-            </button>
+              {/* Saved Chats Library Button */}
+              <button
+                onClick={() => setShowSavedModal(true)}
+                title="View your saved coaching conversations from database"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-surface border border-border-solid text-soft hover:text-clean hover:border-border transition-all cursor-pointer shrink-0"
+              >
+                <History className="h-3.5 w-3.5 text-muted" />
+                <span className="hidden sm:inline">Saved</span>
+                {savedSessions.length > 0 && (
+                  <span className="bg-ai/20 text-ai text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold">
+                    {savedSessions.length}
+                  </span>
+                )}
+              </button>
+            </div>
 
+            {/* Trade Focus Selector */}
             {initialTrades.length > 0 && (
-              <div className="flex items-center gap-1 text-xs">
-                <span className="text-dim text-[10px] hidden lg:inline">Focus:</span>
+              <div className="flex items-center gap-1 text-xs shrink-0">
+                <span className="text-dim text-[11px] hidden xl:inline font-mono">Focus:</span>
                 <select
                   value={selectedTradeId}
                   onChange={(e) => setSelectedTradeId(e.target.value)}
-                  className="input-field py-1 text-[10px] sm:text-xs max-w-36 sm:max-w-48 truncate font-mono"
+                  className="input-field py-1 px-2 text-[11px] sm:text-xs max-w-36 sm:max-w-44 truncate font-mono"
                 >
                   <option value="">All Trades</option>
                   {initialTrades.map((t) => (
@@ -639,6 +687,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
               </div>
             )}
 
+            {/* Model Selector */}
             <div className="flex items-center gap-0.5 p-0.5 bg-card-accent rounded-lg text-[10px] sm:text-xs border border-border/40 shrink-0">
               <button
                 onClick={() => {
@@ -690,6 +739,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
         </div>
       ) : (
         <>
+          {/* Quick Prompts Bar */}
           <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-0.5 shrink-0 scrollbar-none -mx-1 px-1">
             {quickPrompts.map((qp, i) => (
               <button
@@ -702,6 +752,128 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
               </button>
             ))}
           </div>
+
+          {/* Focused Trade & 3-Phase Psychology Journal Banner */}
+          {selectedTrade && (
+            <div className="p-2.5 sm:p-3 rounded-xl bg-card border border-ai/25 space-y-2 text-xs shrink-0 shadow-xs animate-in fade-in duration-150">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono font-bold text-clean text-xs sm:text-sm">
+                    {selectedTrade.instrument}
+                  </span>
+                  <span
+                    className={`badge text-[10px] font-bold ${
+                      selectedTrade.outcome === "WIN"
+                        ? "badge-profit"
+                        : selectedTrade.outcome === "LOSS"
+                        ? "badge-loss"
+                        : "badge-neutral"
+                    }`}
+                  >
+                    {selectedTrade.outcome} {selectedTrade.pnl >= 0 ? `+₹${selectedTrade.pnl}` : `-₹${Math.abs(selectedTrade.pnl)}`}
+                  </span>
+                  <span className="text-[11px] text-muted font-mono">
+                    RR {selectedTrade.actualRR || selectedTrade.expectedRR || "N/A"}
+                  </span>
+                  {selectedTrade.setup && (
+                    <span className="text-[11px] text-soft font-mono bg-surface px-1.5 py-0.5 rounded border border-border/40">
+                      {selectedTrade.setup}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() =>
+                      handleSend(
+                        `Audit my 3-phase psychology journal for trade ${selectedTrade.instrument}. Here is my mindset Before, During, and After. Tell me where emotional leakage occurred.`
+                      )
+                    }
+                    disabled={isGenerating}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-ai/15 hover:bg-ai/25 text-ai border border-ai/30 text-[10px] font-bold transition-all cursor-pointer"
+                  >
+                    <Brain className="h-3 w-3" />
+                    <span>Audit Mindset</span>
+                  </button>
+                  <button
+                    onClick={() => setShowPsychologyDetails(!showPsychologyDetails)}
+                    className="text-muted hover:text-clean p-1 rounded transition-colors cursor-pointer"
+                    title={showPsychologyDetails ? "Hide psychology notes" : "Show psychology notes"}
+                  >
+                    {showPsychologyDetails ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {showPsychologyDetails && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-1 border-t border-border/30">
+                  {/* Before Entry */}
+                  <div className="p-2 rounded-lg bg-surface/70 border border-border/30 space-y-1">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-accent">
+                      <span>🟡 Before Entry</span>
+                      {selectedTrade.emotions?.filter((e) => e.stage === "BEFORE").length ? (
+                        <span className="text-dim font-normal font-mono">
+                          {selectedTrade.emotions
+                            .filter((e) => e.stage === "BEFORE")
+                            .map((e) => e.emotion)
+                            .join(", ")}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-[11px] text-soft italic line-clamp-3 leading-relaxed">
+                      {selectedTrade.mindsetBefore?.trim()
+                        ? `"${selectedTrade.mindsetBefore}"`
+                        : "No pre-entry notes recorded"}
+                    </p>
+                  </div>
+
+                  {/* During Trade */}
+                  <div className="p-2 rounded-lg bg-surface/70 border border-border/30 space-y-1">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-ai">
+                      <span>🔵 During Trade</span>
+                      {selectedTrade.emotions?.filter((e) => e.stage === "DURING").length ? (
+                        <span className="text-dim font-normal font-mono">
+                          {selectedTrade.emotions
+                            .filter((e) => e.stage === "DURING")
+                            .map((e) => e.emotion)
+                            .join(", ")}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-[11px] text-soft italic line-clamp-3 leading-relaxed">
+                      {selectedTrade.mindsetDuring?.trim()
+                        ? `"${selectedTrade.mindsetDuring}"`
+                        : "No during-trade notes recorded"}
+                    </p>
+                  </div>
+
+                  {/* After Exit */}
+                  <div className="p-2 rounded-lg bg-surface/70 border border-border/30 space-y-1">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-profit">
+                      <span>🟢 After Exit</span>
+                      {selectedTrade.emotions?.filter((e) => e.stage === "AFTER").length ? (
+                        <span className="text-dim font-normal font-mono">
+                          {selectedTrade.emotions
+                            .filter((e) => e.stage === "AFTER")
+                            .map((e) => e.emotion)
+                            .join(", ")}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-[11px] text-soft italic line-clamp-3 leading-relaxed">
+                      {selectedTrade.mindsetAfter?.trim()
+                        ? `"${selectedTrade.mindsetAfter}"`
+                        : "No post-exit notes recorded"}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="card flex-1 flex flex-col min-h-0 overflow-hidden rounded-2xl border border-border/40 shadow-sm relative">
             <div
@@ -877,7 +1049,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
       {saveSuccessNotice && (
         <div className="fixed top-20 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-profit text-white font-semibold text-xs shadow-xl animate-in fade-in slide-in-from-top-2">
           <Check className="h-4 w-4" />
-          <span>Chat saved to browser! You can return to it anytime from Saved Chats.</span>
+          <span>Chat saved to database! You can return to it anytime across your devices.</span>
         </div>
       )}
 
@@ -896,7 +1068,7 @@ export function AIChatInterface({ initialTrades = [], rulesCount = 0 }: AIChatIn
                     Saved Coaching Sessions
                     <span className="badge badge-ai text-[10px]">{savedSessions.length}</span>
                   </h3>
-                  <p className="text-[11px] text-muted">Stored locally in your browser storage</p>
+                  <p className="text-[11px] text-muted">Saved to database & available across all sessions</p>
                 </div>
               </div>
               <button
