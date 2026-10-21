@@ -168,6 +168,7 @@ export function AnalyticsView({
   }, [filteredTrades]);
 
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [chartView, setChartView] = useState<"curve" | "candles">("curve");
 
   const equityCurveData = useMemo(() => {
     let cumulative = 0;
@@ -185,7 +186,19 @@ export function AnalyticsView({
   }, [tradesWithInrPnL]);
 
   const svgPathData = useMemo(() => {
-    if (equityCurveData.length === 0) return { path: "", area: "", points: [] };
+    if (equityCurveData.length === 0) {
+      return {
+        path: "",
+        area: "",
+        points: [],
+        segments: [],
+        zeroY: null,
+        candleBars: [],
+        minVal: 0,
+        maxVal: 0,
+      };
+    }
+
     const values = [0, ...equityCurveData.map((d) => d.cumulative)];
     const minVal = Math.min(...values);
     const maxVal = Math.max(...values);
@@ -199,11 +212,18 @@ export function AnalyticsView({
       const x = padding + (idx / (values.length - 1)) * (width - 2 * padding);
       const y = height - padding - ((val - minVal) / range) * (height - 2 * padding);
       const data = idx === 0 ? null : equityCurveData[idx - 1];
+      const isWin = data ? data.pnl > 0 : false;
+      const isLoss = data ? data.pnl < 0 : false;
+      const pointColor = idx === 0 ? "#94a3b8" : isWin ? "#0bd07f" : isLoss ? "#ff5757" : "#94a3b8";
+
       return {
         x: Number.isFinite(x) ? x : 0,
         y: Number.isFinite(y) ? y : 0,
         val,
         data,
+        isWin,
+        isLoss,
+        pointColor,
       };
     });
 
@@ -212,7 +232,63 @@ export function AnalyticsView({
     const lastX = points[points.length - 1].x;
     const area = `${path} L ${lastX} ${height} L ${firstX} ${height} Z`;
 
-    return { path, area, points };
+    // Calculate individual segments: Going UP = Green (#0bd07f), Going DOWN = Red (#ff5757)
+    const segments = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const isUp = p2.val > p1.val;
+      const isDown = p2.val < p1.val;
+      const color = isUp ? "#0bd07f" : isDown ? "#ff5757" : "#94a3b8";
+
+      segments.push({
+        x1: p1.x,
+        y1: p1.y,
+        x2: p2.x,
+        y2: p2.y,
+        isUp,
+        isDown,
+        color,
+        step: i + 1,
+        tradeData: p2.data,
+      });
+    }
+
+    // Zero-line baseline Y-coordinate
+    let zeroY: number | null = null;
+    if (minVal <= 0 && maxVal >= 0) {
+      const calculatedZero = height - padding - ((0 - minVal) / range) * (height - 2 * padding);
+      if (Number.isFinite(calculatedZero)) {
+        zeroY = calculatedZero;
+      }
+    }
+
+    // Candlestick / PnL Trade Flow Bars
+    const maxAbsPnl = Math.max(...equityCurveData.map((d) => Math.abs(d.pnl)), 100);
+    const candleCount = equityCurveData.length;
+    const barWidth = Math.min(22, Math.max(8, (width - 2 * padding) / candleCount - 4));
+    const midY = 90;
+
+    const candleBars = equityCurveData.map((d, i) => {
+      const x = padding + (i / (candleCount - 1 || 1)) * (width - 2 * padding);
+      const isWin = d.pnl >= 0;
+      const barHeight = Math.max(5, (Math.abs(d.pnl) / maxAbsPnl) * (height / 2 - padding - 4));
+      const y = isWin ? midY - barHeight : midY;
+
+      return {
+        x,
+        y,
+        barWidth,
+        barHeight,
+        isWin,
+        color: isWin ? "#0bd07f" : "#ff5757",
+        pnl: d.pnl,
+        data: d,
+        stepIndex: i + 1,
+      };
+    });
+
+    return { path, area, points, segments, zeroY, candleBars, minVal, maxVal };
   }, [equityCurveData]);
 
   const marketBreakdown = useMemo(() => {
@@ -482,23 +558,59 @@ export function AnalyticsView({
           </div>
 
           <div className="card p-5 rounded-2xl border border-border-solid bg-card shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="font-bold text-clean text-sm flex items-center gap-2">
                   <Activity className="h-4 w-4 text-accent" /> Cumulative Equity Growth Curve
                 </h3>
-                <p className="text-[11px] text-muted">Real-time PnL trajectory across trades in INR.</p>
+                <p className="text-[11px] text-muted">
+                  Dynamic trade trajectory: <span className="text-profit font-semibold">Green climbs</span> for winning trades, <span className="text-loss font-semibold">Red dips</span> for losses.
+                </p>
               </div>
-              <span className="text-xs font-mono font-bold text-soft">{totalTrades} Total Executions</span>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                {/* View Switcher: Equity Curve vs PnL Candles */}
+                <div className="flex items-center gap-1 p-0.5 bg-surface border border-border-solid rounded-xl text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setChartView("curve")}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                      chartView === "curve"
+                        ? "bg-accent text-white shadow-xs"
+                        : "text-muted hover:text-clean"
+                    }`}
+                  >
+                    <Activity className="h-3.5 w-3.5" />
+                    <span>Curve</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartView("candles")}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                      chartView === "candles"
+                        ? "bg-accent text-white shadow-xs"
+                        : "text-muted hover:text-clean"
+                    }`}
+                  >
+                    <BarChart3 className="h-3.5 w-3.5" />
+                    <span>PnL Candles</span>
+                  </button>
+                </div>
+
+                <span className="text-xs font-mono font-bold text-soft bg-surface px-2.5 py-1 rounded-xl border border-border-solid">
+                  {totalTrades} Executions
+                </span>
+              </div>
             </div>
 
             {equityCurveData.length > 1 ? (
-              <div className="relative w-full h-56 bg-surface/50 rounded-xl p-3 border border-border-solid flex flex-col justify-between overflow-hidden">
+              <div className="relative w-full h-60 bg-surface/50 rounded-xl p-3 border border-border-solid flex flex-col justify-between overflow-hidden">
+                {/* Hover Tooltip HUD */}
                 {hoveredIndex !== null && svgPathData.points[hoveredIndex]?.data && (
                   <div
-                    className="absolute top-3 z-10 bg-card/95 backdrop-blur-md border border-border-solid rounded-xl p-2.5 shadow-xl transition-all duration-150 pointer-events-none flex items-center gap-3"
+                    className="absolute top-3 z-10 bg-card/95 backdrop-blur-md border border-border-solid rounded-xl p-2.5 shadow-xl transition-all duration-150 pointer-events-none flex items-center gap-3 animate-in fade-in zoom-in-95"
                     style={{
-                      left: `${Math.min(Math.max((svgPathData.points[hoveredIndex].x / 600) * 100, 10), 80)}%`,
+                      left: `${Math.min(Math.max((svgPathData.points[hoveredIndex].x / 600) * 100, 12), 85)}%`,
                       transform: "translateX(-50%)",
                     }}
                   >
@@ -510,30 +622,31 @@ export function AnalyticsView({
                         <span
                           className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
                             svgPathData.points[hoveredIndex].data.outcome === "WIN"
-                              ? "bg-profit/15 text-profit"
+                              ? "bg-profit/15 text-profit border border-profit/30"
                               : svgPathData.points[hoveredIndex].data.outcome === "LOSS"
-                              ? "bg-loss/15 text-loss"
-                              : "bg-dim/15 text-dim"
+                              ? "bg-loss/15 text-loss border border-loss/30"
+                              : "bg-dim/15 text-dim border border-dim/30"
                           }`}
                         >
                           {svgPathData.points[hoveredIndex].data.outcome}
                         </span>
                       </div>
-                      <span className="text-[10px] text-dim block mt-0.5">
+                      <span className="text-[10px] text-dim block mt-0.5 font-mono">
                         Trade #{svgPathData.points[hoveredIndex].data.step} · {svgPathData.points[hoveredIndex].data.date}
                       </span>
                     </div>
 
-                    <div className="border-l border-border-solid pl-3 text-right">
+                    <div className="border-l border-border-solid pl-3 text-right font-mono">
                       <span
-                        className={`font-mono text-xs font-black block ${
+                        className={`text-xs font-black block ${
                           svgPathData.points[hoveredIndex].data.pnl >= 0 ? "text-profit" : "text-loss"
                         }`}
                       >
+                        {svgPathData.points[hoveredIndex].data.pnl >= 0 ? "+" : ""}
                         {formatAggregatedPnl(svgPathData.points[hoveredIndex].data.pnl)}
                       </span>
-                      <span className="text-[10px] font-mono text-soft block">
-                        Balance: {formatAggregatedPnl(svgPathData.points[hoveredIndex].data.cumulative)}
+                      <span className="text-[10px] text-soft block">
+                        Net: {formatAggregatedPnl(svgPathData.points[hoveredIndex].data.cumulative)}
                       </span>
                     </div>
                   </div>
@@ -546,68 +659,231 @@ export function AnalyticsView({
                   onMouseLeave={() => setHoveredIndex(null)}
                 >
                   <defs>
-                    <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={totalPnLInr >= 0 ? "#0bd07f" : "#ff5757"} stopOpacity="0.25" />
-                      <stop offset="100%" stopColor={totalPnLInr >= 0 ? "#0bd07f" : "#ff5757"} stopOpacity="0.0" />
+                    {/* Split Gradient: Green above zero baseline, Red below zero baseline */}
+                    <linearGradient id="splitEquityGradient" x1="0" y1="0" x2="0" y2="1">
+                      {svgPathData.zeroY !== null ? (
+                        <>
+                          <stop offset="0%" stopColor="#0bd07f" stopOpacity="0.28" />
+                          <stop
+                            offset={`${Math.min(95, Math.max(5, (svgPathData.zeroY / 180) * 100))}%`}
+                            stopColor="#0bd07f"
+                            stopOpacity="0.03"
+                          />
+                          <stop
+                            offset={`${Math.min(95, Math.max(5, (svgPathData.zeroY / 180) * 100))}%`}
+                            stopColor="#ff5757"
+                            stopOpacity="0.03"
+                          />
+                          <stop offset="100%" stopColor="#ff5757" stopOpacity="0.28" />
+                        </>
+                      ) : (
+                        <>
+                          <stop
+                            offset="0%"
+                            stopColor={totalPnLInr >= 0 ? "#0bd07f" : "#ff5757"}
+                            stopOpacity="0.25"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor={totalPnLInr >= 0 ? "#0bd07f" : "#ff5757"}
+                            stopOpacity="0.02"
+                          />
+                        </>
+                      )}
                     </linearGradient>
                   </defs>
 
+                  {/* ₹0 Breakeven Reference Baseline (when applicable) */}
+                  {svgPathData.zeroY !== null && (
+                    <g>
+                      <line
+                        x1={15}
+                        y1={svgPathData.zeroY}
+                        x2={585}
+                        y2={svgPathData.zeroY}
+                        stroke="rgba(255,255,255,0.2)"
+                        strokeDasharray="4 4"
+                        strokeWidth="1.2"
+                      />
+                      <text
+                        x={585}
+                        y={svgPathData.zeroY - 4}
+                        fill="rgba(255,255,255,0.4)"
+                        fontSize="9"
+                        fontFamily="monospace"
+                        textAnchor="end"
+                      >
+                        ₹0 Breakeven
+                      </text>
+                    </g>
+                  )}
+
+                  {/* Vertical Tracking Crosshair on Hover */}
                   {hoveredIndex !== null && (
                     <line
                       x1={svgPathData.points[hoveredIndex].x}
-                      y1={20}
+                      y1={15}
                       x2={svgPathData.points[hoveredIndex].x}
-                      y2={160}
-                      stroke="rgba(255,255,255,0.2)"
+                      y2={165}
+                      stroke="rgba(255,255,255,0.25)"
                       strokeDasharray="3 3"
+                      strokeWidth="1.2"
                     />
                   )}
 
-                  <path d={svgPathData.area} fill="url(#equityGradient)" />
-                  <path
-                    d={svgPathData.path}
-                    fill="none"
-                    stroke={totalPnLInr >= 0 ? "#0bd07f" : "#ff5757"}
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
+                  {chartView === "curve" ? (
+                    <>
+                      {/* Area Fill with Split Gradient */}
+                      <path d={svgPathData.area} fill="url(#splitEquityGradient)" />
 
-                  {svgPathData.points.map((p, i) => {
-                    const isHovered = hoveredIndex === i;
-                    return (
-                      <g key={i}>
-                        <circle
-                          cx={p.x}
-                          cy={p.y}
-                          r="16"
-                          fill="transparent"
-                          className="cursor-pointer"
-                          onMouseEnter={() => setHoveredIndex(i)}
-                        />
-                        {isHovered && (
-                          <circle
-                            cx={p.x}
-                            cy={p.y}
-                            r="8"
-                            fill="none"
-                            stroke="#fff"
-                            strokeWidth="2"
-                            className="animate-ping opacity-75"
-                          />
-                        )}
-                        <circle
-                          cx={p.x}
-                          cy={p.y}
-                          r={isHovered ? 6 : 4}
-                          fill={totalPnLInr >= 0 ? "#0bd07f" : "#ff5757"}
-                          stroke={isHovered ? "#fff" : "transparent"}
-                          strokeWidth="2"
+                      {/* Dynamic Multi-Colored Segments: UP = Green (#0bd07f), DOWN = Red (#ff5757) */}
+                      {svgPathData.segments.map((seg, i) => (
+                        <line
+                          key={`seg-${i}`}
+                          x1={seg.x1}
+                          y1={seg.y1}
+                          x2={seg.x2}
+                          y2={seg.y2}
+                          stroke={seg.color}
+                          strokeWidth={hoveredIndex === i + 1 ? "3.5" : "2.5"}
+                          strokeLinecap="round"
                           className="transition-all duration-150"
                         />
-                      </g>
-                    );
-                  })}
+                      ))}
+
+                      {/* Trade Points: Color-coded (Green for WIN, Red for LOSS) */}
+                      {svgPathData.points.map((p, i) => {
+                        const isHovered = hoveredIndex === i;
+                        return (
+                          <g key={`pt-${i}`}>
+                            {/* Larger Invisible Hover Target */}
+                            <circle
+                              cx={p.x}
+                              cy={p.y}
+                              r="18"
+                              fill="transparent"
+                              className="cursor-pointer"
+                              onMouseEnter={() => setHoveredIndex(i)}
+                            />
+
+                            {/* Ping Animation Ring on Hover */}
+                            {isHovered && (
+                              <circle
+                                cx={p.x}
+                                cy={p.y}
+                                r="8"
+                                fill="none"
+                                stroke={p.pointColor}
+                                strokeWidth="2"
+                                className="animate-ping opacity-75"
+                              />
+                            )}
+
+                            {/* Main Point Dot */}
+                            <circle
+                              cx={p.x}
+                              cy={p.y}
+                              r={isHovered ? 6 : 4}
+                              fill={p.pointColor}
+                              stroke={isHovered ? "#fff" : "rgba(0,0,0,0.7)"}
+                              strokeWidth={isHovered ? 2 : 1.5}
+                              className="transition-all duration-150 cursor-pointer shadow-md"
+                            />
+                          </g>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    /* Candlestick / PnL Trade Flow Chart View */
+                    <g>
+                      {/* Baseline Mid-Line */}
+                      <line
+                        x1={15}
+                        y1={90}
+                        x2={585}
+                        y2={90}
+                        stroke="rgba(255,255,255,0.2)"
+                        strokeDasharray="4 4"
+                        strokeWidth="1.2"
+                      />
+                      <text
+                        x={585}
+                        y={86}
+                        fill="rgba(255,255,255,0.4)"
+                        fontSize="9"
+                        fontFamily="monospace"
+                        textAnchor="end"
+                      >
+                        ₹0 Level
+                      </text>
+
+                      {/* Candlestick Bars for each trade */}
+                      {svgPathData.candleBars.map((bar, i) => {
+                        const isHovered = hoveredIndex === bar.stepIndex;
+                        const wickY1 = bar.isWin ? bar.y - 6 : bar.y;
+                        const wickY2 = bar.isWin ? bar.y + bar.barHeight : bar.y + bar.barHeight + 6;
+
+                        return (
+                          <g
+                            key={`bar-${i}`}
+                            className="cursor-pointer"
+                            onMouseEnter={() => setHoveredIndex(bar.stepIndex)}
+                          >
+                            {/* Candle Wick */}
+                            <line
+                              x1={bar.x}
+                              y1={wickY1}
+                              x2={bar.x}
+                              y2={wickY2}
+                              stroke={bar.color}
+                              strokeWidth="1.5"
+                              strokeOpacity={isHovered ? 1 : 0.6}
+                            />
+
+                            {/* Candle Body */}
+                            <rect
+                              x={bar.x - bar.barWidth / 2}
+                              y={bar.y}
+                              width={bar.barWidth}
+                              height={bar.barHeight}
+                              rx="3"
+                              fill={bar.color}
+                              fillOpacity={isHovered ? 1 : 0.85}
+                              stroke={isHovered ? "#fff" : bar.color}
+                              strokeWidth={isHovered ? 1.5 : 1}
+                              className="transition-all duration-150 shadow-sm"
+                            />
+                          </g>
+                        );
+                      })}
+
+                      {/* Cumulative Overlay Curve Line */}
+                      <path
+                        d={svgPathData.path}
+                        fill="none"
+                        stroke="rgba(255,255,255,0.4)"
+                        strokeWidth="1.5"
+                        strokeDasharray="2 2"
+                      />
+                    </g>
+                  )}
                 </svg>
+
+                {/* Bottom Legend */}
+                <div className="flex items-center justify-between text-[10px] text-muted font-mono pt-2 border-t border-border/20">
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-profit" />
+                      <span>Win / Profit Climb</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-loss" />
+                      <span>Loss / Drawdown</span>
+                    </span>
+                  </div>
+
+                  <span className="text-dim">Hover points to inspect individual trade PnL</span>
+                </div>
               </div>
             ) : (
               <div className="h-32 bg-surface/40 rounded-xl flex items-center justify-center text-xs text-muted border border-border-solid">
