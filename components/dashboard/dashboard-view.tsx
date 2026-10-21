@@ -20,6 +20,7 @@ import { ChartModal } from "@/components/ui/chart-modal";
 import { useExchangeRate } from "@/lib/hooks/use-exchange-rate";
 import { formatPnlWithCurrency, formatAggregatedPnl, convertPnlToInr } from "@/lib/utils/currency";
 import { DisciplineDirective } from "@/components/dashboard/discipline-directive";
+import { TradersCreed } from "@/components/dashboard/traders-creed";
 
 interface DashboardViewProps {
   userName?: string | null;
@@ -139,6 +140,9 @@ export function DashboardView({
           </Link>
         </div>
       </div>
+
+      {/* ── Trader's Creed (Dynamic Mental Anchor) ── */}
+      <TradersCreed trades={initialTrades} userName={userName} />
 
       {/* ── Big Commanding Discipline Directive & Post-Trade Challenge ── */}
       {isAuthed && (
