@@ -21,6 +21,7 @@ import { useExchangeRate } from "@/lib/hooks/use-exchange-rate";
 import { formatPnlWithCurrency, formatAggregatedPnl, convertPnlToInr } from "@/lib/utils/currency";
 import { DisciplineDirective } from "@/components/dashboard/discipline-directive";
 import { TradersCreed } from "@/components/dashboard/traders-creed";
+import { ReversalSetupChecklist } from "@/components/dashboard/reversal-setup-checklist";
 
 interface DashboardViewProps {
   userName?: string | null;
@@ -229,6 +230,9 @@ export function DashboardView({
           color="profit"
         />
       </div>
+
+      {/* ── A+ Reversal Setup Protocol & Pre-Entry Checklist ── */}
+      <ReversalSetupChecklist />
 
       {/* ── Main Content: Trades + DNA ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
