@@ -15,6 +15,7 @@ import {
   Sparkles,
   X,
   ShieldCheck,
+  Zap,
 } from "lucide-react";
 import {
   MarketType,
@@ -154,6 +155,138 @@ export function TradeForm() {
   const complianceCount = ruleCompliance.filter((r) => r.followed).length;
   const complianceTotal = ruleCompliance.length;
   const compliancePercent = complianceTotal > 0 ? Math.round((complianceCount / complianceTotal) * 100) : 100;
+
+  const [savedBrokers, setSavedBrokers] = useState<{ angel?: boolean; dhan?: boolean }>({});
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
+  const [autoFillError, setAutoFillError] = useState("");
+  const [autoFillSuccess, setAutoFillSuccess] = useState("");
+  const [brokerTradesList, setBrokerTradesList] = useState<any[]>([]);
+  const [showTradePicker, setShowTradePicker] = useState(false);
+
+  useEffect(() => {
+    try {
+      const angelCreds = localStorage.getItem("trading_os_angel_creds");
+      const dhanCreds = localStorage.getItem("trading_os_dhan_creds");
+      setSavedBrokers({
+        angel: Boolean(angelCreds),
+        dhan: Boolean(dhanCreds),
+      });
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const populateTradeData = (t: any) => {
+    if (t.market) setMarket(t.market as MarketType);
+    if (t.instrument) setInstrument(t.instrument);
+
+    if (t.optionAction) setOptionAction(t.optionAction);
+    if (t.optionType) {
+      setOptionType(t.optionType.includes("PUT") || t.optionType === "PE" ? "PE" : "CE");
+    }
+    if (t.strikePrice) setStrikePrice(String(t.strikePrice));
+    if (t.spotPrice) setSpotPrice(String(t.spotPrice));
+    if (t.optionExpiry) {
+      const upperExp = t.optionExpiry.toUpperCase();
+      if (upperExp.includes("MONTHLY")) setOptionExpiry("MONTHLY");
+      else setOptionExpiry("WEEKLY");
+    }
+    if (t.lotSize) setLotSize(t.lotSize);
+    if (t.numberOfLots) setNumberOfLots(String(t.numberOfLots));
+    if (t.optionPoints !== undefined) setOptionPoints(t.optionPoints);
+
+    if (t.actualEntry) {
+      setActualEntry(String(t.actualEntry));
+      setPlannedEntry(String(t.actualEntry));
+      const sl = t.actualEntry * (t.optionAction === "BUY" ? 0.85 : 1.15);
+      const tp = t.actualEntry * (t.optionAction === "BUY" ? 1.40 : 0.60);
+      setStopLoss(String(parseFloat(sl.toFixed(2))));
+      setTarget(String(parseFloat(tp.toFixed(2))));
+      setExpectedRR(2.3);
+    }
+
+    if (t.actualExit) setActualExit(String(t.actualExit));
+    if (t.positionSize) setPositionSize(String(t.positionSize));
+    if (t.pnl !== undefined) setPnl(String(t.pnl));
+    if (t.outcome) setOutcome(t.outcome);
+    setExitReason(t.outcome === "WIN" ? "TARGET_HIT" : "STOP_HIT");
+    setActualRR(t.pnl > 0 ? 2.3 : -1.0);
+
+    if (t.entryTime) setEntryTime(t.entryTime.slice(0, 5));
+    if (t.exitTime) setExitTime(t.exitTime.slice(0, 5));
+
+    if (t.entryTime) {
+      const [h, m] = t.entryTime.split(":").map(Number);
+      const mins = h * 60 + (m || 0);
+      if (mins >= 13 * 60 + 30) {
+        setSession("Indian / Afternoon");
+      } else if (mins >= 11 * 60 + 30) {
+        setSession("Indian / Mid-Day");
+      } else {
+        setSession("Indian / Morning");
+      }
+    }
+
+    setShowTradePicker(false);
+    setAutoFillSuccess(
+      `✨ Loaded ${t.instrument} • Entry ₹${t.actualEntry} • Exit ₹${t.actualExit} • P&L: ₹${t.pnl}`
+    );
+  };
+
+  const handleAutoFill = async (broker: "ANGEL_ONE" | "DHAN") => {
+    setIsAutoFilling(true);
+    setAutoFillError("");
+    setAutoFillSuccess("");
+    setBrokerTradesList([]);
+    setShowTradePicker(false);
+
+    try {
+      let credentials: any = null;
+      if (broker === "ANGEL_ONE") {
+        const saved = localStorage.getItem("trading_os_angel_creds");
+        if (!saved) throw new Error("No saved Angel One credentials found. Please sync from dashboard first.");
+        credentials = JSON.parse(saved);
+      } else if (broker === "DHAN") {
+        const saved = localStorage.getItem("trading_os_dhan_creds");
+        if (!saved) throw new Error("No saved Dhan credentials found. Please sync from dashboard first.");
+        credentials = JSON.parse(saved);
+      }
+
+      const res = await fetch("/api/broker/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ broker, credentials }),
+      });
+
+      const text = await res.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("Unable to reach broker sync service.");
+      }
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to fetch today's trades from broker.");
+      }
+
+      if (!data.trades || data.trades.length === 0) {
+        setAutoFillError(`No completed trades found in ${broker === "ANGEL_ONE" ? "Angel One" : "Dhan"} for today.`);
+        return;
+      }
+
+      if (data.trades.length === 1) {
+        populateTradeData(data.trades[0]);
+      } else {
+        setBrokerTradesList(data.trades);
+        setShowTradePicker(true);
+      }
+    } catch (err: any) {
+      setAutoFillError(err.message || "Failed to auto-fill trade.");
+    } finally {
+      setIsAutoFilling(false);
+    }
+  };
 
   const isLong = isOptionsMode ? optionAction === "BUY" : bias !== "BEARISH";
   const isIndianMarket = INDIAN_MARKETS.includes(market);
@@ -362,6 +495,114 @@ export function TradeForm() {
         <p className="text-xs text-muted mt-0.5">
           Complete the 4-phase journal in under 60 seconds.
         </p>
+      </div>
+
+      {/* ── ⚡ 1-Click Auto-Fill From Broker Bar ── */}
+      <div className="card p-3 sm:p-3.5 bg-gradient-to-r from-accent/10 via-surface to-accent/5 border border-accent/30 rounded-2xl space-y-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xl bg-accent/20 text-accent flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+              <Zap className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-clean flex items-center gap-1.5">
+                <span>1-Click Auto-Fill Today&apos;s Trade</span>
+                <span className="badge badge-accent text-[9px] py-0 px-1.5 font-extrabold uppercase">Fast</span>
+              </div>
+              <p className="text-[10px] text-muted">
+                Pre-fill execution prices, contract strike, lot size, and P&L directly from your broker.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {savedBrokers.angel && (
+              <button
+                type="button"
+                onClick={() => handleAutoFill("ANGEL_ONE")}
+                disabled={isAutoFilling}
+                className="px-3 py-1.5 rounded-xl bg-accent text-white text-xs font-bold hover:bg-accent-hover transition-all cursor-pointer flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+              >
+                <Zap className="h-3.5 w-3.5" />
+                <span>{isAutoFilling ? "Fetching..." : "Auto-Fill Angel One"}</span>
+              </button>
+            )}
+
+            {savedBrokers.dhan && (
+              <button
+                type="button"
+                onClick={() => handleAutoFill("DHAN")}
+                disabled={isAutoFilling}
+                className="px-3 py-1.5 rounded-xl bg-profit text-white text-xs font-bold hover:bg-profit/90 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+              >
+                <Zap className="h-3.5 w-3.5" />
+                <span>{isAutoFilling ? "Fetching..." : "Auto-Fill Dhan"}</span>
+              </button>
+            )}
+
+            {!savedBrokers.angel && !savedBrokers.dhan && (
+              <span className="text-[11px] text-dim">
+                Sync once from Dashboard to enable 1-Click Auto-Fill
+              </span>
+            )}
+          </div>
+        </div>
+
+        {autoFillError && (
+          <div className="p-2 rounded-lg bg-loss/15 border border-loss/30 text-loss text-[11px] font-medium flex items-center gap-1.5">
+            <X className="h-3.5 w-3.5 shrink-0" />
+            <span>{autoFillError}</span>
+          </div>
+        )}
+
+        {autoFillSuccess && (
+          <div className="p-2 rounded-lg bg-profit/15 border border-profit/30 text-profit text-[11px] font-bold flex items-center justify-between gap-1.5 animate-in fade-in">
+            <div className="flex items-center gap-1.5">
+              <Check className="h-3.5 w-3.5 shrink-0" />
+              <span>{autoFillSuccess}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAutoFillSuccess("")}
+              className="text-[10px] underline hover:text-clean cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Multi-Trade Picker Drawer */}
+        {showTradePicker && brokerTradesList.length > 0 && (
+          <div className="pt-2 border-t border-border/30 space-y-2">
+            <div className="text-[11px] font-bold text-clean">
+              Select which trade to journal: ({brokerTradesList.length} trades found today)
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+              {brokerTradesList.map((t, idx) => (
+                <div
+                  key={t.id || idx}
+                  onClick={() => populateTradeData(t)}
+                  className="p-2.5 rounded-xl bg-card border border-border-solid hover:border-accent transition-all cursor-pointer flex items-center justify-between gap-2 group"
+                >
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-clean truncate group-hover:text-accent transition-colors">
+                      {t.instrument}
+                    </div>
+                    <div className="text-[10px] text-muted font-mono">
+                      Qty: {t.positionSize} • Entry: ₹{t.actualEntry} • Exit: ₹{t.actualExit} • {t.entryTime}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className={`text-xs font-mono font-bold ${t.pnl >= 0 ? "text-profit" : "text-loss"}`}>
+                      {t.pnl >= 0 ? `+₹${t.pnl}` : `-₹${Math.abs(t.pnl)}`}
+                    </span>
+                    <span className="block text-[9px] text-accent font-bold uppercase mt-0.5">Use Trade →</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
