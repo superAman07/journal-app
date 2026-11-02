@@ -86,10 +86,26 @@ export function generateTOTP(secret: string, stepSeconds = 30, digits = 6): stri
   return (code % 10 ** digits).toString().padStart(digits, "0");
 }
 
+let cachedPublicIp = "";
+export async function getPublicIp(): Promise<string> {
+  if (cachedPublicIp) return cachedPublicIp;
+  try {
+    const res = await fetch("https://api.ipify.org", { signal: AbortSignal.timeout(3500) });
+    if (res.ok) {
+      cachedPublicIp = (await res.text()).trim();
+      return cachedPublicIp;
+    }
+  } catch {
+    // fallback
+  }
+  return "127.0.0.1";
+}
+
 // ── Authenticate with Angel One SmartAPI ──
 export async function authenticateAngelOne(creds: AngelOneCredentials) {
   try {
     const totp = generateTOTP(creds.totpSecret);
+    const publicIp = await getPublicIp();
 
     const res = await fetch("https://apiconnect.angelbroking.com/rest/auth/partner/v1/generate-session", {
       method: "POST",
@@ -99,7 +115,7 @@ export async function authenticateAngelOne(creds: AngelOneCredentials) {
         "X-UserType": "USER",
         "X-SourceID": "WEB",
         "X-ClientLocalIP": "127.0.0.1",
-        "X-ClientPublicIP": "127.0.0.1",
+        "X-ClientPublicIP": publicIp,
         "X-MACAddress": "fe80::1",
         "X-PrivateKey": creds.apiKey.trim(),
       },
@@ -133,6 +149,7 @@ export async function authenticateAngelOne(creds: AngelOneCredentials) {
 // ── Fetch Today's Tradebook from Angel One ──
 export async function fetchAngelOneTradebook(jwtToken: string, apiKey: string) {
   try {
+    const publicIp = await getPublicIp();
     const res = await fetch("https://apiconnect.angelbroking.com/rest/secure/angelbroking/order/v1/getTradeBook", {
       method: "GET",
       headers: {
@@ -142,7 +159,7 @@ export async function fetchAngelOneTradebook(jwtToken: string, apiKey: string) {
         "X-UserType": "USER",
         "X-SourceID": "WEB",
         "X-ClientLocalIP": "127.0.0.1",
-        "X-ClientPublicIP": "127.0.0.1",
+        "X-ClientPublicIP": publicIp,
         "X-MACAddress": "fe80::1",
         "X-PrivateKey": apiKey.trim(),
       },
