@@ -498,7 +498,7 @@ export function TradeForm() {
       </div>
 
       {/* ── ⚡ 1-Click Auto-Fill From Broker Bar ── */}
-      <div className="card p-3 sm:p-3.5 bg-gradient-to-r from-accent/10 via-surface to-accent/5 border border-accent/30 rounded-2xl space-y-2.5">
+      <div className="card p-3 sm:p-3.5 bg-linear-to-r from-accent/10 via-surface to-accent/5 border border-accent/30 rounded-2xl space-y-2.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-xl bg-accent/20 text-accent flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
