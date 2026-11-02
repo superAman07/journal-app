@@ -2,11 +2,12 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Plus, BookOpen, ChevronDown, ChevronRight, Edit2, Eye, RefreshCw, CalendarDays, List, Download } from "lucide-react";
+import { Plus, BookOpen, ChevronDown, ChevronRight, Edit2, Eye, RefreshCw, CalendarDays, List, Download, Zap } from "lucide-react";
 import { formatRMultiple } from "@/lib/utils";
 import { DeleteTradeButton } from "@/components/trades/delete-trade-button";
 import { TradeDetailModal } from "@/components/trades/trade-detail-modal";
 import { EditTradeModal } from "@/components/trades/edit-trade-modal";
+import { BrokerSyncModal } from "@/components/broker/broker-sync-modal";
 import { TradeFilters, TradeFilterState } from "@/components/trades/trade-filters";
 import { useExchangeRate } from "@/lib/hooks/use-exchange-rate";
 import {
@@ -23,6 +24,7 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
   const [selectedTradeForEdit, setSelectedTradeForEdit] = useState<any | null>(null);
   const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
+  const [showBrokerSync, setShowBrokerSync] = useState(false);
   const { rate, loading: rateLoading } = useExchangeRate();
 
   const [filters, setFilters] = useState<TradeFilterState>({
@@ -227,6 +229,14 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
               </button>
             </div>
           )}
+          <button
+            onClick={() => setShowBrokerSync(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface border border-accent/40 text-accent text-xs font-semibold hover:bg-accent/10 transition-all cursor-pointer shadow-xs"
+            title="Auto-Sync Trades from Angel One, Dhan, or CSV"
+          >
+            <Zap className="h-3.5 w-3.5" />
+            <span>Sync Broker</span>
+          </button>
           <Link href="/trades/new" className="btn-primary cursor-pointer">
             <Plus className="h-4 w-4" /> Log Trade
           </Link>
@@ -531,6 +541,11 @@ export function TradesView({ initialTrades }: { initialTrades: any[] }) {
           onClose={() => setSelectedTradeForEdit(null)}
         />
       )}
+
+      <BrokerSyncModal
+        isOpen={showBrokerSync}
+        onClose={() => setShowBrokerSync(false)}
+      />
     </div>
   );
 }

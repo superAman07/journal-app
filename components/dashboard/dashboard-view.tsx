@@ -21,6 +21,7 @@ import { useExchangeRate } from "@/lib/hooks/use-exchange-rate";
 import { formatPnlWithCurrency, formatAggregatedPnl, convertPnlToInr } from "@/lib/utils/currency";
 import { DisciplineDirective } from "@/components/dashboard/discipline-directive";
 import { TradersCreed } from "@/components/dashboard/traders-creed";
+import { BrokerSyncModal } from "@/components/broker/broker-sync-modal";
 
 interface DashboardViewProps {
   userName?: string | null;
@@ -72,6 +73,7 @@ export function DashboardView({
 
   const [chartOpen, setChartOpen] = useState(false);
   const [selectedChart, setSelectedChart] = useState("NIFTY");
+  const [showBrokerSync, setShowBrokerSync] = useState(false);
 
   useEffect(() => {
     const fetchPrices = async () => {
@@ -124,7 +126,16 @@ export function DashboardView({
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <button
+            onClick={() => setShowBrokerSync(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-accent/40 text-accent text-xs font-semibold hover:bg-accent/10 transition-all cursor-pointer shadow-xs"
+            title="Auto-Sync Trades from Angel One, Dhan, or CSV"
+          >
+            <Zap className="h-3.5 w-3.5" />
+            <span>Sync Broker</span>
+          </button>
+
           {/* Compressed AI Coach Quick Chip */}
           <Link
             href="/ai-coach"
@@ -380,6 +391,12 @@ export function DashboardView({
         isOpen={chartOpen}
         onClose={() => setChartOpen(false)}
         initialSymbol={selectedChart}
+      />
+
+      {/* 1-Click Broker Sync Modal */}
+      <BrokerSyncModal
+        isOpen={showBrokerSync}
+        onClose={() => setShowBrokerSync(false)}
       />
     </div>
   );

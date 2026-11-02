@@ -6,6 +6,7 @@ import { Plus, Sparkles, User, LogOut, ShieldCheck } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { LiveTicker } from "@/components/layout/live-ticker";
 import { Logo } from "@/components/ui/logo";
+import { isVipFounder } from "@/lib/auth/permissions";
 
 export function Header() {
   const { data: session } = useSession();
@@ -45,6 +46,16 @@ export function Header() {
 
         {session?.user ? (
           <>
+            {isVipFounder(session.user.email) && (
+              <span
+                className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/30 select-none shadow-[0_0_12px_rgba(245,158,11,0.12)]"
+                title="Founder VIP: 100% Lifetime Unrestricted Access"
+              >
+                <span>👑</span>
+                <span>VIP Founder</span>
+              </span>
+            )}
+
             <Link
               href="/trades/new"
               className="hidden! sm:flex btn-primary py-2! px-4! text-xs! rounded-lg! cursor-pointer"
