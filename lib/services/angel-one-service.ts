@@ -236,9 +236,26 @@ export function parseContractSymbol(symbol: string): {
   const isCE = upper.endsWith("CE") || upper.includes(" CE ");
   const optionType = isPE ? "PUT (PE)" : isCE ? "CALL (CE)" : undefined;
 
-  // Extract strike price (e.g., 24500 from NIFTY...24500PE)
-  const strikeMatch = upper.match(/(\d{4,6})(CE|PE)$/);
-  const strikePrice = strikeMatch ? parseFloat(strikeMatch[1]) : undefined;
+  // Extract strike price:
+  // For Indian Indices (Nifty, BankNifty, FinNifty), strikes are 5 digits (e.g. 23400, 24500, 52000)
+  // For Sensex, strikes can be 5 or 6 digits (e.g. 78000, 80000)
+  // For Stocks, strikes can be 3 to 5 digits (e.g. 500, 1500, 2800)
+  let strikePrice: number | undefined;
+  if (isNifty || isBankNifty || isFinNifty) {
+    const match = upper.match(/(\d{5})(?:CE|PE)$/);
+    if (match) strikePrice = parseFloat(match[1]);
+  } else if (isSensex) {
+    const match = upper.match(/(\d{5,6})(?:CE|PE)$/);
+    if (match) strikePrice = parseFloat(match[1]);
+  } else {
+    const match = upper.match(/(\d{3,5})(?:CE|PE)$/);
+    if (match) strikePrice = parseFloat(match[1]);
+  }
+
+  if (!strikePrice) {
+    const fallbackMatch = upper.match(/(\d{3,6})(?:CE|PE)$/);
+    if (fallbackMatch) strikePrice = parseFloat(fallbackMatch[1]);
+  }
 
   let baseName = "NIFTY";
   if (isBankNifty) baseName = "BANKNIFTY";
