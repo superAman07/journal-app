@@ -107,7 +107,7 @@ export async function authenticateAngelOne(creds: AngelOneCredentials) {
     const totp = generateTOTP(creds.totpSecret);
     const publicIp = await getPublicIp();
 
-    const res = await fetch("https://apiconnect.angelbroking.com/rest/auth/partner/v1/generate-session", {
+    const res = await fetch("https://apiconnect.angelbroking.com/rest/auth/angelbroking/user/v1/loginByPassword", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -127,10 +127,19 @@ export async function authenticateAngelOne(creds: AngelOneCredentials) {
       signal: AbortSignal.timeout(15000),
     });
 
-    const data = await res.json();
+    const text = await res.text();
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return {
+        success: false,
+        error: `Angel One returned unexpected response: ${text.slice(0, 100) || "Empty body"}`,
+      };
+    }
 
-    if (!res.ok || !data.status || !data.data?.jwtToken) {
-      const errMsg = data.message || data.errorcode || "Angel One authentication failed";
+    if (!res.ok || (data.status !== true && data.success !== true) || !data.data?.jwtToken) {
+      const errMsg = data.message || data.errorcode || data.errorCode || "Angel One authentication failed";
       return { success: false, error: errMsg };
     }
 
@@ -166,10 +175,19 @@ export async function fetchAngelOneTradebook(jwtToken: string, apiKey: string) {
       signal: AbortSignal.timeout(15000),
     });
 
-    const data = await res.json();
+    const text = await res.text();
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return {
+        success: false,
+        error: `Angel One returned unexpected response: ${text.slice(0, 100) || "Empty body"}`,
+      };
+    }
 
-    if (!res.ok || !data.status) {
-      const errMsg = data.message || "Failed to fetch tradebook from Angel One";
+    if (!res.ok || (data.status !== true && data.success !== true)) {
+      const errMsg = data.message || data.errorcode || data.errorCode || "Failed to fetch tradebook from Angel One";
       return { success: false, error: errMsg };
     }
 

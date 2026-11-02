@@ -117,7 +117,13 @@ export function BrokerSyncModal({ isOpen, onClose, onImportComplete }: BrokerSyn
         }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(text.slice(0, 120) || "Unable to reach sync service.");
+      }
 
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Failed to fetch trades from Angel One.");
@@ -170,7 +176,13 @@ export function BrokerSyncModal({ isOpen, onClose, onImportComplete }: BrokerSyn
         }),
       });
 
-      const data = await res.json();
+      const dhanText = await res.text();
+      let data: any;
+      try {
+        data = JSON.parse(dhanText);
+      } catch {
+        throw new Error(dhanText.slice(0, 120) || "Unable to reach sync service.");
+      }
 
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Failed to fetch trades from Dhan.");
