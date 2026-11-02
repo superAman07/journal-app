@@ -48,13 +48,43 @@ export async function importBrokerTrades(tradesToImport: SyncedTradePreview[]) {
       const defaultSL = trade.actualEntry * (trade.optionAction === "BUY" ? 0.85 : 1.15);
       const defaultTP = trade.actualEntry * (trade.optionAction === "BUY" ? 1.40 : 0.60);
 
+      let parsedEntryTime: Date | null = null;
+      let parsedExitTime: Date | null = null;
+      if (trade.entryTime) {
+        const parts = trade.entryTime.split(":").map(Number);
+        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          parsedEntryTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parts[0], parts[1], parts[2] || 0);
+        }
+      }
+      if (trade.exitTime) {
+        const parts = trade.exitTime.split(":").map(Number);
+        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          parsedExitTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parts[0], parts[1], parts[2] || 0);
+        }
+      }
+
+      // Calculate dynamic session name based on entry time
+      let sessionName: string = "Indian / Morning";
+      if (parsedEntryTime) {
+        const totalMinutes = parsedEntryTime.getHours() * 60 + parsedEntryTime.getMinutes();
+        if (totalMinutes >= 13 * 60 + 30) {
+          sessionName = "Indian / Afternoon";
+        } else if (totalMinutes >= 11 * 60 + 30) {
+          sessionName = "Indian / Mid-Day";
+        } else {
+          sessionName = "Indian / Morning";
+        }
+      }
+
       const created = await prisma.trade.create({
         data: {
           userId: session.user.id,
           date: now,
+          entryTime: parsedEntryTime,
+          exitTime: parsedExitTime,
           market: trade.market || "Nifty Options",
           instrument: trade.instrument,
-          session: "Indian / Morning",
+          session: sessionName,
           setup: "A+ Reversal Protocol",
           bias: trade.optionType === "PUT (PE)" ? "BEARISH" : "BULLISH",
           plannedEntry: trade.actualEntry,
@@ -74,7 +104,9 @@ export async function importBrokerTrades(tradesToImport: SyncedTradePreview[]) {
           optionType: trade.optionType || null,
           optionAction: trade.optionAction || "BUY",
           strikePrice: trade.strikePrice || null,
-          lotSize: trade.lotSize || 25,
+          spotPrice: trade.spotPrice || null,
+          optionExpiry: trade.optionExpiry || null,
+          lotSize: trade.lotSize || 65,
           numberOfLots: trade.numberOfLots || 1,
           optionPoints: trade.optionPoints,
           notes: `[Auto-Synced from ${trade.broker}] Ref: ${trade.orderId || "N/A"}. Duration: ${trade.tradeDuration}. Write your 3-phase psychology notes to complete this journal record.`,

@@ -44,7 +44,15 @@ const MARKETS: MarketType[] = [
   "Futures",
 ];
 
-const SESSIONS: SessionType[] = ["London", "New York", "Asian", "London/NY Overlap"];
+const SESSIONS: SessionType[] = [
+  "Indian / Morning",
+  "Indian / Mid-Day",
+  "Indian / Afternoon",
+  "London",
+  "New York",
+  "Asian",
+  "London/NY Overlap",
+];
 
 const EMOTIONS: EmotionType[] = [
   "Calm",
@@ -86,7 +94,7 @@ export function TradeForm() {
 
   const [market, setMarket] = useState<MarketType>("Nifty Options");
   const [instrument, setInstrument] = useState("");
-  const [session, setSession] = useState<SessionType>("Asian");
+  const [session, setSession] = useState<SessionType>("Indian / Morning");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [setup, setSetup] = useState("");
   const [strategyId, setStrategyId] = useState("");

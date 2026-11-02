@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import {
   X, Target, TrendingUp, CheckCircle2, Brain, Camera,
   ArrowUpRight, ArrowDownRight, Clock, Shield, AlertTriangle, ZoomIn,
-  Check, ShieldCheck
+  Check, ShieldCheck, Trash2
 } from "lucide-react";
 import { formatRMultiple } from "@/lib/utils";
 import { formatPnlWithCurrency } from "@/lib/utils/currency";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
+import { deleteTrade } from "@/lib/actions/trade-actions";
 
 type TradeData = {
   id: string;
@@ -75,9 +76,23 @@ export function TradeDetailModal({
 }) {
   const [tab, setTab] = useState("plan");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isOptions = trade.market.includes("Options");
   const pnl = Number(trade.pnl);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteTrade(trade.id);
+      onClose();
+    } catch (e) {
+      console.error("Failed to delete trade:", e);
+      setIsDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -120,6 +135,33 @@ export function TradeDetailModal({
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            {confirmDelete ? (
+              <div className="flex items-center gap-1 bg-loss/10 border border-loss/30 p-0.5 rounded-xl animate-in fade-in duration-150">
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="px-2.5 py-1 rounded-lg bg-loss text-white text-[11px] font-bold hover:bg-loss-hover transition-all cursor-pointer shadow-xs"
+                >
+                  {isDeleting ? "Deleting..." : "Confirm Delete"}
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="px-2 py-1 rounded-lg text-dim text-[11px] font-semibold hover:bg-elevated transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                title="Delete this trade record"
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-loss/10 text-loss text-[11px] sm:text-xs font-bold hover:bg-loss/20 transition-all cursor-pointer border border-loss/20 flex items-center gap-1 whitespace-nowrap"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Delete</span>
+              </button>
+            )}
+
             {onEdit && (
               <button onClick={onEdit} className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-accent-muted text-accent text-[11px] sm:text-xs font-bold hover:bg-accent/20 transition-all cursor-pointer border border-accent/20 whitespace-nowrap">
                 Edit Trade
@@ -166,6 +208,12 @@ export function TradeDetailModal({
                 <DetailField label="Strategy Setup" value={trade.setup} />
                 <DetailField label="Market Bias" value={trade.bias} badge={trade.bias === "BULLISH" ? "profit" : trade.bias === "BEARISH" ? "loss" : "neutral"} />
                 <DetailField label="Trade Date" value={new Date(trade.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })} />
+                {(trade.entryTime || trade.exitTime) && (
+                  <DetailField
+                    label="Timing (Entry ➔ Exit)"
+                    value={`${trade.entryTime ? new Date(trade.entryTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "—"} ➔ ${trade.exitTime ? new Date(trade.exitTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "—"}`}
+                  />
+                )}
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -187,8 +235,8 @@ export function TradeDetailModal({
                     <DetailField label="Expiry" value={trade.optionExpiry || "—"} />
                     <DetailField label="Spot Price" value={trade.spotPrice ? `₹${trade.spotPrice}` : "—"} />
                     <DetailField label="Lot Size" value={trade.lotSize ? `${trade.lotSize} qty/lot` : "—"} />
-                    <DetailField label="Lots Traded" value={trade.numberOfLots ? `${trade.numberOfLots} lots` : "—"} />
-                    <DetailField label="Total Quantity" value={trade.lotSize && trade.numberOfLots ? `${trade.lotSize * trade.numberOfLots} qty` : "—"} />
+                    <DetailField label="Lots Traded" value={trade.numberOfLots ? `${trade.numberOfLots} lot${trade.numberOfLots > 1 ? "s" : ""}` : "—"} />
+                    <DetailField label="Total Quantity" value={`${trade.positionSize || (trade.lotSize && trade.numberOfLots ? trade.lotSize * trade.numberOfLots : 0)} qty`} />
                   </div>
                 </div>
               )}

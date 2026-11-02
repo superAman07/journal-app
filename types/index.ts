@@ -12,6 +12,9 @@ export type MarketType =
   | "Futures";
 
 export type SessionType =
+  | "Indian / Morning"
+  | "Indian / Mid-Day"
+  | "Indian / Afternoon"
   | "Asian"
   | "London"
   | "New York"

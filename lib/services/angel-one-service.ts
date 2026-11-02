@@ -26,6 +26,8 @@ export interface SyncedTradePreview {
   market: string;
   optionType?: "CALL (CE)" | "PUT (PE)";
   strikePrice?: number;
+  spotPrice?: number;
+  optionExpiry?: string;
   optionAction: "BUY" | "SELL";
   actualEntry: number;
   actualExit: number;
@@ -200,12 +202,15 @@ export async function fetchAngelOneTradebook(jwtToken: string, apiKey: string) {
 }
 
 // ── Parse Symbol Name to Clean Trading OS Format ──
-export function parseContractSymbol(symbol: string): {
+export function parseContractSymbol(symbol: string, matchedQty = 0): {
   cleanInstrument: string;
   market: string;
   optionType?: "CALL (CE)" | "PUT (PE)";
   strikePrice?: number;
+  spotPrice?: number;
+  optionExpiry?: string;
   lotSize: number;
+  numberOfLots: number;
 } {
   const upper = symbol.toUpperCase().trim();
 
@@ -215,21 +220,60 @@ export function parseContractSymbol(symbol: string): {
   const isFinNifty = upper.includes("FINNIFTY");
   const isSensex = upper.includes("SENSEX");
 
-  let lotSize = 25; // Default Nifty lot size
+  let lotSize = 65; // Default Nifty options lot size
+  let numberOfLots = 1;
   let market = "Nifty Options";
 
-  if (isBankNifty) {
-    lotSize = 15;
+  if (isNifty) {
+    market = "Nifty Options";
+    if (matchedQty > 0) {
+      if (matchedQty % 65 === 0) lotSize = 65;
+      else if (matchedQty % 75 === 0) lotSize = 75;
+      else if (matchedQty % 50 === 0) lotSize = 50;
+      else if (matchedQty % 25 === 0) lotSize = 25;
+      else lotSize = matchedQty;
+      numberOfLots = Math.max(1, Math.round(matchedQty / lotSize));
+    } else {
+      lotSize = 65;
+      numberOfLots = 1;
+    }
+  } else if (isBankNifty) {
     market = "BankNifty Options";
+    if (matchedQty > 0) {
+      if (matchedQty % 15 === 0) lotSize = 15;
+      else if (matchedQty % 30 === 0) lotSize = 30;
+      else lotSize = matchedQty;
+      numberOfLots = Math.max(1, Math.round(matchedQty / lotSize));
+    } else {
+      lotSize = 15;
+      numberOfLots = 1;
+    }
   } else if (isFinNifty) {
-    lotSize = 25;
     market = "FinNifty Options";
+    if (matchedQty > 0) {
+      if (matchedQty % 65 === 0) lotSize = 65;
+      else if (matchedQty % 25 === 0) lotSize = 25;
+      else if (matchedQty % 40 === 0) lotSize = 40;
+      else lotSize = matchedQty;
+      numberOfLots = Math.max(1, Math.round(matchedQty / lotSize));
+    } else {
+      lotSize = 65;
+      numberOfLots = 1;
+    }
   } else if (isSensex) {
-    lotSize = 10;
     market = "Sensex Options";
-  } else if (!isNifty) {
+    if (matchedQty > 0) {
+      if (matchedQty % 10 === 0) lotSize = 10;
+      else lotSize = matchedQty;
+      numberOfLots = Math.max(1, Math.round(matchedQty / lotSize));
+    } else {
+      lotSize = 10;
+      numberOfLots = 1;
+    }
+  } else {
     market = "Stocks / Futures";
-    lotSize = 1;
+    lotSize = matchedQty > 0 ? matchedQty : 1;
+    numberOfLots = 1;
   }
 
   const isPE = upper.endsWith("PE") || upper.includes(" PE ");
@@ -257,6 +301,23 @@ export function parseContractSymbol(symbol: string): {
     if (fallbackMatch) strikePrice = parseFloat(fallbackMatch[1]);
   }
 
+  // Extract contract expiry e.g. 06NOV24 or 24NOV
+  let optionExpiry: string | undefined;
+  const mExp = upper.match(/(\d{2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})?/);
+  if (mExp) {
+    const day = mExp[1];
+    const mon = mExp[2];
+    const yr = mExp[3] ? `20${mExp[3]}` : `${new Date().getFullYear()}`;
+    optionExpiry = `${day} ${mon.charAt(0) + mon.slice(1).toLowerCase()} ${yr}`;
+  } else {
+    const mMonthly = upper.match(/(\d{2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)/);
+    if (mMonthly) {
+      const yr = `20${mMonthly[1]}`;
+      const mon = mMonthly[2];
+      optionExpiry = `${mon.charAt(0) + mon.slice(1).toLowerCase()} ${yr} Monthly`;
+    }
+  }
+
   let baseName = "NIFTY";
   if (isBankNifty) baseName = "BANKNIFTY";
   else if (isFinNifty) baseName = "FINNIFTY";
@@ -267,7 +328,7 @@ export function parseContractSymbol(symbol: string): {
     ? `${baseName} ${strikePrice} ${optionType === "PUT (PE)" ? "PE" : "CE"}`
     : upper;
 
-  return { cleanInstrument, market, optionType, strikePrice, lotSize };
+  return { cleanInstrument, market, optionType, strikePrice, optionExpiry, lotSize, numberOfLots };
 }
 
 // ── Match Buy & Sell Orders into Completed Trades (Round-Trips) ──
@@ -322,8 +383,8 @@ export function pairAngelOneTrades(rawOrders: RawAngelTrade[]): SyncedTradePrevi
       const optionPoints = parseFloat((isLong ? (sellPrice - buyPrice) : (buyPrice - sellPrice)).toFixed(2));
       const pnl = parseFloat((optionPoints * matchedQty).toFixed(2));
 
-      const { cleanInstrument, market, optionType, strikePrice, lotSize } = parseContractSymbol(symbol);
-      const numberOfLots = lotSize > 0 ? Math.max(1, Math.round(matchedQty / lotSize)) : 1;
+      const { cleanInstrument, market, optionType, strikePrice, optionExpiry, lotSize, numberOfLots } =
+        parseContractSymbol(symbol, matchedQty);
 
       // Compute duration in minutes if times are valid
       const entryTimeStr = entryOrder.filltime || "09:15:00";
@@ -348,6 +409,7 @@ export function pairAngelOneTrades(rawOrders: RawAngelTrade[]): SyncedTradePrevi
         market,
         optionType,
         strikePrice,
+        optionExpiry,
         optionAction: isLong ? "BUY" : "SELL",
         actualEntry,
         actualExit,

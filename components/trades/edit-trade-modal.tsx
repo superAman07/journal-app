@@ -23,7 +23,15 @@ const MARKETS: MarketType[] = [
   "Futures",
 ];
 
-const SESSIONS: SessionType[] = ["London", "New York", "Asian", "London/NY Overlap"];
+const SESSIONS: SessionType[] = [
+  "Indian / Morning",
+  "Indian / Mid-Day",
+  "Indian / Afternoon",
+  "London",
+  "New York",
+  "Asian",
+  "London/NY Overlap",
+];
 const EMOTIONS: EmotionType[] = [
   "Calm",
   "Fear",
