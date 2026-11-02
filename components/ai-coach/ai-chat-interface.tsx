@@ -66,6 +66,7 @@ interface Message {
   modelUsed?: string;
   timestamp: string;
   isTyping?: boolean;
+  imageUrl?: string;
 }
 
 export interface SavedChatSession {
@@ -100,9 +101,22 @@ export function AIChatInterface({
 
   const [savedSessions, setSavedSessions] = useState<SavedChatSession[]>(initialSavedChats);
   const [showSavedModal, setShowSavedModal] = useState(false);
-  const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccessNotice, setSaveSuccessNotice] = useState<{ show: boolean; text: string }>({
+    show: false,
+    text: "",
+  });
   const [currentChatId, setCurrentChatId] = useState<string>("");
+  const [currentChatTitle, setCurrentChatTitle] = useState<string>("");
   const [showPsychologyDetails, setShowPsychologyDetails] = useState(true);
+
+  // Attached image state for clipboard paste and file upload
+  const [attachedImage, setAttachedImage] = useState<{
+    url: string;
+    name?: string;
+  } | null>(null);
+  const [previewModalUrl, setPreviewModalUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedTrade = initialTrades.find((t) => t.id === selectedTradeId);
 
@@ -117,7 +131,7 @@ export function AIChatInterface({
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: `Welcome to your Trading Psychology & Performance Desk. I am your AI Performance Coach — connected directly to your trading database and your 3-phase psychology journal.\n\nI automatically pick the best available AI model for you. No manual setup needed.\n\nI can see your recent trades, setups, stop-losses, and your exact thoughts Before, During, and After exit. When you take a loss or get stopped out by a wick, you are not alone.\n\nHow are you feeling right now? Use the quick buttons above, or just type.`,
+      content: `Welcome to your Trading Psychology & Performance Desk. I am your AI Performance Coach — connected directly to your trading database and your 3-phase psychology journal.\n\nI automatically pick the best available AI model for you. No manual setup needed.\n\nI can see your recent trades, setups, stop-losses, and your exact thoughts Before, During, and After exit. You can also paste any chart screenshot (Ctrl+V) directly into this chat for an instant Vision analysis.\n\nHow are you feeling right now? Use the quick buttons above, or just type.`,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);
@@ -153,6 +167,11 @@ export function AIChatInterface({
       if (tempId) {
         setCurrentChatId(tempId);
       }
+
+      const tempTitle = sessionStorage.getItem("trading_journal_temp_chat_title");
+      if (tempTitle) {
+        setCurrentChatTitle(tempTitle);
+      }
     } catch (e) {
       console.error("Error restoring temp chat from sessionStorage:", e);
     }
@@ -166,11 +185,14 @@ export function AIChatInterface({
         if (currentChatId) {
           sessionStorage.setItem("trading_journal_temp_chat_id", currentChatId);
         }
+        if (currentChatTitle) {
+          sessionStorage.setItem("trading_journal_temp_chat_title", currentChatTitle);
+        }
       }
     } catch (e) {
       console.error("Error auto-saving temp chat to sessionStorage:", e);
     }
-  }, [messages, currentChatId]);
+  }, [messages, currentChatId, currentChatTitle]);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -248,61 +270,129 @@ export function AIChatInterface({
     });
   };
 
-  const handleSaveChat = async () => {
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf("image") !== -1) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target?.result as string;
+          if (base64) {
+            setAttachedImage({
+              url: base64,
+              name: `Screenshot_${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.png`,
+            });
+          }
+        };
+        reader.readAsDataURL(file);
+        break;
+      }
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      if (base64) {
+        setAttachedImage({
+          url: base64,
+          name: file.name,
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleSaveChat = async (forceNew = false) => {
     if (messages.length <= 1 && messages[0].role === "assistant") return;
 
     try {
+      setIsSaving(true);
       const firstUserMsg = messages.find((m) => m.role === "user");
-      let title = firstUserMsg
+      let fallbackTitle = firstUserMsg
         ? firstUserMsg.content.slice(0, 50).trim()
         : "Trading Coaching Session";
-      if (title.length >= 50) title += "...";
+      if (fallbackTitle.length >= 50) fallbackTitle += "...";
 
-      const sessionId = currentChatId || `chat_${Date.now()}`;
-      setCurrentChatId(sessionId);
-      sessionStorage.setItem("trading_journal_temp_chat_id", sessionId);
+      const isUpdating = !forceNew && Boolean(currentChatId);
+      const sessionId = isUpdating ? currentChatId : `chat_${Date.now()}`;
+      const titleToSave = isUpdating && currentChatTitle ? currentChatTitle : fallbackTitle;
 
-      // Save to PostgreSQL Database
-      await saveChatToDB({
+      // Save or Update in PostgreSQL Database
+      const result = await saveChatToDB({
         id: sessionId,
-        title,
+        title: titleToSave,
         tradeId: selectedTradeId || undefined,
         messages: messages,
       });
 
-      const newSession: SavedChatSession = {
-        id: sessionId,
-        title,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        messageCount: messages.length,
-        messages: messages,
-        tradeId: selectedTradeId || undefined,
-      };
+      if (result.success && result.chat) {
+        const savedId = result.chat.id;
+        const savedTitle = result.chat.title;
 
-      setSavedSessions((prev) => {
-        const existingIdx = prev.findIndex((s) => s.id === sessionId);
-        let updated: SavedChatSession[];
-        if (existingIdx >= 0) {
-          updated = [...prev];
-          updated[existingIdx] = newSession;
-        } else {
-          updated = [newSession, ...prev];
-        }
-        localStorage.setItem("trading_journal_saved_chats", JSON.stringify(updated));
-        return updated;
-      });
+        setCurrentChatId(savedId);
+        setCurrentChatTitle(savedTitle);
+        sessionStorage.setItem("trading_journal_temp_chat_id", savedId);
+        sessionStorage.setItem("trading_journal_temp_chat_title", savedTitle);
 
-      setSaveSuccessNotice(true);
-      setTimeout(() => setSaveSuccessNotice(false), 2500);
-    } catch (e) {
+        const newSession: SavedChatSession = {
+          id: savedId,
+          title: savedTitle,
+          createdAt: result.chat.createdAt,
+          updatedAt: result.chat.updatedAt,
+          messageCount: messages.length,
+          messages: messages,
+          tradeId: selectedTradeId || undefined,
+        };
+
+        setSavedSessions((prev) => {
+          const existingIdx = prev.findIndex((s) => s.id === savedId);
+          let updated: SavedChatSession[];
+          if (existingIdx >= 0) {
+            updated = [...prev];
+            updated[existingIdx] = newSession;
+          } else {
+            updated = [newSession, ...prev];
+          }
+          localStorage.setItem("trading_journal_saved_chats", JSON.stringify(updated));
+          return updated;
+        });
+
+        setSaveSuccessNotice({
+          show: true,
+          text: isUpdating
+            ? `Updated "${savedTitle}" in DB (${messages.length} messages)`
+            : `Saved new session "${savedTitle}" to DB (${messages.length} messages)`,
+        });
+        setTimeout(() => setSaveSuccessNotice({ show: false, text: "" }), 3000);
+      } else {
+        throw new Error(result.error || "Failed to save to database");
+      }
+    } catch (e: any) {
       console.error("Error saving chat session to DB:", e);
+      alert(`Could not save chat: ${e.message || "Unknown error"}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleLoadSession = (session: SavedChatSession) => {
     setCurrentChatId(session.id);
+    setCurrentChatTitle(session.title);
     sessionStorage.setItem("trading_journal_temp_chat_id", session.id);
+    sessionStorage.setItem("trading_journal_temp_chat_title", session.title);
     sessionStorage.setItem("trading_journal_temp_chat", JSON.stringify(session.messages));
     setMessages(session.messages);
     if (session.tradeId) {
@@ -327,7 +417,9 @@ export function AIChatInterface({
 
     if (currentChatId === id) {
       setCurrentChatId("");
+      setCurrentChatTitle("");
       sessionStorage.removeItem("trading_journal_temp_chat_id");
+      sessionStorage.removeItem("trading_journal_temp_chat_title");
     }
   };
 
@@ -354,7 +446,11 @@ export function AIChatInterface({
   const handleNewChat = () => {
     sessionStorage.removeItem("trading_journal_temp_chat");
     sessionStorage.removeItem("trading_journal_temp_chat_id");
+    sessionStorage.removeItem("trading_journal_temp_chat_title");
     setCurrentChatId("");
+    setCurrentChatTitle("");
+    setAttachedImage(null);
+    setChartUrl("");
     setMessages([
       {
         role: "assistant",
@@ -366,7 +462,7 @@ export function AIChatInterface({
 
   const handleSend = async (customText?: string) => {
     const textToSend = customText || input;
-    if (!textToSend.trim() || isGenerating) return;
+    if ((!textToSend.trim() && !attachedImage) || isGenerating) return;
 
     abortTypewriterRef.current = false;
     stageTimerRef.current.forEach(clearTimeout);
@@ -379,21 +475,24 @@ export function AIChatInterface({
     setAiStage({ text: "Retrieving trade records & discipline history...", icon: "db" });
     const t1 = setTimeout(() => {
       setAiStage({ text: "Analyzing risk-to-reward & execution psychology...", icon: "sparkles" });
-    }, 1300);
+    }, 900);
     const t2 = setTimeout(() => {
       setAiStage({ text: "Synthesizing psychology coach response...", icon: "brain" });
-    }, 2800);
+    }, 1800);
     stageTimerRef.current.push(t1, t2);
+
+    const imageToSend = attachedImage?.url || chartUrl || undefined;
 
     const userMsg: Message = {
       role: "user",
-      content: textToSend,
+      content: textToSend.trim() || (attachedImage ? "Please review my chart screenshot." : ""),
+      imageUrl: attachedImage?.url || undefined,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
-    const sentChartUrl = chartUrl;
     setMessages((prev) => [...prev, userMsg]);
     if (!customText) setInput("");
+    setAttachedImage(null);
     setChartUrl(""); // Clear screenshot so future messages are clean
     setIsLoading(true);
     isUserScrolledUpRef.current = false;
@@ -418,7 +517,7 @@ export function AIChatInterface({
         body: JSON.stringify({
           messages: apiMessages,
           tradeId: selectedTradeId || undefined,
-          imageUrl: sentChartUrl || undefined,
+          imageUrl: imageToSend,
           provider,
           model: model || undefined,
         }),
@@ -454,10 +553,16 @@ export function AIChatInterface({
 
       setMessages((prev) => [...prev, aiMsg]);
 
-      // Natural ChatGPT-like typewriter animation with punctuation pacing
+      // Natural, fast & smooth adaptive typewriter (completes in 1.5 - 2.5s regardless of length)
       await new Promise<void>((resolve) => {
         let currentLen = 0;
         const total = fullContent.length;
+
+        // Dynamic speed based on total length
+        const targetDuration = Math.min(2200, Math.max(500, total * 0.9));
+        const tickDelay = 18;
+        const totalTicks = Math.max(1, Math.floor(targetDuration / tickDelay));
+        const baseStep = Math.max(2, Math.ceil(total / totalTicks));
 
         const typeNext = () => {
           if (abortTypewriterRef.current || currentLen >= total) {
@@ -477,27 +582,11 @@ export function AIChatInterface({
             return;
           }
 
-          // Check if we are inside a code/visual block
+          // Check if inside a visual code block
           const isInsideCode =
             fullContent.slice(0, currentLen).split("```").length % 2 === 0;
 
-          let step = 1;
-          let delay = 22; // Natural ChatGPT reading cadence (~45 chars/sec)
-
-          if (isInsideCode) {
-            // Speed up through raw visual JSON so charts render smoothly
-            step = 8;
-            delay = 12;
-          } else {
-            const nextChar = fullContent[currentLen];
-            if (nextChar === "." || nextChar === "!" || nextChar === "?") {
-              delay = 65; // Natural pause at end of sentence
-            } else if (nextChar === "\n") {
-              delay = 45; // Subtle pause at line breaks
-            } else if (nextChar === ",") {
-              delay = 35; // Micro pause at commas
-            }
-          }
+          const step = isInsideCode ? baseStep * 3 : baseStep;
 
           currentLen = Math.min(total, currentLen + step);
 
@@ -510,7 +599,7 @@ export function AIChatInterface({
             return updated;
           });
 
-          typewriterTimerRef.current = setTimeout(typeNext, delay);
+          typewriterTimerRef.current = setTimeout(typeNext, tickDelay);
         };
 
         typeNext();
@@ -615,6 +704,18 @@ export function AIChatInterface({
 
         {activeTab === "chat" && (
           <div className="flex items-center gap-2 flex-wrap md:flex-nowrap justify-between md:justify-end w-full md:w-auto">
+            {/* Active Saved Session Badge (if chatting in an opened session) */}
+            {currentChatId && (
+              <div
+                className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-ai/10 border border-ai/30 text-[11px] text-ai font-medium truncate max-w-48 xl:max-w-xs"
+                title={`Active Saved Chat: "${currentChatTitle}" (${messages.length} messages in memory)`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-ai animate-pulse shrink-0" />
+                <span className="truncate">{currentChatTitle || "Saved Session"}</span>
+                <span className="text-[10px] text-dim font-mono shrink-0">({messages.length})</span>
+              </div>
+            )}
+
             {/* Chat Action Buttons */}
             <div className="flex items-center gap-1.5 shrink-0">
               {/* New Chat Button */}
@@ -627,30 +728,67 @@ export function AIChatInterface({
                 <span className="hidden sm:inline">New Chat</span>
               </button>
 
-              {/* Save Chat Button (Saved to DB) */}
-              <button
-                onClick={handleSaveChat}
-                disabled={messages.length <= 1}
-                title="Save this conversation permanently to database"
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
-                  saveSuccessNotice
-                    ? "bg-profit/20 border border-profit text-profit shadow-xs"
-                    : "bg-surface border border-border-solid text-soft hover:text-clean hover:border-ai"
-                }`}
-              >
-                {saveSuccessNotice ? (
-                  <>
-                    <Check className="h-3.5 w-3.5 text-profit" />
-                    <span>Saved to DB!</span>
-                  </>
-                ) : (
-                  <>
-                    <Bookmark className="h-3.5 w-3.5 text-ai" />
-                    <span className="hidden sm:inline">Save Chat</span>
-                    <span className="sm:hidden">Save</span>
-                  </>
+              {/* Save / Update Chat Button */}
+              <div className="flex items-center rounded-lg border border-border-solid bg-surface overflow-hidden">
+                <button
+                  onClick={() => handleSaveChat(false)}
+                  disabled={isSaving || (messages.length <= 1 && messages[0].role === "assistant")}
+                  title={
+                    currentChatId
+                      ? `Update this saved conversation in DB with all ${messages.length} messages`
+                      : "Save this conversation permanently to database"
+                  }
+                  className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
+                    saveSuccessNotice.show
+                      ? "bg-profit/20 text-profit shadow-xs"
+                      : currentChatId
+                      ? "text-ai hover:text-clean hover:bg-ai/10"
+                      : "text-soft hover:text-clean hover:bg-surface/80"
+                  }`}
+                >
+                  {isSaving ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin text-ai" />
+                      <span>Saving...</span>
+                    </>
+                  ) : saveSuccessNotice.show ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-profit" />
+                      <span>{currentChatId ? "Updated DB!" : "Saved!"}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bookmark className="h-3.5 w-3.5 text-ai" />
+                      {currentChatId ? (
+                        <>
+                          <span className="hidden sm:inline">Update Saved</span>
+                          <span className="sm:hidden">Update</span>
+                          <span className="bg-ai/20 text-ai text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold">
+                            {messages.length}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="hidden sm:inline">Save Chat</span>
+                          <span className="sm:hidden">Save</span>
+                        </>
+                      )}
+                    </>
+                  )}
+                </button>
+
+                {/* Secondary Fork Option: If an active session is loaded, allow saving as a new copy */}
+                {currentChatId && (
+                  <button
+                    onClick={() => handleSaveChat(true)}
+                    disabled={isSaving || (messages.length <= 1 && messages[0].role === "assistant")}
+                    title="Save current messages as a brand new copy instead of updating the existing session"
+                    className="px-2 py-1.5 text-[11px] font-semibold text-muted hover:text-clean hover:bg-ai/10 border-l border-border-solid transition-colors cursor-pointer shrink-0"
+                  >
+                    + Copy
+                  </button>
                 )}
-              </button>
+              </div>
 
               {/* Saved Chats Library Button */}
               <button
@@ -921,7 +1059,22 @@ export function AIChatInterface({
                     }`}
                   >
                     {isUser ? (
-                      msg.content
+                      <div>
+                        {msg.imageUrl && (
+                          <div className="mb-2.5">
+                            <img
+                              src={msg.imageUrl}
+                              alt="Chart Screenshot"
+                              onClick={() => setPreviewModalUrl(msg.imageUrl!)}
+                              className="max-h-52 rounded-xl border border-accent/40 object-cover cursor-pointer hover:opacity-90 hover:scale-[1.01] transition-all shadow-xs"
+                            />
+                            <span className="text-[10px] text-accent/80 font-mono block mt-1">
+                              🔍 Click screenshot to enlarge
+                            </span>
+                          </div>
+                        )}
+                        <div>{msg.content}</div>
+                      </div>
                     ) : (
                       <FormattedMessage
                         content={msg.content}
@@ -965,7 +1118,10 @@ export function AIChatInterface({
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="p-3 sm:p-4 bg-card border-t border-border/30 space-y-2 shrink-0 relative">
+        <div
+          onPaste={handlePaste}
+          className="p-3 sm:p-4 bg-card border-t border-border/30 space-y-2 shrink-0 relative"
+        >
           {/* Centered Floating Stop Button (Always visible and positioned above the input box) */}
           {isGenerating && (
             <div className="absolute -top-11 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
@@ -998,10 +1154,41 @@ export function AIChatInterface({
             </div>
           )}
 
-          {chartUrl && (
+          {/* Attached Image / Screenshot Preview Card */}
+          {attachedImage && (
+            <div className="flex items-center justify-between p-2 sm:p-2.5 rounded-xl bg-ai/10 border border-ai/30 text-xs text-ai animate-in fade-in slide-in-from-bottom-2 shadow-xs">
+              <div className="flex items-center gap-3 min-w-0">
+                <img
+                  src={attachedImage.url}
+                  alt="Pasted screenshot"
+                  onClick={() => setPreviewModalUrl(attachedImage.url)}
+                  className="h-10 w-12 rounded-lg object-cover border border-ai/40 shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                />
+                <div className="truncate">
+                  <div className="font-semibold text-clean flex items-center gap-1.5 text-xs">
+                    <ImageIcon className="h-3.5 w-3.5 text-ai" />
+                    <span className="truncate">{attachedImage.name || "Pasted Chart Screenshot"}</span>
+                  </div>
+                  <div className="text-[10px] text-dim font-mono">
+                    Multimodal Vision Active • AI Coach will inspect levels & candles
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAttachedImage(null)}
+                className="h-7 w-7 rounded-lg hover:bg-loss/15 text-muted hover:text-loss flex items-center justify-center transition-colors cursor-pointer shrink-0 ml-2"
+                title="Remove attached screenshot"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {chartUrl && !attachedImage && (
             <div className="flex items-center justify-between p-2 rounded-xl bg-ai/10 border border-ai/20 text-xs text-ai">
               <span className="flex items-center gap-2 truncate">
-                <ImageIcon className="h-3.5 w-3.5" /> Chart attached: {chartUrl.slice(0, 40)}...
+                <ImageIcon className="h-3.5 w-3.5" /> DB Trade Screenshot: {chartUrl.slice(0, 40)}...
               </span>
               <button onClick={() => setChartUrl("")} className="hover:text-loss cursor-pointer">
                 <X className="h-3.5 w-3.5" />
@@ -1010,11 +1197,39 @@ export function AIChatInterface({
           )}
 
           <div className="flex items-center gap-2">
+            {/* Screenshot Upload / File Attachment Button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              title="Attach Chart Screenshot (or press Ctrl+V anywhere)"
+              className={`h-10 w-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+                attachedImage
+                  ? "bg-ai/15 border-ai text-ai shadow-xs"
+                  : "bg-surface border-border-solid text-muted hover:text-ai hover:border-ai/40"
+              }`}
+            >
+              <ImageIcon className="h-4 w-4" />
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onPaste={handlePaste}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && !isGenerating && handleSend()}
-              placeholder={isGenerating ? "AI Coach is generating response..." : "Ask your Coach (e.g. I took a loss today, review my trade execution...)"}
+              placeholder={
+                isGenerating
+                  ? "AI Coach is generating response..."
+                  : attachedImage
+                  ? "Add a note or press Enter to analyze this chart..."
+                  : "Ask your Coach, or paste a chart screenshot (Ctrl+V)..."
+              }
               className="input-field flex-1 text-xs sm:text-sm py-2.5"
               disabled={isGenerating}
             />
@@ -1033,7 +1248,7 @@ export function AIChatInterface({
               <button
                 type="button"
                 onClick={() => handleSend()}
-                disabled={!input.trim()}
+                disabled={!input.trim() && !attachedImage}
                 className="btn-primary rounded-xl! px-4! py-2.5! cursor-pointer disabled:opacity-50 shrink-0"
               >
                 <Send className="h-4 w-4" />
@@ -1045,11 +1260,36 @@ export function AIChatInterface({
       </>
       )}
 
-      {/* Floating Toast Notification when chat is saved */}
-      {saveSuccessNotice && (
+      {/* Full-Screen Chart Screenshot Lightbox Modal */}
+      {previewModalUrl && (
+        <div
+          onClick={() => setPreviewModalUrl(null)}
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-background/90 backdrop-blur-md animate-in fade-in duration-150 cursor-zoom-out"
+        >
+          <div className="relative max-w-5xl max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={previewModalUrl}
+              alt="Full Chart Inspection"
+              className="max-h-[82vh] max-w-full rounded-2xl border border-border shadow-2xl object-contain bg-black/40"
+            />
+            <button
+              onClick={() => setPreviewModalUrl(null)}
+              className="absolute -top-3 -right-3 h-9 w-9 rounded-full bg-surface border border-border text-clean hover:bg-elevated flex items-center justify-center shadow-xl cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="text-center text-xs text-muted font-mono mt-2">
+              Chart Screenshot • Click anywhere outside to close
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Toast Notification when chat is saved or updated */}
+      {saveSuccessNotice.show && (
         <div className="fixed top-20 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-profit text-white font-semibold text-xs shadow-xl animate-in fade-in slide-in-from-top-2">
           <Check className="h-4 w-4" />
-          <span>Chat saved to database! You can return to it anytime across your devices.</span>
+          <span>{saveSuccessNotice.text}</span>
         </div>
       )}
 

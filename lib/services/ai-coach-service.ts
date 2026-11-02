@@ -256,6 +256,8 @@ Whenever you believe an explanation, comparison, trade post-mortem, or performan
 }
 \`\`\`
 Only draw visuals when it genuinely enhances clarity or reinforces a key lesson. Don't force it if words are enough.
+10. CODE BLOCK INTEGRITY: If you output a \`\`\`visual block, ALWAYS ensure you output valid, well-formed JSON and CLOSE it properly with the closing '}' and triple backticks '\`\`\`'. Never leave a block half-written or unclosed.
+11. CHART VISION & SCREENSHOTS: When the user attaches or pastes a chart screenshot, analyze the visible candlestick structure, key levels, moving averages, VWAP, wicks, and rejection points with precision. Directly correlate what you see on the chart with their trade thesis and execution psychology.
 
 Reminder: "Survival first, execution second, profit takes care of itself."`;
 }
@@ -311,7 +313,7 @@ export async function callNvidiaNIM(
         messages: formattedMessages,
         temperature: 0.7,
         top_p: 0.9,
-        max_tokens: 800,
+        max_tokens: 2048,
       };
 
       if (!imageUrl && !currentModel.includes("gpt-oss")) {
@@ -325,7 +327,7 @@ export async function callNvidiaNIM(
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(22000),
+        signal: AbortSignal.timeout(12000),
       });
 
       if (!res.ok) {
@@ -426,10 +428,10 @@ export async function callGemini(
           contents,
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 1024,
+            maxOutputTokens: 2500,
           },
         }),
-        signal: AbortSignal.timeout(18000),
+        signal: AbortSignal.timeout(14000),
       });
 
       if (!res.ok) {

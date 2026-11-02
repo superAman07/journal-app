@@ -8,6 +8,8 @@ import {
   callGemini,
 } from "@/lib/services/ai-coach-service";
 
+export const maxDuration = 60;
+
 const hasNvidiaKey = () => {
   const k = process.env.NVIDIA_API_KEY;
   return Boolean(k && k !== "nvapi-YourNvidiaKeyHere" && k.startsWith("nvapi-"));
@@ -80,19 +82,21 @@ export async function POST(req: Request) {
         }
       }
     } else {
-      if (hasNvidiaKey()) {
-        try {
-          response = await callNvidiaNIM(messages, systemPrompt, undefined, imageUrl);
-        } catch (err: any) {
-          errors.push(`NVIDIA: ${err.message}`);
-        }
-      }
-
-      if (!response && hasGeminiKey()) {
+      // Auto Provider Selection:
+      // If an image/screenshot is attached, or if Gemini is available, Gemini is primary for sub-2s speed & native vision
+      if (hasGeminiKey()) {
         try {
           response = await callGemini(messages, systemPrompt, imageUrl);
         } catch (err: any) {
           errors.push(`Gemini: ${err.message}`);
+        }
+      }
+
+      if (!response && hasNvidiaKey()) {
+        try {
+          response = await callNvidiaNIM(messages, systemPrompt, undefined, imageUrl);
+        } catch (err: any) {
+          errors.push(`NVIDIA: ${err.message}`);
         }
       }
     }

@@ -64,7 +64,11 @@ function parseInlineTokens(text: string): React.ReactNode[] {
 
 function renderVisualBlock(tag: string, jsonStr: string, key: number) {
   try {
-    const data = JSON.parse(jsonStr.trim());
+    // Attempt standard parse
+    let cleanJson = jsonStr.trim();
+    // Quick sanitize trailing comma if model emitted invalid trailing comma
+    cleanJson = cleanJson.replace(/,\s*([}\]])/g, "$1");
+    const data = JSON.parse(cleanJson);
 
     if (tag === "visual:chart") {
       return <AIVisualChart key={key} {...data} />;
@@ -79,14 +83,17 @@ function renderVisualBlock(tag: string, jsonStr: string, key: number) {
       return <AIVisualGauge key={key} {...data} />;
     }
   } catch {
-    // If JSON is malformed or still streaming, return as a clean styled block
+    // If JSON is malformed or still typing, return as a clean styled block
     return (
-      <pre
-        key={key}
-        className="p-3 my-2 rounded-xl bg-card border border-border/40 font-mono text-[11px] text-muted overflow-x-auto"
-      >
-        {jsonStr}
-      </pre>
+      <div key={key} className="p-3 my-2 rounded-xl bg-card border border-ai/30 shadow-xs space-y-1">
+        <div className="flex items-center justify-between text-[10px] font-mono font-bold text-ai">
+          <span>{tag.toUpperCase()}</span>
+          <span className="text-dim italic">Visual Card</span>
+        </div>
+        <pre className="font-mono text-[11px] text-muted overflow-x-auto whitespace-pre-wrap">
+          {jsonStr}
+        </pre>
+      </div>
     );
   }
 
@@ -100,16 +107,31 @@ export function FormattedMessage({
   content: string;
   isTyping?: boolean;
 }) {
-  // First, extract any ```visual:... codeblocks
+  // Auto-close open codeblocks if generation was cut off or in typewriter transition
+  let safeContent = content;
+  const backtickCount = (safeContent.match(/```/g) || []).length;
+  if (backtickCount % 2 === 1) {
+    if (/```visual:[a-zA-Z0-9_-]+[\s\S]*$/.test(safeContent)) {
+      const visualPart = safeContent.slice(safeContent.lastIndexOf("```"));
+      const openBraces = (visualPart.match(/\{/g) || []).length;
+      const closeBraces = (visualPart.match(/\}/g) || []).length;
+      if (openBraces > closeBraces) {
+        safeContent += "\n" + "}".repeat(openBraces - closeBraces);
+      }
+    }
+    safeContent += "\n```";
+  }
+
+  // Extract ```visual:... and codeblocks
   const codeBlockRegex = /```(visual:[a-zA-Z0-9_-]+|[\w-]*)\n([\s\S]*?)```/g;
   const sections: React.ReactNode[] = [];
   let lastIndex = 0;
   let match;
   let sectionKey = 0;
 
-  while ((match = codeBlockRegex.exec(content)) !== null) {
+  while ((match = codeBlockRegex.exec(safeContent)) !== null) {
     if (match.index > lastIndex) {
-      const textBefore = content.slice(lastIndex, match.index);
+      const textBefore = safeContent.slice(lastIndex, match.index);
       sections.push(renderTextParagraphs(textBefore, sectionKey++));
     }
 
@@ -137,8 +159,8 @@ export function FormattedMessage({
     lastIndex = codeBlockRegex.lastIndex;
   }
 
-  if (lastIndex < content.length) {
-    const remainingText = content.slice(lastIndex);
+  if (lastIndex < safeContent.length) {
+    const remainingText = safeContent.slice(lastIndex);
     sections.push(renderTextParagraphs(remainingText, sectionKey++));
   }
 
