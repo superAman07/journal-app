@@ -30,6 +30,66 @@ function serializeTrade(t: any) {
   };
 }
 
+function parseOptionalFloat(val: any): number | null {
+  if (val === null || val === undefined) return null;
+  const s = String(val).trim();
+  if (!s || s === "NaN") return null;
+  const num = parseFloat(s);
+  return isNaN(num) ? null : num;
+}
+
+function parseRequiredFloat(val: any, fallback: number = 0): number {
+  if (val === null || val === undefined) return fallback;
+  const s = String(val).trim();
+  if (!s || s === "NaN") return fallback;
+  const num = parseFloat(s);
+  return isNaN(num) ? fallback : num;
+}
+
+function parseOptionalInt(val: any): number | null {
+  if (val === null || val === undefined) return null;
+  const s = String(val).trim();
+  if (!s || s === "NaN") return null;
+  const num = parseInt(s, 10);
+  return isNaN(num) ? null : num;
+}
+
+function parseSafeDate(dateVal: any): Date {
+  if (dateVal && typeof dateVal === "string" && dateVal.trim()) {
+    const d = new Date(dateVal.trim());
+    if (!isNaN(d.getTime())) return d;
+  }
+  return new Date();
+}
+
+function parseSafeDateTime(dateVal: any, timeVal: any): Date | null {
+  if (!dateVal || !timeVal) return null;
+  const dStr = String(dateVal).trim();
+  const tStr = String(timeVal).trim();
+  if (!dStr || !tStr) return null;
+
+  try {
+    const isPM = /pm/i.test(tStr);
+    const isAM = /am/i.test(tStr);
+    const timeClean = tStr.replace(/am|pm/i, "").trim();
+    const parts = timeClean.split(":").map((p) => parseInt(p, 10));
+    let hours = parts[0];
+    let minutes = parts[1] || 0;
+    let seconds = parts[2] || 0;
+
+    if (isNaN(hours)) return null;
+    if (isPM && hours < 12) hours += 12;
+    if (isAM && hours === 12) hours = 0;
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const isoString = `${dStr}T${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    const parsed = new Date(isoString);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  } catch {
+    return null;
+  }
+}
+
 export type TradeFormState = {
   success: boolean;
   message: string;
@@ -46,83 +106,122 @@ export async function createTrade(
   }
 
   try {
-    const actualEntry = parseFloat(formData.get("actualEntry") as string);
-    const stopLoss = parseFloat(formData.get("stopLoss") as string);
-    const actualExit = parseFloat(formData.get("actualExit") as string);
-    const outcome = formData.get("outcome") as string;
+    const rawInstrument = formData.get("instrument") as string;
+    const instrument = (rawInstrument || "").trim().toUpperCase();
+
+    const rawMarket = formData.get("market") as string;
+    const market = (rawMarket || "Nifty Options").trim();
+
+    const rawSession = formData.get("session") as string;
+    const sessionName = (rawSession || "Indian / Morning").trim();
+
+    const rawSetup = formData.get("setup") as string;
+    const setup = (rawSetup || "Discretionary").trim();
+
+    const rawBias = formData.get("bias") as string;
+    const bias = (rawBias || "BULLISH").trim();
+
+    const rawOutcome = formData.get("outcome") as string;
+    const outcome = (rawOutcome || "WIN").trim();
+
+    const rawExitReason = formData.get("exitReason") as string;
+    const exitReason = (rawExitReason || "TARGET_HIT").trim();
+
+    const actualEntry = parseRequiredFloat(formData.get("actualEntry"), NaN);
+    const stopLoss = parseRequiredFloat(formData.get("stopLoss"), NaN);
+    const actualExit = parseRequiredFloat(formData.get("actualExit"), NaN);
+    const target = parseRequiredFloat(formData.get("target"), NaN);
+
+    // Basic validation
+    if (!market || !instrument || !setup) {
+      return {
+        success: false,
+        message: "Missing required fields. Please ensure market, instrument, and setup are filled.",
+        errors: {
+          market: !market ? "Market is required" : "",
+          instrument: !instrument ? "Instrument is required" : "",
+          setup: !setup ? "Setup is required" : "",
+        },
+      };
+    }
+
+    if (isNaN(stopLoss) || isNaN(target) || isNaN(actualEntry) || isNaN(actualExit)) {
+      return {
+        success: false,
+        message: "Invalid price values. Please check entry, SL, TP, and exit prices.",
+      };
+    }
 
     const computedRR = calculateRR(actualEntry, stopLoss, actualExit, outcome);
 
     const strategyIdRaw = formData.get("strategyId") as string;
     const strategyId = strategyIdRaw && strategyIdRaw.trim() ? strategyIdRaw.trim() : null;
 
+    const tradeDate = parseSafeDate(formData.get("date"));
+    const entryTime = parseSafeDateTime(formData.get("date"), formData.get("entryTime"));
+    const exitTime = parseSafeDateTime(formData.get("date"), formData.get("exitTime"));
+
+    const plannedEntry = parseOptionalFloat(formData.get("plannedEntry"));
+    const expectedRR = parseRequiredFloat(formData.get("expectedRR"), 0);
+    const positionSize = parseRequiredFloat(formData.get("positionSize"), 1);
+    const riskPercent = parseRequiredFloat(formData.get("riskPercent"), 1);
+    const slippage = parseOptionalFloat(formData.get("slippage")) ?? 0;
+    const pnl = parseRequiredFloat(formData.get("pnl"), 0);
+
+    const strikePrice = parseOptionalFloat(formData.get("strikePrice"));
+    const spotPrice = parseOptionalFloat(formData.get("spotPrice"));
+    const optionPoints = parseOptionalFloat(formData.get("optionPoints"));
+    const lotSize = parseOptionalInt(formData.get("lotSize"));
+    const numberOfLots = parseOptionalInt(formData.get("numberOfLots"));
+
     const data = {
       userId: session.user.id,
-      market: formData.get("market") as string,
-      instrument: (formData.get("instrument") as string).toUpperCase(),
-      session: formData.get("session") as string,
-      date: new Date(formData.get("date") as string),
-      setup: formData.get("setup") as string,
+      market,
+      instrument,
+      session: sessionName,
+      date: tradeDate,
+      setup,
       strategyId,
-      bias: formData.get("bias") as string,
+      bias,
 
-      plannedEntry: formData.get("plannedEntry") ? parseFloat(formData.get("plannedEntry") as string) : null,
-      stopLoss: stopLoss,
-      target: parseFloat(formData.get("target") as string),
-      expectedRR: parseFloat(formData.get("expectedRR") as string) || 0,
+      plannedEntry,
+      stopLoss,
+      target,
+      expectedRR,
 
-      actualEntry: actualEntry,
-      actualExit: actualExit,
-      positionSize: parseFloat(formData.get("positionSize") as string) || 1,
-      riskPercent: parseFloat(formData.get("riskPercent") as string) || 1,
+      actualEntry,
+      actualExit,
+      positionSize,
+      riskPercent,
       actualRR: computedRR,
       isLateEntry: formData.get("isLateEntry") === "true",
       isEarlyEntry: formData.get("isEarlyEntry") === "true",
-      slippage: parseFloat(formData.get("slippage") as string) || 0,
+      slippage,
 
-      outcome: outcome,
-      exitReason: formData.get("exitReason") as string,
-      pnl: parseFloat(formData.get("pnl") as string) || 0,
+      outcome,
+      exitReason,
+      pnl,
       rMultiple: computedRR,
       rulesFollowed: formData.get("rulesFollowed") !== "false",
-      ruleBreakReason: formData.get("ruleBreakReason") as string || null,
+      ruleBreakReason: (formData.get("ruleBreakReason") as string) || null,
 
-      mindsetBefore: formData.get("mindsetBefore") as string || null,
-      mindsetDuring: formData.get("mindsetDuring") as string || null,
-      mindsetAfter: formData.get("mindsetAfter") as string || null,
+      mindsetBefore: (formData.get("mindsetBefore") as string) || null,
+      mindsetDuring: (formData.get("mindsetDuring") as string) || null,
+      mindsetAfter: (formData.get("mindsetAfter") as string) || null,
 
-      optionType: formData.get("optionType") as string || null,
-      optionAction: formData.get("optionAction") as string || null,
-      strikePrice: formData.get("strikePrice") ? parseFloat(formData.get("strikePrice") as string) : null,
-      spotPrice: formData.get("spotPrice") ? parseFloat(formData.get("spotPrice") as string) : null,
-      optionExpiry: formData.get("optionExpiry") as string || null,
-      lotSize: formData.get("lotSize") ? parseInt(formData.get("lotSize") as string) : null,
-      numberOfLots: formData.get("numberOfLots") ? parseInt(formData.get("numberOfLots") as string) : null,
-      optionPoints: formData.get("optionPoints") ? parseFloat(formData.get("optionPoints") as string) : null,
+      optionType: (formData.get("optionType") as string) || null,
+      optionAction: (formData.get("optionAction") as string) || null,
+      strikePrice,
+      spotPrice,
+      optionExpiry: (formData.get("optionExpiry") as string) || null,
+      lotSize,
+      numberOfLots,
+      optionPoints,
 
-      entryTime: formData.get("entryTime") ? new Date(`${formData.get("date")}T${formData.get("entryTime")}`) : null,
-      exitTime: formData.get("exitTime") ? new Date(`${formData.get("date")}T${formData.get("exitTime")}`) : null,
+      entryTime,
+      exitTime,
     };
 
-    // Basic validation
-    if (!data.market || !data.instrument || !data.setup) {
-      return {
-        success: false,
-        message: "Missing required fields.",
-        errors: {
-          market: !data.market ? "Market is required" : "",
-          instrument: !data.instrument ? "Instrument is required" : "",
-          setup: !data.setup ? "Setup is required" : "",
-        },
-      };
-    }
-
-    if (isNaN(data.stopLoss) || isNaN(data.target) || isNaN(data.actualEntry) || isNaN(data.actualExit)) {
-      return {
-        success: false,
-        message: "Invalid price values. Please check entry, SL, TP, and exit prices.",
-      };
-    }
     // Server-side deduplication guard against rapid multi-clicks or duplicate requests
     const fifteenSecondsAgo = new Date(Date.now() - 15000);
     const existingDuplicate = await prisma.trade.findFirst({
@@ -162,16 +261,23 @@ export async function createTrade(
     if (screenshotsRaw) {
       try {
         const parsed = JSON.parse(screenshotsRaw) as { dataUrl: string; stage: string }[];
-        if (parsed.length > 0) {
-          await prisma.screenshot.createMany({
-            data: parsed.map((ss) => ({
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const validScreenshots = parsed
+            .filter((ss) => ss && typeof ss.dataUrl === "string" && ss.dataUrl.trim())
+            .map((ss) => ({
               tradeId: trade.id,
-              url: ss.dataUrl,
-              stage: ss.stage,
-            })),
-          });
+              url: ss.dataUrl.trim(),
+              stage: ss.stage || "BEFORE_ENTRY",
+            }));
+          if (validScreenshots.length > 0) {
+            await prisma.screenshot.createMany({
+              data: validScreenshots,
+            });
+          }
         }
-      } catch {}
+      } catch (ssErr) {
+        console.error("[createTrade] Error saving screenshots:", ssErr);
+      }
     }
 
     // Create strategy rule compliance records
@@ -179,17 +285,24 @@ export async function createTrade(
     if (ruleComplianceRaw) {
       try {
         const parsed = JSON.parse(ruleComplianceRaw) as { ruleText: string; followed: boolean; sortOrder: number }[];
-        if (parsed.length > 0) {
-          await prisma.strategyRuleCompliance.createMany({
-            data: parsed.map((rc) => ({
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const validRules = parsed
+            .filter((rc) => rc && rc.ruleText)
+            .map((rc, idx) => ({
               tradeId: trade.id,
-              ruleText: rc.ruleText,
-              followed: rc.followed,
-              sortOrder: rc.sortOrder,
-            })),
-          });
+              ruleText: String(rc.ruleText),
+              followed: Boolean(rc.followed),
+              sortOrder: typeof rc.sortOrder === "number" ? rc.sortOrder : idx,
+            }));
+          if (validRules.length > 0) {
+            await prisma.strategyRuleCompliance.createMany({
+              data: validRules,
+            });
+          }
         }
-      } catch {}
+      } catch (rcErr) {
+        console.error("[createTrade] Error saving ruleCompliance:", rcErr);
+      }
     }
 
     revalidatePath("/");
@@ -262,61 +375,106 @@ export async function updateTrade(
   }
 
   try {
-    const actualEntry = parseFloat(formData.get("actualEntry") as string);
-    const stopLoss = parseFloat(formData.get("stopLoss") as string);
-    const actualExit = parseFloat(formData.get("actualExit") as string);
-    const outcome = formData.get("outcome") as string;
+    const rawInstrument = formData.get("instrument") as string;
+    const instrument = (rawInstrument || "").trim().toUpperCase();
+
+    const rawMarket = formData.get("market") as string;
+    const market = (rawMarket || "Nifty Options").trim();
+
+    const rawSession = formData.get("session") as string;
+    const sessionName = (rawSession || "Indian / Morning").trim();
+
+    const rawSetup = formData.get("setup") as string;
+    const setup = (rawSetup || "Discretionary").trim();
+
+    const rawBias = formData.get("bias") as string;
+    const bias = (rawBias || "BULLISH").trim();
+
+    const rawOutcome = formData.get("outcome") as string;
+    const outcome = (rawOutcome || "WIN").trim();
+
+    const rawExitReason = formData.get("exitReason") as string;
+    const exitReason = (rawExitReason || "TARGET_HIT").trim();
+
+    const actualEntry = parseRequiredFloat(formData.get("actualEntry"), NaN);
+    const stopLoss = parseRequiredFloat(formData.get("stopLoss"), NaN);
+    const actualExit = parseRequiredFloat(formData.get("actualExit"), NaN);
+    const target = parseRequiredFloat(formData.get("target"), NaN);
+
+    if (isNaN(stopLoss) || isNaN(target) || isNaN(actualEntry) || isNaN(actualExit)) {
+      return {
+        success: false,
+        message: "Invalid price values. Please check entry, SL, TP, and exit prices.",
+      };
+    }
 
     const computedRR = calculateRR(actualEntry, stopLoss, actualExit, outcome);
 
     const strategyIdRaw = formData.get("strategyId") as string;
     const strategyId = strategyIdRaw && strategyIdRaw.trim() ? strategyIdRaw.trim() : null;
 
+    const tradeDate = parseSafeDate(formData.get("date"));
+    const entryTime = parseSafeDateTime(formData.get("date"), formData.get("entryTime"));
+    const exitTime = parseSafeDateTime(formData.get("date"), formData.get("exitTime"));
+
+    const plannedEntry = parseOptionalFloat(formData.get("plannedEntry"));
+    const expectedRR = parseRequiredFloat(formData.get("expectedRR"), 0);
+    const positionSize = parseRequiredFloat(formData.get("positionSize"), 1);
+    const riskPercent = parseRequiredFloat(formData.get("riskPercent"), 1);
+    const slippage = parseOptionalFloat(formData.get("slippage")) ?? 0;
+    const pnl = parseRequiredFloat(formData.get("pnl"), 0);
+
+    const strikePrice = parseOptionalFloat(formData.get("strikePrice"));
+    const spotPrice = parseOptionalFloat(formData.get("spotPrice"));
+    const optionPoints = parseOptionalFloat(formData.get("optionPoints"));
+    const lotSize = parseOptionalInt(formData.get("lotSize"));
+    const numberOfLots = parseOptionalInt(formData.get("numberOfLots"));
+
     const data = {
-      market: formData.get("market") as string,
-      instrument: (formData.get("instrument") as string).toUpperCase(),
-      session: formData.get("session") as string,
-      date: new Date(formData.get("date") as string),
-      setup: formData.get("setup") as string,
+      market,
+      instrument,
+      session: sessionName,
+      date: tradeDate,
+      setup,
       strategyId,
-      bias: formData.get("bias") as string,
+      bias,
 
-      plannedEntry: formData.get("plannedEntry") ? parseFloat(formData.get("plannedEntry") as string) : null,
-      stopLoss: stopLoss,
-      target: parseFloat(formData.get("target") as string),
-      expectedRR: parseFloat(formData.get("expectedRR") as string) || 0,
+      plannedEntry,
+      stopLoss,
+      target,
+      expectedRR,
 
-      actualEntry: actualEntry,
-      actualExit: actualExit,
-      positionSize: parseFloat(formData.get("positionSize") as string) || 1,
-      riskPercent: parseFloat(formData.get("riskPercent") as string) || 1,
+      actualEntry,
+      actualExit,
+      positionSize,
+      riskPercent,
       actualRR: computedRR,
       isLateEntry: formData.get("isLateEntry") === "true",
       isEarlyEntry: formData.get("isEarlyEntry") === "true",
-      slippage: parseFloat(formData.get("slippage") as string) || 0,
+      slippage,
 
-      outcome: outcome,
-      exitReason: formData.get("exitReason") as string,
-      pnl: parseFloat(formData.get("pnl") as string) || 0,
+      outcome,
+      exitReason,
+      pnl,
       rMultiple: computedRR,
       rulesFollowed: formData.get("rulesFollowed") !== "false",
-      ruleBreakReason: formData.get("ruleBreakReason") as string || null,
+      ruleBreakReason: (formData.get("ruleBreakReason") as string) || null,
 
-      mindsetBefore: formData.get("mindsetBefore") as string || null,
-      mindsetDuring: formData.get("mindsetDuring") as string || null,
-      mindsetAfter: formData.get("mindsetAfter") as string || null,
+      mindsetBefore: (formData.get("mindsetBefore") as string) || null,
+      mindsetDuring: (formData.get("mindsetDuring") as string) || null,
+      mindsetAfter: (formData.get("mindsetAfter") as string) || null,
 
-      optionType: formData.get("optionType") as string || null,
-      optionAction: formData.get("optionAction") as string || null,
-      strikePrice: formData.get("strikePrice") ? parseFloat(formData.get("strikePrice") as string) : null,
-      spotPrice: formData.get("spotPrice") ? parseFloat(formData.get("spotPrice") as string) : null,
-      optionExpiry: formData.get("optionExpiry") as string || null,
-      lotSize: formData.get("lotSize") ? parseInt(formData.get("lotSize") as string) : null,
-      numberOfLots: formData.get("numberOfLots") ? parseInt(formData.get("numberOfLots") as string) : null,
-      optionPoints: formData.get("optionPoints") ? parseFloat(formData.get("optionPoints") as string) : null,
+      optionType: (formData.get("optionType") as string) || null,
+      optionAction: (formData.get("optionAction") as string) || null,
+      strikePrice,
+      spotPrice,
+      optionExpiry: (formData.get("optionExpiry") as string) || null,
+      lotSize,
+      numberOfLots,
+      optionPoints,
 
-      entryTime: formData.get("entryTime") ? new Date(`${formData.get("date")}T${formData.get("entryTime")}`) : null,
-      exitTime: formData.get("exitTime") ? new Date(`${formData.get("date")}T${formData.get("exitTime")}`) : null,
+      entryTime,
+      exitTime,
     };
 
     await prisma.trade.update({

@@ -23,6 +23,46 @@ const OPTIONS_STAGES = [
   { value: "AFTER_EXIT", label: "After Exit", desc: "Final P&L and review" },
 ];
 
+function compressImageFile(file: File, maxWidth = 1600, quality = 0.8): Promise<string> {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith("image/")) {
+      resolve("");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const src = e.target?.result as string;
+      if (!src) {
+        resolve("");
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(src);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => resolve(src);
+      img.src = src;
+    };
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  });
+}
+
 export function ScreenshotPaste({
   screenshots,
   onAdd,
@@ -36,22 +76,29 @@ export function ScreenshotPaste({
 }) {
   const stages = isOptions ? OPTIONS_STAGES : BASE_STAGES;
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [activeStage, setActiveStage] = useState(stages[0].value);
   const pasteRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
       if (!file.type.startsWith("image/")) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        onAdd({
-          id: `ss-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          dataUrl,
-          stage: activeStage,
-        });
-      };
-      reader.readAsDataURL(file);
+      setIsProcessing(true);
+      try {
+        const compressed = await compressImageFile(file);
+        if (compressed) {
+          onAdd({
+            id: `ss-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            dataUrl: compressed,
+            stage: activeStage,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to compress image:", err);
+      } finally {
+        setIsProcessing(false);
+      }
     },
     [activeStage, onAdd]
   );
@@ -126,6 +173,22 @@ export function ScreenshotPaste({
         })}
       </div>
 
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const files = e.target.files;
+          if (!files) return;
+          for (const f of Array.from(files)) {
+            processFile(f);
+          }
+          e.target.value = "";
+        }}
+      />
+
       <div
         ref={pasteRef}
         tabIndex={0}
@@ -141,17 +204,17 @@ export function ScreenshotPaste({
             ? "border-accent/60 bg-accent-muted/30"
             : "border-border/30 hover:border-border-hover/50 bg-surface/50"
         }`}
-        onClick={() => pasteRef.current?.focus()}
+        onClick={() => fileInputRef.current?.click()}
       >
         <div className="flex flex-col items-center justify-center py-5 gap-1.5">
           <div className="h-9 w-9 rounded-xl bg-elevated flex items-center justify-center">
             <Clipboard className="h-4 w-4 text-dim" />
           </div>
           <p className="text-xs font-semibold text-soft">
-            Ctrl+V to paste screenshot
+            {isProcessing ? "Optimizing image..." : "Ctrl+V to paste or click to browse image"}
           </p>
           <p className="text-[10px] text-dim">
-            {currentStage?.desc} · or drag & drop
+            {currentStage?.desc} · or drag & drop (auto-optimized)
           </p>
         </div>
       </div>

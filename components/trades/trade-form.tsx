@@ -16,6 +16,8 @@ import {
   X,
   ShieldCheck,
   Zap,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import {
   MarketType,
@@ -91,7 +93,6 @@ export function TradeForm() {
   const router = useRouter();
   const [activeStep, setActiveStep] = useState(1);
   const [state, formAction, isPending] = useActionState(createTrade, initialState);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [market, setMarket] = useState<MarketType>("Nifty Options");
   const [instrument, setInstrument] = useState("");
@@ -416,8 +417,6 @@ export function TradeForm() {
   useEffect(() => {
     if (state?.success) {
       router.push("/trades");
-    } else if (state?.message && !state.success) {
-      setIsSubmitting(false);
     }
   }, [state, router]);
 
@@ -638,10 +637,11 @@ export function TradeForm() {
       )}
 
       <form
-        action={async (formData) => {
-          if (isSubmitting || isPending) return;
-          setIsSubmitting(true);
-          await formAction(formData);
+        action={formAction}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "TEXTAREA") {
+            e.preventDefault();
+          }
         }}
         className="card p-4 sm:p-6 space-y-6"
       >
@@ -1390,6 +1390,13 @@ export function TradeForm() {
               />
             </div>
 
+            {state?.message && !state.success && (
+              <div className="p-3 bg-loss/15 border border-loss/30 text-loss text-xs rounded-xl font-bold flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>{state.message}</span>
+              </div>
+            )}
+
             <div className="pt-4 flex items-center justify-between border-t border-border/20">
               <button
                 type="button"
@@ -1400,11 +1407,20 @@ export function TradeForm() {
               </button>
               <button
                 type="submit"
-                disabled={isPending || isSubmitting}
+                disabled={isPending}
                 className="btn-primary text-xs flex items-center gap-1.5 px-6! disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Check className="h-4 w-4" />
-                {isPending || isSubmitting ? "Saving Trade..." : "Save Trade to Journal"}
+                {isPending ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span>Saving Trade...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    <span>Save Trade to Journal</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
