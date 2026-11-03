@@ -513,7 +513,34 @@ export async function updateTrade(
             })),
           });
         }
-      } catch {}
+      } catch (rcErr) {
+        console.error("[updateTrade] Error saving ruleCompliance:", rcErr);
+      }
+    }
+
+    // Update screenshots
+    const screenshotsRaw = formData.get("screenshots") as string;
+    if (screenshotsRaw) {
+      try {
+        const parsed = JSON.parse(screenshotsRaw) as { dataUrl: string; stage: string }[];
+        if (Array.isArray(parsed)) {
+          await prisma.screenshot.deleteMany({ where: { tradeId } });
+          const validScreenshots = parsed
+            .filter((ss) => ss && typeof ss.dataUrl === "string" && ss.dataUrl.trim())
+            .map((ss) => ({
+              tradeId,
+              url: ss.dataUrl.trim(),
+              stage: ss.stage || "BEFORE_ENTRY",
+            }));
+          if (validScreenshots.length > 0) {
+            await prisma.screenshot.createMany({
+              data: validScreenshots,
+            });
+          }
+        }
+      } catch (ssErr) {
+        console.error("[updateTrade] Error saving screenshots:", ssErr);
+      }
     }
 
     revalidatePath("/");

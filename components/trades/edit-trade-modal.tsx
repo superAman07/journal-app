@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useActionState, useEffect } from "react";
-import { X, Check, ArrowLeft, ArrowRight, Target, TrendingUp, CheckCircle2, Brain, Sparkles, ShieldCheck } from "lucide-react";
+import { X, Check, ArrowLeft, ArrowRight, Target, TrendingUp, CheckCircle2, Brain, Sparkles, ShieldCheck, AlertTriangle, RefreshCw } from "lucide-react";
 import { MarketType, SessionType, TradeOutcome, ExitReason, TradeBias, EmotionType } from "@/types";
 import { updateTrade, TradeFormState } from "@/lib/actions/trade-actions";
 import { ScreenshotPaste } from "./screenshot-paste";
@@ -77,7 +77,6 @@ export function EditTradeModal({
   const [activeStep, setActiveStep] = useState(1);
   const updateActionWithId = updateTrade.bind(null, trade.id);
   const [state, formAction, isPending] = useActionState(updateActionWithId, initialState);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [market, setMarket] = useState<MarketType>(trade.market || "Nifty Options");
   const [instrument, setInstrument] = useState(trade.instrument || "");
@@ -226,8 +225,6 @@ export function EditTradeModal({
   useEffect(() => {
     if (state?.success) {
       onClose();
-    } else if (state?.message && !state.success) {
-      setIsSubmitting(false);
     }
   }, [state, onClose]);
 
@@ -283,10 +280,11 @@ export function EditTradeModal({
         )}
 
         <form
-          action={async (formData) => {
-            if (isSubmitting || isPending) return;
-            setIsSubmitting(true);
-            await formAction(formData);
+          action={formAction}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "TEXTAREA") {
+              e.preventDefault();
+            }
           }}
           className="space-y-6"
         >
@@ -330,6 +328,7 @@ export function EditTradeModal({
           <input type="hidden" name="numberOfLots" value={numberOfLots} />
           <input type="hidden" name="optionPoints" value={isOptionsMode ? optionPoints : ""} />
           <input type="hidden" name="ruleCompliance" value={JSON.stringify(ruleCompliance)} />
+          <input type="hidden" name="screenshots" value={JSON.stringify(screenshots.map((s) => ({ dataUrl: s.dataUrl, stage: s.stage })))} />
 
           {activeStep === 1 && (
             <div className="page-enter space-y-4">
@@ -868,6 +867,13 @@ export function EditTradeModal({
                 />
               </div>
 
+              {state?.message && !state.success && (
+                <div className="p-3 bg-loss/15 border border-loss/30 text-loss text-xs rounded-xl font-bold flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>{state.message}</span>
+                </div>
+              )}
+
               <div className="flex justify-between pt-3 border-t border-border/20">
                 <button
                   type="button"
@@ -878,11 +884,20 @@ export function EditTradeModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={isPending || isSubmitting}
+                  disabled={isPending}
                   className="btn-primary text-xs flex items-center gap-1.5 px-6! disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Check className="h-4 w-4" />
-                  {isPending || isSubmitting ? "Updating Trade..." : "Save Changes"}
+                  {isPending ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Updating Trade...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      <span>Save Changes</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
