@@ -87,9 +87,19 @@ export function ScreenshotPaste({
   const pasteRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const lastPastedRef = useRef<{ time: number; size: number }>({ time: 0, size: 0 });
+
   const processFile = useCallback(
     async (file: File) => {
       if (!file) return;
+
+      // Prevent duplicate processing of the same file within 1.5 seconds
+      const now = Date.now();
+      if (now - lastPastedRef.current.time < 1500 && lastPastedRef.current.size === file.size) {
+        return;
+      }
+      lastPastedRef.current = { time: now, size: file.size };
+
       setIsProcessing(true);
       try {
         const compressed = await compressImageFile(file);
@@ -111,14 +121,15 @@ export function ScreenshotPaste({
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
       const items = e.clipboardData?.items;
       if (!items) return;
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        if (item.type.includes("image") || item.kind === "file") {
+        if (item.type.includes("image")) {
           const file = item.getAsFile();
           if (file) {
-            e.preventDefault();
             processFile(file);
             return;
           }
@@ -131,6 +142,11 @@ export function ScreenshotPaste({
   // Global paste handler so pressing Ctrl+V anywhere on the page/modal adds the screenshot
   useEffect(() => {
     const onWindowPaste = (e: ClipboardEvent) => {
+      // If the event target is inside pasteRef, let handlePaste handle it
+      if (pasteRef.current && (pasteRef.current === e.target || pasteRef.current.contains(e.target as Node))) {
+        return;
+      }
+
       const activeEl = document.activeElement;
       const isInput = activeEl?.tagName === "INPUT" && (activeEl as HTMLInputElement).type !== "file";
       const isTextarea = activeEl?.tagName === "TEXTAREA";
@@ -140,7 +156,7 @@ export function ScreenshotPaste({
       if (!items) return;
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        if (item.type.includes("image") || item.kind === "file") {
+        if (item.type.includes("image")) {
           const file = item.getAsFile();
           if (file) {
             e.preventDefault();

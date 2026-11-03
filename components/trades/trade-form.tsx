@@ -143,7 +143,12 @@ export function TradeForm() {
   type ScreenshotItem = { id: string; dataUrl: string; stage: string };
   const [screenshots, setScreenshots] = useState<ScreenshotItem[]>([]);
   const addScreenshot = useCallback((ss: ScreenshotItem) => {
-    setScreenshots((prev) => [...prev, ss]);
+    setScreenshots((prev) => {
+      if (prev.some((s) => s.dataUrl === ss.dataUrl && s.stage === ss.stage)) {
+        return prev;
+      }
+      return [...prev, ss];
+    });
   }, []);
   const removeScreenshot = useCallback((id: string) => {
     setScreenshots((prev) => prev.filter((s) => s.id !== id));

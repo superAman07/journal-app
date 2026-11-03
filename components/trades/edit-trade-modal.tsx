@@ -141,7 +141,14 @@ export function EditTradeModal({
     trade.screenshots ? trade.screenshots.map((s: any) => ({ id: s.id, dataUrl: s.url, stage: s.stage })) : []
   );
 
-  const addScreenshot = (ss: ScreenshotItem) => setScreenshots((prev) => [...prev, ss]);
+  const addScreenshot = (ss: ScreenshotItem) => {
+    setScreenshots((prev) => {
+      if (prev.some((s) => s.dataUrl === ss.dataUrl && s.stage === ss.stage)) {
+        return prev;
+      }
+      return [...prev, ss];
+    });
+  };
   const removeScreenshot = (id: string) => setScreenshots((prev) => prev.filter((s) => s.id !== id));
 
   // ── Strategy Rule Compliance State ──
