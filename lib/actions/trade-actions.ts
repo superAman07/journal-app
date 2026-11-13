@@ -570,6 +570,7 @@ export async function getUserTrades() {
       emotions: true,
       screenshots: true,
       mistakes: true,
+      strategy: { select: { id: true, name: true, timeframe: true, market: true, targetRR: true } },
       ruleCompliance: { orderBy: { sortOrder: "asc" } },
     },
     orderBy: { date: "desc" },

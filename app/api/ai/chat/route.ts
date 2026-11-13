@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 
     let specificTrade = null;
     if (tradeId) {
-      specificTrade = await prisma.trade.findUnique({
+      specificTrade = await prisma.trade.findFirst({
         where: { id: tradeId, userId: session.user.id },
         include: {
           emotions: true,

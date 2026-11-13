@@ -37,6 +37,7 @@ export interface TradeOption {
   setup: string;
   actualRR: number;
   expectedRR?: number;
+  strategy?: { id: string; name: string; targetRR?: number | null } | null;
   actualEntry?: number;
   stopLoss?: number;
   target?: number;
@@ -646,6 +647,12 @@ export function AIChatInterface({
 
   const quickPrompts = [
     {
+      label: "🎯 Auto-Detect Strategy Match",
+      prompt: selectedTrade
+        ? `Cross-check this trade (${selectedTrade.instrument}) against my Playbook strategies. Auto-detect which strategy matches this execution, verify if I followed all entry rules and target RR, and diagnose any deviation.`
+        : "Examine all my Playbook strategies and setups in the database. Auto-detect which strategies are performing best, what my win rates are, and give me a complete edge audit.",
+    },
+    {
       label: "🧠 3-Phase Mindset Audit",
       prompt: selectedTrade
         ? `Review my 3-phase psychology journal for this trade (${selectedTrade.instrument}). Specifically evaluate my mindset Before entry, During the trade, and After exit. What emotional triggers or cognitive biases did I exhibit, and how can I improve my mental game?`
@@ -918,9 +925,26 @@ export function AIChatInterface({
                       {selectedTrade.setup}
                     </span>
                   )}
+                  {selectedTrade.strategy?.name && (
+                    <span className="text-[11px] text-accent font-semibold font-mono bg-accent/10 px-1.5 py-0.5 rounded border border-accent/20">
+                      📐 {selectedTrade.strategy.name}
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <button
+                    onClick={() =>
+                      handleSend(
+                        `Cross-check trade ${selectedTrade.instrument} against my Playbook strategies. Auto-detect which strategy this trade matches, verify if I followed all entry rules and target RR, and diagnose any deviation.`
+                      )
+                    }
+                    disabled={isGenerating}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 text-[10px] font-bold transition-all cursor-pointer"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    <span>Auto-Detect Strategy</span>
+                  </button>
                   <button
                     onClick={() =>
                       handleSend(
