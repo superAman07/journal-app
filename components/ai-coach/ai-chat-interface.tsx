@@ -23,6 +23,8 @@ import {
   Trash2,
   Download,
   Check,
+  Pencil,
+  Copy,
 } from "lucide-react";
 import { FormattedMessage } from "./formatted-message";
 import { ReportCard } from "./report-card";
@@ -110,6 +112,11 @@ export function AIChatInterface({
   const [currentChatId, setCurrentChatId] = useState<string>("");
   const [currentChatTitle, setCurrentChatTitle] = useState<string>("");
   const [showPsychologyDetails, setShowPsychologyDetails] = useState(true);
+
+  // Message Editing & Copying State
+  const [editingMessageIdx, setEditingMessageIdx] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState<string>("");
+  const [copiedMessageIdx, setCopiedMessageIdx] = useState<number | null>(null);
 
   // Attached image state for clipboard paste and file upload
   const [attachedImage, setAttachedImage] = useState<{
@@ -499,10 +506,32 @@ export function AIChatInterface({
     ]);
   };
 
-  const handleSend = async (customText?: string) => {
-    const textToSend = customText || input;
-    if ((!textToSend.trim() && !attachedImage) || isGenerating) return;
+  const handleStartEdit = (idx: number, currentContent: string) => {
+    if (isGenerating) return;
+    setEditingMessageIdx(idx);
+    setEditingText(currentContent);
+  };
 
+  const handleCancelEdit = () => {
+    setEditingMessageIdx(null);
+    setEditingText("");
+  };
+
+  const handleCopyMessage = (text: string, idx: number) => {
+    try {
+      navigator.clipboard.writeText(text);
+      setCopiedMessageIdx(idx);
+      setTimeout(() => setCopiedMessageIdx(null), 2000);
+    } catch {
+      // ignore clipboard error
+    }
+  };
+
+  const executeAIRequest = async (
+    historyContext: Message[],
+    currentUserMsg: Message,
+    imageToSend?: string
+  ) => {
     abortTypewriterRef.current = false;
     stageTimerRef.current.forEach(clearTimeout);
     stageTimerRef.current = [];
@@ -520,19 +549,6 @@ export function AIChatInterface({
     }, 1800);
     stageTimerRef.current.push(t1, t2);
 
-    const imageToSend = attachedImage?.url || chartUrl || undefined;
-
-    const userMsg: Message = {
-      role: "user",
-      content: textToSend.trim() || (attachedImage ? "Please review my chart screenshot." : ""),
-      imageUrl: attachedImage?.url || undefined,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    if (!customText) setInput("");
-    setAttachedImage(null);
-    setChartUrl(""); // Clear screenshot so future messages are clean
     setIsLoading(true);
     isUserScrolledUpRef.current = false;
     setIsUserScrolledUp(false);
@@ -541,11 +557,13 @@ export function AIChatInterface({
     }, 20);
 
     try {
-      const filteredHistory = messages
+      // Memory: Send up to the last 30 messages (15 full back-and-forth conversational exchanges)
+      // Gives the AI deep, continuous recall while keeping tokens optimized
+      const filteredHistory = historyContext
         .filter((m) => !m.content.startsWith("💡"))
-        .slice(-6);
+        .slice(-30);
 
-      const apiMessages = [...filteredHistory, userMsg].map((m) => ({
+      const apiMessages = [...filteredHistory, currentUserMsg].map((m) => ({
         role: m.role,
         content: m.content,
       }));
@@ -679,6 +697,53 @@ export function AIChatInterface({
     }
   };
 
+  const handleSend = async (customText?: string) => {
+    const textToSend = customText || input;
+    if ((!textToSend.trim() && !attachedImage) || isGenerating) return;
+
+    const imageToSend = attachedImage?.url || chartUrl || undefined;
+
+    const userMsg: Message = {
+      role: "user",
+      content: textToSend.trim() || (attachedImage ? "Please review my chart screenshot." : ""),
+      imageUrl: attachedImage?.url || undefined,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+
+    const currentHistory = [...messages];
+    setMessages((prev) => [...prev, userMsg]);
+    if (!customText) setInput("");
+    setAttachedImage(null);
+    setChartUrl("");
+
+    await executeAIRequest(currentHistory, userMsg, imageToSend);
+  };
+
+  const handleSaveEditAndResend = async (idx: number) => {
+    if (!editingText.trim() || isGenerating) return;
+
+    const targetMsg = messages[idx];
+    const preservedImageUrl = targetMsg.imageUrl;
+    const newContent = editingText.trim();
+
+    setEditingMessageIdx(null);
+    setEditingText("");
+
+    // Truncate messages to before this index (dropping all newer messages below)
+    const historyBefore = messages.slice(0, idx);
+
+    const updatedUserMsg: Message = {
+      role: "user",
+      content: newContent,
+      imageUrl: preservedImageUrl,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+
+    setMessages([...historyBefore, updatedUserMsg]);
+
+    await executeAIRequest(historyBefore, updatedUserMsg, preservedImageUrl);
+  };
+
   const toggleReasoning = (idx: number) => {
     setExpandedReasoning((prev) => ({ ...prev, [idx]: !prev[idx] }));
   };
@@ -722,8 +787,8 @@ export function AIChatInterface({
     <div className="flex flex-col h-[calc(100vh-4.6rem)] sm:h-[calc(100vh-5.2rem)] space-y-2 min-h-0">
       {/* Unified Sleek Top Bar */}
       <div className="card p-2 sm:p-2.5 rounded-xl sm:rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-2.5 shrink-0 border border-border/40 shadow-xs">
-        {/* Left: View Tabs & Active Loaded Session */}
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
+        {/* Left: View Switcher Tabs */}
+        <div className="flex items-center gap-2 shrink-0">
           <div className="flex items-center gap-1 p-0.5 bg-surface border border-border-solid rounded-xl shrink-0">
             <button
               onClick={() => setActiveTab("chat")}
@@ -746,28 +811,6 @@ export function AIChatInterface({
               <FileText className="h-3.5 w-3.5" /> Report Card
             </button>
           </div>
-
-          {/* Active Loaded Saved Chat Pill (Crystal clear with bookmark icon, title, count & dismiss) */}
-          {activeTab === "chat" && currentChatId && (
-            <div
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-ai/10 border border-ai/25 text-xs text-ai font-medium shrink-0"
-              title={`Loaded saved conversation: "${currentChatTitle}" (${messages.length} messages in memory)`}
-            >
-              <Bookmark className="h-3.5 w-3.5 text-ai shrink-0" />
-              <span className="truncate max-w-28 sm:max-w-44">{currentChatTitle || "Saved Session"}</span>
-              <span className="text-[10px] bg-ai/20 text-ai px-1.5 py-0.2 rounded-full font-mono font-bold shrink-0">
-                {messages.length}
-              </span>
-              <button
-                type="button"
-                onClick={handleNewChat}
-                title="Exit saved session and start fresh chat"
-                className="hover:text-clean hover:bg-ai/20 rounded p-0.5 transition-colors cursor-pointer ml-0.5"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Right: Controls & Actions (Responsive & neatly aligned) */}
@@ -892,6 +935,30 @@ export function AIChatInterface({
           </div>
         )}
       </div>
+
+      {/* Active Loaded Session Breadcrumb Bar (Transparent background, full title, zero clutter in top bar) */}
+      {activeTab === "chat" && currentChatId && (
+        <div className="flex items-center justify-between px-2 py-0.5 text-xs text-muted font-medium bg-transparent animate-in fade-in">
+          <div className="flex items-center gap-2 truncate">
+            <Bookmark className="h-3.5 w-3.5 text-ai shrink-0" />
+            <span className="text-dim text-[11px] font-mono">Active Session:</span>
+            <span className="text-clean font-semibold truncate max-w-xs sm:max-w-md md:max-w-xl">
+              &ldquo;{currentChatTitle || "Saved Session"}&rdquo;
+            </span>
+            <span className="text-[10px] bg-ai/15 text-ai px-1.5 py-0.2 rounded-full font-mono font-bold shrink-0">
+              {messages.length} msgs
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleNewChat}
+            className="text-[11px] text-muted hover:text-accent flex items-center gap-1 hover:underline cursor-pointer shrink-0 ml-2 font-medium transition-colors"
+            title="Start a fresh chat"
+          >
+            <Plus className="h-3 w-3" /> Start New Topic
+          </button>
+        </div>
+      )}
 
       {activeTab === "report" ? (
         <div className="flex-1 overflow-y-auto">
@@ -1115,37 +1182,124 @@ export function AIChatInterface({
                     </div>
                   )}
 
-                  <div
-                    className={`p-4 rounded-2xl text-xs sm:text-[13px] leading-relaxed text-left ${
-                      isUser
-                        ? "bg-accent/15 text-clean border border-accent/30 font-medium whitespace-pre-wrap"
-                        : "bg-card-accent text-soft border border-border/40 shadow-sm"
-                    }`}
-                  >
-                    {isUser ? (
-                      <div>
-                        {msg.imageUrl && (
-                          <div className="mb-2.5">
-                            <img
-                              src={msg.imageUrl}
-                              alt="Chart Screenshot"
-                              onClick={() => setPreviewModalUrl(msg.imageUrl!)}
-                              className="max-h-52 rounded-xl border border-accent/40 object-cover cursor-pointer hover:opacity-90 hover:scale-[1.01] transition-all shadow-xs"
-                            />
-                            <span className="text-[10px] text-accent/80 font-mono block mt-1">
-                              🔍 Click screenshot to enlarge
-                            </span>
-                          </div>
-                        )}
-                        <div>{msg.content}</div>
+                  {isUser && editingMessageIdx === idx ? (
+                    <div className="w-full space-y-2 p-3.5 rounded-2xl bg-surface border border-accent/40 shadow-md animate-in fade-in">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-clean flex items-center gap-1.5">
+                          <Pencil className="h-3.5 w-3.5 text-accent" /> Edit message & rewind
+                        </span>
+                        <span className="text-[10px] text-warn font-semibold bg-warn/10 px-2 py-0.5 rounded-full border border-warn/25">
+                          ⚠️ Rewind Notice
+                        </span>
                       </div>
-                    ) : (
-                      <FormattedMessage
-                        content={msg.content}
-                        isTyping={msg.isTyping}
+
+                      <p className="text-[11px] text-muted leading-relaxed">
+                        Editing this message will restart the conversation from this point. Any newer messages below will be removed.
+                      </p>
+
+                      <textarea
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSaveEditAndResend(idx);
+                          } else if (e.key === "Escape") {
+                            handleCancelEdit();
+                          }
+                        }}
+                        rows={3}
+                        className="input-field w-full text-xs sm:text-sm py-2 px-3 resize-none font-medium text-clean"
+                        autoFocus
                       />
-                    )}
-                  </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleCancelEdit}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface hover:bg-elevated border border-border text-soft hover:text-clean transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEditAndResend(idx)}
+                          disabled={!editingText.trim() || isGenerating}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-accent hover:bg-accent-hover text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                        >
+                          <Send className="h-3 w-3" />
+                          <span>Save & Rewind</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative group">
+                      <div
+                        className={`p-4 rounded-2xl text-xs sm:text-[13px] leading-relaxed text-left ${
+                          isUser
+                            ? "bg-accent/15 text-clean border border-accent/30 font-medium whitespace-pre-wrap"
+                            : "bg-card-accent text-soft border border-border/40 shadow-sm"
+                        }`}
+                      >
+                        {isUser ? (
+                          <div>
+                            {msg.imageUrl && (
+                              <div className="mb-2.5">
+                                <img
+                                  src={msg.imageUrl}
+                                  alt="Chart Screenshot"
+                                  onClick={() => setPreviewModalUrl(msg.imageUrl!)}
+                                  className="max-h-52 rounded-xl border border-accent/40 object-cover cursor-pointer hover:opacity-90 hover:scale-[1.01] transition-all shadow-xs"
+                                />
+                                <span className="text-[10px] text-accent/80 font-mono block mt-1">
+                                  🔍 Click screenshot to enlarge
+                                </span>
+                              </div>
+                            )}
+                            <div>{msg.content}</div>
+                          </div>
+                        ) : (
+                          <FormattedMessage
+                            content={msg.content}
+                            isTyping={msg.isTyping}
+                          />
+                        )}
+                      </div>
+
+                      {/* Edit & Copy Action Pills for user message */}
+                      {isUser && !isGenerating && (
+                        <div className="absolute -bottom-2.5 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-1 bg-surface border border-border-solid rounded-lg p-0.5 shadow-sm">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEdit(idx, msg.content)}
+                            title="Edit this message and rewind conversation from here"
+                            className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-muted hover:text-accent hover:bg-accent/10 flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Pencil className="h-3 w-3" />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyMessage(msg.content, idx)}
+                            title="Copy message text"
+                            className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-muted hover:text-clean hover:bg-elevated flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            {copiedMessageIdx === idx ? (
+                              <>
+                                <Check className="h-3 w-3 text-profit" />
+                                <span className="text-profit">Copied</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3 w-3" />
+                                <span>Copy</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className={`flex items-center gap-2 text-[10px] text-dim px-1 ${isUser ? "justify-end" : "justify-start"}`}>
                     <span>{msg.timestamp}</span>
@@ -1153,6 +1307,26 @@ export function AIChatInterface({
                       <span className="font-mono bg-elevated px-1.5 py-0.5 rounded text-[9px] text-ai">
                         {msg.modelUsed}
                       </span>
+                    )}
+                    {!isUser && !msg.isTyping && (
+                      <button
+                        type="button"
+                        onClick={() => handleCopyMessage(msg.content, idx)}
+                        title="Copy AI response"
+                        className="hover:text-clean hover:bg-surface px-1 py-0.5 rounded transition-colors cursor-pointer flex items-center gap-1"
+                      >
+                        {copiedMessageIdx === idx ? (
+                          <>
+                            <Check className="h-2.5 w-2.5 text-profit" />
+                            <span className="text-profit text-[9px]">Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-2.5 w-2.5" />
+                            <span className="text-[9px]">Copy</span>
+                          </>
+                        )}
+                      </button>
                     )}
                   </div>
                 </div>
