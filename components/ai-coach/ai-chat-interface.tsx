@@ -557,13 +557,13 @@ export function AIChatInterface({
     }, 20);
 
     try {
-      // Memory: Send up to the last 30 messages (15 full back-and-forth conversational exchanges)
-      // Gives the AI deep, continuous recall while keeping tokens optimized
-      const filteredHistory = historyContext
-        .filter((m) => !m.content.startsWith("💡"))
-        .slice(-30);
+      // Full Session Recall: Send all conversation turns from the very first user question till current
+      // Excludes UI hints (💡) and skips the static assistant welcome greeting so history starts cleanly with user turn #1
+      const validHistory = historyContext.filter((m) => !m.content.startsWith("💡"));
+      const firstUserIdx = validHistory.findIndex((m) => m.role === "user");
+      const sessionHistory = firstUserIdx !== -1 ? validHistory.slice(firstUserIdx) : [];
 
-      const apiMessages = [...filteredHistory, currentUserMsg].map((m) => ({
+      const apiMessages = [...sessionHistory, currentUserMsg].map((m) => ({
         role: m.role,
         content: m.content,
       }));
@@ -1129,7 +1129,7 @@ export function AIChatInterface({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-card-accent/60 border border-border/40 text-xs text-muted">
                   <span className="flex items-center gap-1.5 font-medium">
                     <Sparkles className="h-3.5 w-3.5 text-accent shrink-0" />
-                    Long session ({messages.length} messages) · AI maintains active recent context memory for instant speed.
+                    Full conversation recall active ({messages.length} messages) · AI remembers all discussions from message #1 to current.
                   </span>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button

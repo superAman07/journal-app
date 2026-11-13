@@ -362,11 +362,19 @@ export async function callNvidiaNIM(
         "nvidia/nemotron-3-super-120b-a12b",
       ].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
 
+  // For NVIDIA fallback, if message count is very large (> 40), safely take the most recent 40 messages to avoid context window limit
+  const nimMessages = messages.length > 40 ? messages.slice(-40) : messages;
+  let nimStartIndex = 0;
+  while (nimStartIndex < nimMessages.length && nimMessages[nimStartIndex].role !== "user") {
+    nimStartIndex++;
+  }
+  const cleanNimMessages = nimStartIndex < nimMessages.length ? nimMessages.slice(nimStartIndex) : nimMessages;
+
   const formattedMessages: any[] = [{ role: "system", content: systemPrompt }];
 
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    if (imageUrl && i === messages.length - 1 && msg.role === "user") {
+  for (let i = 0; i < cleanNimMessages.length; i++) {
+    const msg = cleanNimMessages[i];
+    if (imageUrl && i === cleanNimMessages.length - 1 && msg.role === "user") {
       formattedMessages.push({
         role: "user",
         content: [
@@ -448,14 +456,21 @@ export async function callGemini(
     throw new Error("GEMINI_API_KEY is not configured in .env");
   }
 
+  // Ensure Gemini multi-turn contents always starts from the first user question
+  let geminiStartIndex = 0;
+  while (geminiStartIndex < messages.length && messages[geminiStartIndex].role !== "user") {
+    geminiStartIndex++;
+  }
+  const cleanMessages = geminiStartIndex < messages.length ? messages.slice(geminiStartIndex) : messages;
+
   const contents: any[] = [];
 
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
+  for (let i = 0; i < cleanMessages.length; i++) {
+    const msg = cleanMessages[i];
     const role = msg.role === "assistant" ? "model" : "user";
     const parts: any[] = [{ text: msg.content }];
 
-    if (imageUrl && i === messages.length - 1 && msg.role === "user") {
+    if (imageUrl && i === cleanMessages.length - 1 && msg.role === "user") {
       if (imageUrl.startsWith("data:")) {
         const matches = imageUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
         if (matches) {
