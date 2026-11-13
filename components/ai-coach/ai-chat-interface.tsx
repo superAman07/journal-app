@@ -143,9 +143,12 @@ export function AIChatInterface({
       setSavedSessions(initialSavedChats);
     } else {
       try {
-        const cached = localStorage.getItem("trading_journal_saved_chats");
+        const cached =
+          localStorage.getItem("trading_journal_saved_chats_meta") ||
+          localStorage.getItem("trading_journal_saved_chats");
         if (cached) {
-          setSavedSessions(JSON.parse(cached));
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) setSavedSessions(parsed);
         }
       } catch (e) {
         console.error("Error loading cached chats:", e);
@@ -323,17 +326,16 @@ export function AIChatInterface({
       setIsSaving(true);
       const firstUserMsg = messages.find((m) => m.role === "user");
       let fallbackTitle = firstUserMsg
-        ? firstUserMsg.content.slice(0, 50).trim()
+        ? firstUserMsg.content.slice(0, 45).trim()
         : "Trading Coaching Session";
-      if (fallbackTitle.length >= 50) fallbackTitle += "...";
+      if (fallbackTitle.length >= 45) fallbackTitle += "...";
 
       const isUpdating = !forceNew && Boolean(currentChatId);
-      const sessionId = isUpdating ? currentChatId : `chat_${Date.now()}`;
       const titleToSave = isUpdating && currentChatTitle ? currentChatTitle : fallbackTitle;
 
       // Save or Update in PostgreSQL Database
       const result = await saveChatToDB({
-        id: sessionId,
+        id: isUpdating ? currentChatId : undefined,
         title: titleToSave,
         tradeId: selectedTradeId || undefined,
         messages: messages,
@@ -345,8 +347,13 @@ export function AIChatInterface({
 
         setCurrentChatId(savedId);
         setCurrentChatTitle(savedTitle);
-        sessionStorage.setItem("trading_journal_temp_chat_id", savedId);
-        sessionStorage.setItem("trading_journal_temp_chat_title", savedTitle);
+
+        try {
+          sessionStorage.setItem("trading_journal_temp_chat_id", savedId);
+          sessionStorage.setItem("trading_journal_temp_chat_title", savedTitle);
+        } catch {
+          // ignore storage quota
+        }
 
         const newSession: SavedChatSession = {
           id: savedId,
@@ -367,15 +374,30 @@ export function AIChatInterface({
           } else {
             updated = [newSession, ...prev];
           }
-          localStorage.setItem("trading_journal_saved_chats", JSON.stringify(updated));
+
+          // Safely cache session metadata in localStorage without exceeding browser quota
+          try {
+            const cacheMeta = updated.map((s) => ({
+              id: s.id,
+              title: s.title,
+              messageCount: s.messageCount,
+              createdAt: s.createdAt,
+              updatedAt: s.updatedAt,
+              tradeId: s.tradeId,
+            }));
+            localStorage.setItem("trading_journal_saved_chats_meta", JSON.stringify(cacheMeta));
+          } catch (storageErr) {
+            console.warn("Storage quota exceeded for offline cache, saved safely to DB:", storageErr);
+          }
+
           return updated;
         });
 
         setSaveSuccessNotice({
           show: true,
           text: isUpdating
-            ? `Updated "${savedTitle}" in DB (${messages.length} messages)`
-            : `Saved new session "${savedTitle}" to DB (${messages.length} messages)`,
+            ? `Updated "${savedTitle}" in DB (${messages.length} msgs)`
+            : `Saved "${savedTitle}" to DB (${messages.length} msgs)`,
         });
         setTimeout(() => setSaveSuccessNotice({ show: false, text: "" }), 3000);
       } else {
@@ -392,9 +414,11 @@ export function AIChatInterface({
   const handleLoadSession = (session: SavedChatSession) => {
     setCurrentChatId(session.id);
     setCurrentChatTitle(session.title);
-    sessionStorage.setItem("trading_journal_temp_chat_id", session.id);
-    sessionStorage.setItem("trading_journal_temp_chat_title", session.title);
-    sessionStorage.setItem("trading_journal_temp_chat", JSON.stringify(session.messages));
+    try {
+      sessionStorage.setItem("trading_journal_temp_chat_id", session.id);
+      sessionStorage.setItem("trading_journal_temp_chat_title", session.title);
+      sessionStorage.setItem("trading_journal_temp_chat", JSON.stringify(session.messages));
+    } catch {}
     setMessages(session.messages);
     if (session.tradeId) {
       setSelectedTradeId(session.tradeId);
@@ -412,15 +436,27 @@ export function AIChatInterface({
 
     setSavedSessions((prev) => {
       const updated = prev.filter((s) => s.id !== id);
-      localStorage.setItem("trading_journal_saved_chats", JSON.stringify(updated));
+      try {
+        const cacheMeta = updated.map((s) => ({
+          id: s.id,
+          title: s.title,
+          messageCount: s.messageCount,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+          tradeId: s.tradeId,
+        }));
+        localStorage.setItem("trading_journal_saved_chats_meta", JSON.stringify(cacheMeta));
+      } catch {}
       return updated;
     });
 
     if (currentChatId === id) {
       setCurrentChatId("");
       setCurrentChatTitle("");
-      sessionStorage.removeItem("trading_journal_temp_chat_id");
-      sessionStorage.removeItem("trading_journal_temp_chat_title");
+      try {
+        sessionStorage.removeItem("trading_journal_temp_chat_id");
+        sessionStorage.removeItem("trading_journal_temp_chat_title");
+      } catch {}
     }
   };
 
@@ -445,9 +481,11 @@ export function AIChatInterface({
   };
 
   const handleNewChat = () => {
-    sessionStorage.removeItem("trading_journal_temp_chat");
-    sessionStorage.removeItem("trading_journal_temp_chat_id");
-    sessionStorage.removeItem("trading_journal_temp_chat_title");
+    try {
+      sessionStorage.removeItem("trading_journal_temp_chat");
+      sessionStorage.removeItem("trading_journal_temp_chat_id");
+      sessionStorage.removeItem("trading_journal_temp_chat_title");
+    } catch {}
     setCurrentChatId("");
     setCurrentChatTitle("");
     setAttachedImage(null);
@@ -684,7 +722,8 @@ export function AIChatInterface({
     <div className="flex flex-col h-[calc(100vh-4.6rem)] sm:h-[calc(100vh-5.2rem)] space-y-2 min-h-0">
       {/* Unified Sleek Top Bar */}
       <div className="card p-2 sm:p-2.5 rounded-xl sm:rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-2.5 shrink-0 border border-border/40 shadow-xs">
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Left: View Tabs & Active Loaded Session */}
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
           <div className="flex items-center gap-1 p-0.5 bg-surface border border-border-solid rounded-xl shrink-0">
             <button
               onClick={() => setActiveTab("chat")}
@@ -707,45 +746,97 @@ export function AIChatInterface({
               <FileText className="h-3.5 w-3.5" /> Report Card
             </button>
           </div>
+
+          {/* Active Loaded Saved Chat Pill (Crystal clear with bookmark icon, title, count & dismiss) */}
+          {activeTab === "chat" && currentChatId && (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-ai/10 border border-ai/25 text-xs text-ai font-medium shrink-0"
+              title={`Loaded saved conversation: "${currentChatTitle}" (${messages.length} messages in memory)`}
+            >
+              <Bookmark className="h-3.5 w-3.5 text-ai shrink-0" />
+              <span className="truncate max-w-28 sm:max-w-44">{currentChatTitle || "Saved Session"}</span>
+              <span className="text-[10px] bg-ai/20 text-ai px-1.5 py-0.2 rounded-full font-mono font-bold shrink-0">
+                {messages.length}
+              </span>
+              <button
+                type="button"
+                onClick={handleNewChat}
+                title="Exit saved session and start fresh chat"
+                className="hover:text-clean hover:bg-ai/20 rounded p-0.5 transition-colors cursor-pointer ml-0.5"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
         </div>
 
+        {/* Right: Controls & Actions (Responsive & neatly aligned) */}
         {activeTab === "chat" && (
-          <div className="flex items-center gap-2 flex-wrap md:flex-nowrap justify-between md:justify-end w-full md:w-auto">
-            {/* Active Saved Session Badge (if chatting in an opened session) */}
-            {currentChatId && (
-              <div
-                className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-ai/10 border border-ai/30 text-[11px] text-ai font-medium truncate max-w-48 xl:max-w-xs"
-                title={`Active Saved Chat: "${currentChatTitle}" (${messages.length} messages in memory)`}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-between sm:justify-end w-full md:w-auto">
+            {/* AI Model Dropdown (compact, clean, responsive - AUTO by default) */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface border border-border-solid text-xs shrink-0 hover:border-border-hover transition-colors">
+              <Sparkles className="h-3.5 w-3.5 text-accent shrink-0" />
+              <select
+                value={provider}
+                onChange={(e) => {
+                  const p = e.target.value as "Auto" | "Google Gemini" | "NVIDIA NIM";
+                  setProvider(p);
+                  if (p === "Auto") setModel("");
+                  else if (p === "Google Gemini") setModel("gemini-3.6-flash");
+                  else if (p === "NVIDIA NIM") setModel("meta/llama-3.2-11b-vision-instruct");
+                }}
+                className="bg-transparent text-clean font-semibold text-xs outline-none cursor-pointer pr-1"
+                title="Select AI Reasoning Engine (Auto automatically picks the fastest available)"
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-ai animate-pulse shrink-0" />
-                <span className="truncate">{currentChatTitle || "Saved Session"}</span>
-                <span className="text-[10px] text-dim font-mono shrink-0">({messages.length})</span>
+                <option value="Auto" className="bg-surface text-clean">⚡ Auto (Best Engine)</option>
+                <option value="Google Gemini" className="bg-surface text-clean">✨ Gemini 2.5 Flash</option>
+                <option value="NVIDIA NIM" className="bg-surface text-clean">🧠 NVIDIA Llama 3.2</option>
+              </select>
+            </div>
+
+            {/* Trade Focus Selector */}
+            {initialTrades.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface border border-border-solid text-xs shrink-0 hover:border-border-hover transition-colors">
+                <span className="text-dim text-[11px] font-mono">Focus:</span>
+                <select
+                  value={selectedTradeId}
+                  onChange={(e) => setSelectedTradeId(e.target.value)}
+                  className="bg-transparent text-clean font-semibold text-xs outline-none cursor-pointer max-w-28 sm:max-w-36 truncate font-mono"
+                  title="Focus AI context on a specific trade from your journal"
+                >
+                  <option value="" className="bg-surface text-clean">All Trades</option>
+                  {initialTrades.map((t) => (
+                    <option key={t.id} value={t.id} className="bg-surface text-clean">
+                      {t.instrument} ({t.outcome} ₹{t.pnl})
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
 
-            {/* Chat Action Buttons */}
+            {/* Action Buttons Group */}
             <div className="flex items-center gap-1.5 shrink-0">
               {/* New Chat Button */}
               <button
                 onClick={handleNewChat}
-                title="Start a fresh chat (clears temporary session)"
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-surface border border-border-solid text-soft hover:text-clean hover:border-accent transition-all cursor-pointer shrink-0"
+                title="Start a fresh chat"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-surface border border-border-solid text-soft hover:text-clean hover:border-accent transition-all cursor-pointer shrink-0"
               >
                 <Plus className="h-3.5 w-3.5 text-accent" />
-                <span className="hidden sm:inline">New Chat</span>
+                <span className="hidden sm:inline">New</span>
               </button>
 
               {/* Save / Update Chat Button */}
-              <div className="flex items-center rounded-lg border border-border-solid bg-surface overflow-hidden">
+              <div className="flex items-center rounded-xl border border-border-solid bg-surface overflow-hidden shrink-0">
                 <button
                   onClick={() => handleSaveChat(false)}
                   disabled={isSaving || (messages.length <= 1 && messages[0].role === "assistant")}
                   title={
                     currentChatId
-                      ? `Update this saved conversation in DB with all ${messages.length} messages`
+                      ? `Update this saved conversation in DB (${messages.length} messages)`
                       : "Save this conversation permanently to database"
                   }
-                  className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
                     saveSuccessNotice.show
                       ? "bg-profit/20 text-profit shadow-xs"
                       : currentChatId
@@ -761,35 +852,21 @@ export function AIChatInterface({
                   ) : saveSuccessNotice.show ? (
                     <>
                       <Check className="h-3.5 w-3.5 text-profit" />
-                      <span>{currentChatId ? "Updated DB!" : "Saved!"}</span>
+                      <span>Saved!</span>
                     </>
                   ) : (
                     <>
                       <Bookmark className="h-3.5 w-3.5 text-ai" />
-                      {currentChatId ? (
-                        <>
-                          <span className="hidden sm:inline">Update Saved</span>
-                          <span className="sm:hidden">Update</span>
-                          <span className="bg-ai/20 text-ai text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold">
-                            {messages.length}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="hidden sm:inline">Save Chat</span>
-                          <span className="sm:hidden">Save</span>
-                        </>
-                      )}
+                      <span>{currentChatId ? `Update (${messages.length})` : "Save"}</span>
                     </>
                   )}
                 </button>
 
-                {/* Secondary Fork Option: If an active session is loaded, allow saving as a new copy */}
                 {currentChatId && (
                   <button
                     onClick={() => handleSaveChat(true)}
                     disabled={isSaving || (messages.length <= 1 && messages[0].role === "assistant")}
-                    title="Save current messages as a brand new copy instead of updating the existing session"
+                    title="Save current messages as a new copy instead of updating existing session"
                     className="px-2 py-1.5 text-[11px] font-semibold text-muted hover:text-clean hover:bg-ai/10 border-l border-border-solid transition-colors cursor-pointer shrink-0"
                   >
                     + Copy
@@ -801,7 +878,7 @@ export function AIChatInterface({
               <button
                 onClick={() => setShowSavedModal(true)}
                 title="View your saved coaching conversations from database"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-surface border border-border-solid text-soft hover:text-clean hover:border-border transition-all cursor-pointer shrink-0"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-surface border border-border-solid text-soft hover:text-clean hover:border-border transition-all cursor-pointer shrink-0"
               >
                 <History className="h-3.5 w-3.5 text-muted" />
                 <span className="hidden sm:inline">Saved</span>
@@ -810,68 +887,6 @@ export function AIChatInterface({
                     {savedSessions.length}
                   </span>
                 )}
-              </button>
-            </div>
-
-            {/* Trade Focus Selector */}
-            {initialTrades.length > 0 && (
-              <div className="flex items-center gap-1 text-xs shrink-0">
-                <span className="text-dim text-[11px] hidden xl:inline font-mono">Focus:</span>
-                <select
-                  value={selectedTradeId}
-                  onChange={(e) => setSelectedTradeId(e.target.value)}
-                  className="input-field py-1 px-2 text-[11px] sm:text-xs max-w-36 sm:max-w-44 truncate font-mono"
-                >
-                  <option value="">All Trades</option>
-                  {initialTrades.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.instrument} ({t.outcome} ₹{t.pnl})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Model Selector */}
-            <div className="flex items-center gap-0.5 p-0.5 bg-card-accent rounded-lg text-[10px] sm:text-xs border border-border/40 shrink-0">
-              <button
-                onClick={() => {
-                  setProvider("Auto");
-                  setModel("");
-                }}
-                className={`px-2 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                  provider === "Auto"
-                    ? "bg-accent text-white shadow-xs"
-                    : "text-muted hover:text-clean"
-                }`}
-              >
-                ⚡ Auto
-              </button>
-              <button
-                onClick={() => {
-                  setProvider("Google Gemini");
-                  setModel("gemini-3.6-flash");
-                }}
-                className={`px-2 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                  provider === "Google Gemini"
-                    ? "bg-ai text-white shadow-xs"
-                    : "text-muted hover:text-clean"
-                }`}
-              >
-                Gemini
-              </button>
-              <button
-                onClick={() => {
-                  setProvider("NVIDIA NIM");
-                  setModel("meta/llama-3.2-11b-vision-instruct");
-                }}
-                className={`px-2 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                  provider === "NVIDIA NIM"
-                    ? "bg-ai text-white shadow-xs"
-                    : "text-muted hover:text-clean"
-                }`}
-              >
-                NVIDIA
               </button>
             </div>
           </div>
@@ -1043,7 +1058,32 @@ export function AIChatInterface({
               onScroll={handleScroll}
               className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4"
             >
-          {messages.map((msg, idx) => {
+              {messages.length >= 25 && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-card-accent/60 border border-border/40 text-xs text-muted">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <Sparkles className="h-3.5 w-3.5 text-accent shrink-0" />
+                    Long session ({messages.length} messages) · AI maintains active recent context memory for instant speed.
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleSaveChat(false)}
+                      className="px-2 py-0.5 rounded-lg bg-surface hover:bg-elevated border border-border text-[11px] font-semibold text-soft hover:text-clean transition-colors cursor-pointer"
+                    >
+                      Save Progress
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNewChat}
+                      className="px-2 py-0.5 rounded-lg bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 text-[11px] font-semibold transition-colors cursor-pointer"
+                    >
+                      Start Fresh
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {messages.map((msg, idx) => {
             const isUser = msg.role === "user";
             return (
               <div key={idx} className={`flex items-start gap-3 ${isUser ? "flex-row-reverse" : ""}`}>

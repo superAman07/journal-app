@@ -10,6 +10,35 @@ export interface SavedChatPayload {
   messages: any[];
 }
 
+function sanitizeMessages(messages: any[]): any[] {
+  if (!Array.isArray(messages)) return [];
+  return messages.map((m) => {
+    const sanitized: any = {
+      role: m.role === "assistant" ? "assistant" : "user",
+      content: typeof m.content === "string" ? m.content : String(m.content || ""),
+      timestamp:
+        typeof m.timestamp === "string"
+          ? m.timestamp
+          : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+
+    if (m.modelUsed) sanitized.modelUsed = String(m.modelUsed);
+
+    if (m.reasoning && typeof m.reasoning === "string") {
+      sanitized.reasoning =
+        m.reasoning.length > 2000 ? m.reasoning.slice(0, 2000) + "..." : m.reasoning;
+    }
+
+    if (m.imageUrl && typeof m.imageUrl === "string") {
+      // If image is a massive dataUrl (>150KB), avoid bloating DB jsonb
+      sanitized.imageUrl =
+        m.imageUrl.length > 150000 ? "[Screenshot Attached]" : m.imageUrl;
+    }
+
+    return sanitized;
+  });
+}
+
 export async function saveChatToDB(data: SavedChatPayload) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -17,7 +46,8 @@ export async function saveChatToDB(data: SavedChatPayload) {
   }
 
   try {
-    const messageCount = data.messages.length;
+    const sanitizedMessages = sanitizeMessages(data.messages || []);
+    const messageCount = sanitizedMessages.length;
 
     if (data.id) {
       const existing = await prisma.savedAIChat.findFirst({
@@ -26,11 +56,11 @@ export async function saveChatToDB(data: SavedChatPayload) {
 
       if (existing) {
         const updated = await prisma.savedAIChat.update({
-          where: { id: data.id },
+          where: { id: existing.id },
           data: {
-            title: data.title,
+            title: data.title?.trim() || existing.title,
             tradeId: data.tradeId || null,
-            messages: data.messages,
+            messages: sanitizedMessages,
             messageCount,
           },
         });
@@ -51,11 +81,10 @@ export async function saveChatToDB(data: SavedChatPayload) {
 
     const created = await prisma.savedAIChat.create({
       data: {
-        ...(data.id ? { id: data.id } : {}),
         userId: session.user.id,
-        title: data.title,
+        title: data.title?.trim() || "Trading Coaching Session",
         tradeId: data.tradeId || null,
-        messages: data.messages,
+        messages: sanitizedMessages,
         messageCount,
       },
     });
@@ -110,8 +139,15 @@ export async function deleteSavedChatFromDB(id: string) {
   }
 
   try {
-    await prisma.savedAIChat.delete({
+    const existing = await prisma.savedAIChat.findFirst({
       where: { id, userId: session.user.id },
+    });
+    if (!existing) {
+      return { success: false, error: "Chat not found or unauthorized" };
+    }
+
+    await prisma.savedAIChat.delete({
+      where: { id: existing.id },
     });
     return { success: true };
   } catch (error: any) {
