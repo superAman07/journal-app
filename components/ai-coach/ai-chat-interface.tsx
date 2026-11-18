@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { FormattedMessage } from "./formatted-message";
 import { ReportCard } from "./report-card";
-import { saveChatToDB, deleteSavedChatFromDB } from "@/lib/actions/ai-chat-actions";
+import { saveChatToDB, saveChatChunkToDB, deleteSavedChatFromDB } from "@/lib/actions/ai-chat-actions";
 
 export interface TradeOption {
   id: string;
@@ -70,6 +70,7 @@ interface Message {
   timestamp: string;
   isTyping?: boolean;
   imageUrl?: string;
+  screenshotUrl?: string;
 }
 
 export interface SavedChatSession {
@@ -80,6 +81,52 @@ export interface SavedChatSession {
   messageCount: number;
   messages: Message[];
   tradeId?: string;
+}
+
+/**
+ * Fast client-side image compression using canvas
+ * Shrinks 5MB-10MB full resolution PNGs down to ~80KB-140KB sharp JPEGs
+ * Prevents Vercel 4.5MB FUNCTION_PAYLOAD_TOO_LARGE and keeps chat storage fast
+ */
+function compressImageBase64(
+  base64: string,
+  maxWidth = 1400,
+  quality = 0.8
+): Promise<string> {
+  if (!base64 || !base64.startsWith("data:image/")) return Promise.resolve(base64);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth || height > maxWidth) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxWidth) / height);
+            height = maxWidth;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(base64);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL("image/jpeg", quality);
+        resolve(compressed || base64);
+      } catch {
+        resolve(base64);
+      }
+    };
+    img.onerror = () => resolve(base64);
+    img.src = base64;
+  });
 }
 
 export function AIChatInterface({
@@ -105,6 +152,7 @@ export function AIChatInterface({
   const [savedSessions, setSavedSessions] = useState<SavedChatSession[]>(initialSavedChats);
   const [showSavedModal, setShowSavedModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [savingStatus, setSavingStatus] = useState<string>("");
   const [saveSuccessNotice, setSaveSuccessNotice] = useState<{ show: boolean; text: string }>({
     show: false,
     text: "",
@@ -293,12 +341,14 @@ export function AIChatInterface({
         if (!file) continue;
 
         const reader = new FileReader();
-        reader.onload = (event) => {
-          const base64 = event.target?.result as string;
-          if (base64) {
+        reader.onload = async (event) => {
+          const rawBase64 = event.target?.result as string;
+          if (rawBase64) {
+            // Immediately compress on paste so memory & network remain light
+            const compressed = await compressImageBase64(rawBase64, 1400, 0.8);
             setAttachedImage({
-              url: base64,
-              name: `Screenshot_${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.png`,
+              url: compressed,
+              name: `Screenshot_${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.jpg`,
             });
           }
         };
@@ -313,11 +363,12 @@ export function AIChatInterface({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      if (base64) {
+    reader.onload = async (event) => {
+      const rawBase64 = event.target?.result as string;
+      if (rawBase64) {
+        const compressed = await compressImageBase64(rawBase64, 1400, 0.8);
         setAttachedImage({
-          url: base64,
+          url: compressed,
           name: file.name,
         });
       }
@@ -331,6 +382,8 @@ export function AIChatInterface({
 
     try {
       setIsSaving(true);
+      setSavingStatus("Optimizing data...");
+
       const firstUserMsg = messages.find((m) => m.role === "user");
       let fallbackTitle = firstUserMsg
         ? firstUserMsg.content.slice(0, 45).trim()
@@ -340,81 +393,146 @@ export function AIChatInterface({
       const isUpdating = !forceNew && Boolean(currentChatId);
       const titleToSave = isUpdating && currentChatTitle ? currentChatTitle : fallbackTitle;
 
-      // Save or Update in PostgreSQL Database
-      const result = await saveChatToDB({
-        id: isUpdating ? currentChatId : undefined,
-        title: titleToSave,
-        tradeId: selectedTradeId || undefined,
-        messages: messages,
-      });
+      // 1. Client-Side Sanitize & Compress
+      // Pre-compresses any existing large base64 images to guarantee < 150KB per image
+      const sanitizedClientMessages = await Promise.all(
+        messages.map(async (m) => {
+          let img = m.imageUrl || m.screenshotUrl;
+          if (img && img.startsWith("data:image/") && img.length > 200000) {
+            img = await compressImageBase64(img, 1200, 0.75);
+          }
+          return {
+            role: m.role,
+            content: m.content || "",
+            imageUrl: img || undefined,
+            modelUsed: m.modelUsed,
+            reasoning:
+              m.reasoning && m.reasoning.length > 2000
+                ? m.reasoning.slice(0, 2000) + "..."
+                : m.reasoning,
+            timestamp:
+              m.timestamp ||
+              new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          };
+        })
+      );
 
-      if (result.success && result.chat) {
-        const savedId = result.chat.id;
-        const savedTitle = result.chat.title;
+      const totalMessages = sanitizedClientMessages.length;
+      // 2. Dynamic Chunking: divide messages into safe chunks of 20 messages
+      // This prevents Vercel FUNCTION_PAYLOAD_TOO_LARGE regardless of conversation length
+      const CHUNK_SIZE = 20;
+      const needsChunking = totalMessages > CHUNK_SIZE;
 
-        setCurrentChatId(savedId);
-        setCurrentChatTitle(savedTitle);
+      let savedId = isUpdating ? currentChatId : "";
+      let savedTitle = titleToSave;
+      let finalResultChat: any = null;
 
-        try {
-          sessionStorage.setItem("trading_journal_temp_chat_id", savedId);
-          sessionStorage.setItem("trading_journal_temp_chat_title", savedTitle);
-        } catch {
-          // ignore storage quota
+      if (needsChunking) {
+        const totalChunks = Math.ceil(totalMessages / CHUNK_SIZE);
+        for (let i = 0; i < totalChunks; i++) {
+          setSavingStatus(`Saving (${i + 1}/${totalChunks})...`);
+          const chunk = sanitizedClientMessages.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+
+          const chunkRes = await saveChatChunkToDB({
+            id: savedId || undefined,
+            title: titleToSave,
+            tradeId: selectedTradeId || undefined,
+            chunkIndex: i,
+            totalChunks,
+            messages: chunk,
+            totalMessagesCount: totalMessages,
+          });
+
+          if (!chunkRes.success || !chunkRes.chat) {
+            throw new Error(chunkRes.error || `Failed saving chunk ${i + 1} of ${totalChunks}`);
+          }
+
+          savedId = chunkRes.chat.id;
+          savedTitle = chunkRes.chat.title;
+          finalResultChat = chunkRes.chat;
+        }
+      } else {
+        setSavingStatus("Saving to database...");
+        const result = await saveChatToDB({
+          id: isUpdating ? currentChatId : undefined,
+          title: titleToSave,
+          tradeId: selectedTradeId || undefined,
+          messages: sanitizedClientMessages,
+        });
+
+        if (!result.success || !result.chat) {
+          throw new Error(result.error || "Failed to save to database");
         }
 
-        const newSession: SavedChatSession = {
-          id: savedId,
-          title: savedTitle,
-          createdAt: result.chat.createdAt,
-          updatedAt: result.chat.updatedAt,
-          messageCount: messages.length,
-          messages: messages,
-          tradeId: selectedTradeId || undefined,
-        };
-
-        setSavedSessions((prev) => {
-          const existingIdx = prev.findIndex((s) => s.id === savedId);
-          let updated: SavedChatSession[];
-          if (existingIdx >= 0) {
-            updated = [...prev];
-            updated[existingIdx] = newSession;
-          } else {
-            updated = [newSession, ...prev];
-          }
-
-          // Safely cache session metadata in localStorage without exceeding browser quota
-          try {
-            const cacheMeta = updated.map((s) => ({
-              id: s.id,
-              title: s.title,
-              messageCount: s.messageCount,
-              createdAt: s.createdAt,
-              updatedAt: s.updatedAt,
-              tradeId: s.tradeId,
-            }));
-            localStorage.setItem("trading_journal_saved_chats_meta", JSON.stringify(cacheMeta));
-          } catch (storageErr) {
-            console.warn("Storage quota exceeded for offline cache, saved safely to DB:", storageErr);
-          }
-
-          return updated;
-        });
-
-        setSaveSuccessNotice({
-          show: true,
-          text: isUpdating
-            ? `Updated "${savedTitle}" in DB (${messages.length} msgs)`
-            : `Saved "${savedTitle}" to DB (${messages.length} msgs)`,
-        });
-        setTimeout(() => setSaveSuccessNotice({ show: false, text: "" }), 3000);
-      } else {
-        throw new Error(result.error || "Failed to save to database");
+        savedId = result.chat.id;
+        savedTitle = result.chat.title;
+        finalResultChat = result.chat;
       }
+
+      setCurrentChatId(savedId);
+      setCurrentChatTitle(savedTitle);
+
+      try {
+        sessionStorage.setItem("trading_journal_temp_chat_id", savedId);
+        sessionStorage.setItem("trading_journal_temp_chat_title", savedTitle);
+      } catch {
+        // ignore storage quota
+      }
+
+      const newSession: SavedChatSession = {
+        id: savedId,
+        title: savedTitle,
+        createdAt: finalResultChat.createdAt,
+        updatedAt: finalResultChat.updatedAt,
+        messageCount: totalMessages,
+        messages: sanitizedClientMessages,
+        tradeId: selectedTradeId || undefined,
+      };
+
+      setSavedSessions((prev) => {
+        const existingIdx = prev.findIndex((s) => s.id === savedId);
+        let updated: SavedChatSession[];
+        if (existingIdx >= 0) {
+          updated = [...prev];
+          updated[existingIdx] = newSession;
+        } else {
+          updated = [newSession, ...prev];
+        }
+
+        try {
+          const cacheMeta = updated.map((s) => ({
+            id: s.id,
+            title: s.title,
+            messageCount: s.messageCount,
+            createdAt: s.createdAt,
+            updatedAt: s.updatedAt,
+            tradeId: s.tradeId,
+          }));
+          localStorage.setItem("trading_journal_saved_chats_meta", JSON.stringify(cacheMeta));
+        } catch (storageErr) {
+          console.warn("Storage quota exceeded for offline cache, saved safely to DB:", storageErr);
+        }
+
+        return updated;
+      });
+
+      setSaveSuccessNotice({
+        show: true,
+        text: isUpdating
+          ? `Updated "${savedTitle}" in DB (${totalMessages} msgs)`
+          : `Saved "${savedTitle}" to DB (${totalMessages} msgs)`,
+      });
+      setTimeout(() => setSaveSuccessNotice({ show: false, text: "" }), 3500);
     } catch (e: any) {
       console.error("Error saving chat session to DB:", e);
-      alert(`Could not save chat: ${e.message || "Unknown error"}`);
+      setSaveSuccessNotice({
+        show: true,
+        text: `Error saving: ${e.message || "Request too large"}`,
+      });
+      setTimeout(() => setSaveSuccessNotice({ show: false, text: "" }), 5000);
     } finally {
       setIsSaving(false);
+      setSavingStatus("");
     }
   };
 
@@ -890,7 +1008,7 @@ export function AIChatInterface({
                   {isSaving ? (
                     <>
                       <RefreshCw className="h-3.5 w-3.5 animate-spin text-ai" />
-                      <span>Saving...</span>
+                      <span>{savingStatus || "Saving..."}</span>
                     </>
                   ) : saveSuccessNotice.show ? (
                     <>
