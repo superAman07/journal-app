@@ -159,6 +159,7 @@ export function AIChatInterface({
   });
   const [currentChatId, setCurrentChatId] = useState<string>("");
   const [currentChatTitle, setCurrentChatTitle] = useState<string>("");
+  const [lastSavedMessageCount, setLastSavedMessageCount] = useState<number>(0);
   const [showPsychologyDetails, setShowPsychologyDetails] = useState(true);
 
   // Message Editing & Copying State
@@ -192,6 +193,13 @@ export function AIChatInterface({
     },
   ]);
 
+  // Track if current conversation has unsaved changes compared to DB
+  const hasUserMessages = messages.some((m) => m.role === "user");
+  const hasUnsavedChanges = Boolean(
+    hasUserMessages && (!currentChatId || messages.length > lastSavedMessageCount)
+  );
+  const isSaveDisabled = isSaving || !hasUnsavedChanges;
+
   // Sync saved chats from DB prop, with localStorage fallback for offline cache
   useEffect(() => {
     if (initialSavedChats && initialSavedChats.length > 0) {
@@ -214,17 +222,25 @@ export function AIChatInterface({
   // Restore temporary active chat from sessionStorage (persists across hard reload & network drop, clears when tab is closed)
   useEffect(() => {
     try {
+      let restoredCount = 0;
       const tempChat = sessionStorage.getItem("trading_journal_temp_chat");
       if (tempChat) {
         const parsed = JSON.parse(tempChat);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setMessages(parsed);
+          restoredCount = parsed.length;
         }
       }
 
       const tempId = sessionStorage.getItem("trading_journal_temp_chat_id");
       if (tempId) {
         setCurrentChatId(tempId);
+        const savedCount = sessionStorage.getItem("trading_journal_temp_chat_saved_count");
+        if (savedCount) {
+          setLastSavedMessageCount(Number(savedCount));
+        } else if (restoredCount > 0) {
+          setLastSavedMessageCount(restoredCount);
+        }
       }
 
       const tempTitle = sessionStorage.getItem("trading_journal_temp_chat_title");
@@ -471,10 +487,12 @@ export function AIChatInterface({
 
       setCurrentChatId(savedId);
       setCurrentChatTitle(savedTitle);
+      setLastSavedMessageCount(totalMessages);
 
       try {
         sessionStorage.setItem("trading_journal_temp_chat_id", savedId);
         sessionStorage.setItem("trading_journal_temp_chat_title", savedTitle);
+        sessionStorage.setItem("trading_journal_temp_chat_saved_count", String(totalMessages));
       } catch {
         // ignore storage quota
       }
@@ -539,10 +557,12 @@ export function AIChatInterface({
   const handleLoadSession = (session: SavedChatSession) => {
     setCurrentChatId(session.id);
     setCurrentChatTitle(session.title);
+    setLastSavedMessageCount(session.messages.length);
     try {
       sessionStorage.setItem("trading_journal_temp_chat_id", session.id);
       sessionStorage.setItem("trading_journal_temp_chat_title", session.title);
       sessionStorage.setItem("trading_journal_temp_chat", JSON.stringify(session.messages));
+      sessionStorage.setItem("trading_journal_temp_chat_saved_count", String(session.messages.length));
     } catch {}
     setMessages(session.messages);
     if (session.tradeId) {
@@ -610,9 +630,11 @@ export function AIChatInterface({
       sessionStorage.removeItem("trading_journal_temp_chat");
       sessionStorage.removeItem("trading_journal_temp_chat_id");
       sessionStorage.removeItem("trading_journal_temp_chat_title");
+      sessionStorage.removeItem("trading_journal_temp_chat_saved_count");
     } catch {}
     setCurrentChatId("");
     setCurrentChatTitle("");
+    setLastSavedMessageCount(0);
     setAttachedImage(null);
     setChartUrl("");
     setMessages([
@@ -858,6 +880,7 @@ export function AIChatInterface({
     };
 
     setMessages([...historyBefore, updatedUserMsg]);
+    setLastSavedMessageCount(0);
 
     await executeAIRequest(historyBefore, updatedUserMsg, preservedImageUrl);
   };
@@ -945,22 +968,44 @@ export function AIChatInterface({
 
               <button
                 onClick={() => handleSaveChat(false)}
-                disabled={isSaving || (messages.length <= 1 && messages[0].role === "assistant")}
-                title={currentChatId ? `Update (${messages.length})` : "Save to DB"}
-                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-border-solid cursor-pointer disabled:opacity-40 transition-colors ${
-                  saveSuccessNotice.show
-                    ? "bg-profit/20 text-profit border-profit/30"
+                disabled={isSaveDisabled}
+                title={
+                  !hasUnsavedChanges && currentChatId
+                    ? "Conversation is saved and up to date in database"
                     : currentChatId
-                    ? "bg-surface text-ai hover:bg-ai/10"
-                    : "bg-surface text-soft"
+                    ? `Update (${messages.length} msgs)`
+                    : "Save to DB"
+                }
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border transition-all ${
+                  isSaveDisabled
+                    ? "bg-surface/50 border-border/40 text-muted/60 opacity-50 cursor-not-allowed"
+                    : saveSuccessNotice.show
+                    ? "bg-profit/20 text-profit border-profit/30 shadow-xs"
+                    : currentChatId
+                    ? "bg-surface text-ai border-border-solid hover:bg-ai/10 cursor-pointer"
+                    : "bg-surface text-clean border-border-solid hover:border-accent cursor-pointer"
                 }`}
               >
                 {isSaving ? (
                   <RefreshCw className="h-3 w-3 animate-spin text-ai" />
+                ) : saveSuccessNotice.show ? (
+                  <Check className="h-3 w-3 text-profit" />
+                ) : currentChatId && !hasUnsavedChanges ? (
+                  <Check className="h-3 w-3 text-muted/60" />
                 ) : (
                   <Bookmark className="h-3 w-3 text-ai" />
                 )}
-                <span>{isSaving ? "..." : currentChatId ? `Update (${messages.length})` : "Save"}</span>
+                <span>
+                  {isSaving
+                    ? "..."
+                    : saveSuccessNotice.show
+                    ? "Saved!"
+                    : currentChatId && !hasUnsavedChanges
+                    ? `Saved (${messages.length})`
+                    : currentChatId
+                    ? `Update (${messages.length})`
+                    : "Save"}
+                </span>
               </button>
 
               <button
@@ -1037,18 +1082,22 @@ export function AIChatInterface({
               <div className="flex items-center rounded-xl border border-border-solid bg-surface overflow-hidden shrink-0">
                 <button
                   onClick={() => handleSaveChat(false)}
-                  disabled={isSaving || (messages.length <= 1 && messages[0].role === "assistant")}
+                  disabled={isSaveDisabled}
                   title={
-                    currentChatId
+                    !hasUnsavedChanges && currentChatId
+                      ? "Conversation is saved and up to date in database"
+                      : currentChatId
                       ? `Update this saved conversation in DB (${messages.length} messages)`
                       : "Save this conversation permanently to database"
                   }
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
-                    saveSuccessNotice.show
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold transition-all ${
+                    isSaveDisabled
+                      ? "text-muted/60 opacity-50 cursor-not-allowed"
+                      : saveSuccessNotice.show
                       ? "bg-profit/20 text-profit shadow-xs"
                       : currentChatId
-                      ? "text-ai hover:text-clean hover:bg-ai/10"
-                      : "text-soft hover:text-clean hover:bg-surface/80"
+                      ? "text-ai hover:text-clean hover:bg-ai/10 cursor-pointer"
+                      : "text-soft hover:text-clean hover:bg-surface/80 cursor-pointer"
                   }`}
                 >
                   {isSaving ? (
@@ -1061,6 +1110,11 @@ export function AIChatInterface({
                       <Check className="h-3.5 w-3.5 text-profit" />
                       <span>Saved!</span>
                     </>
+                  ) : currentChatId && !hasUnsavedChanges ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-muted/60" />
+                      <span>Saved ({messages.length})</span>
+                    </>
                   ) : (
                     <>
                       <Bookmark className="h-3.5 w-3.5 text-ai" />
@@ -1072,9 +1126,9 @@ export function AIChatInterface({
                 {currentChatId && (
                   <button
                     onClick={() => handleSaveChat(true)}
-                    disabled={isSaving || (messages.length <= 1 && messages[0].role === "assistant")}
+                    disabled={isSaving || !hasUserMessages}
                     title="Save current messages as a new copy instead of updating existing session"
-                    className="px-2 py-1.5 text-[11px] font-semibold text-muted hover:text-clean hover:bg-ai/10 border-l border-border-solid transition-colors cursor-pointer shrink-0"
+                    className="px-2 py-1.5 text-[11px] font-semibold text-muted hover:text-clean hover:bg-ai/10 border-l border-border-solid transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     + Copy
                   </button>
@@ -1111,6 +1165,15 @@ export function AIChatInterface({
             <span className="text-[10px] bg-ai/15 text-ai px-1.5 py-0.2 rounded-full font-mono font-bold shrink-0">
               {messages.length} msgs
             </span>
+            {!hasUnsavedChanges ? (
+              <span className="text-[10px] text-profit font-semibold flex items-center gap-1 bg-profit/10 px-2 py-0.5 rounded-full shrink-0">
+                <Check className="h-2.5 w-2.5" /> Synced with DB
+              </span>
+            ) : (
+              <span className="text-[10px] text-ai font-semibold flex items-center gap-1 bg-ai/10 px-2 py-0.5 rounded-full shrink-0">
+                ● Unsaved changes
+              </span>
+            )}
           </div>
           <button
             type="button"
@@ -1298,9 +1361,10 @@ export function AIChatInterface({
                     <button
                       type="button"
                       onClick={() => handleSaveChat(false)}
-                      className="px-2 py-0.5 rounded-lg bg-surface hover:bg-elevated border border-border text-[10px] sm:text-[11px] font-semibold text-soft hover:text-clean transition-colors cursor-pointer"
+                      disabled={isSaveDisabled}
+                      className="px-2 py-0.5 rounded-lg bg-surface hover:bg-elevated border border-border text-[10px] sm:text-[11px] font-semibold text-soft hover:text-clean transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      Save Progress
+                      {!hasUnsavedChanges && currentChatId ? "Saved" : "Save Progress"}
                     </button>
                     <button
                       type="button"
