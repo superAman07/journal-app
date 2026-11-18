@@ -902,41 +902,89 @@ export function AIChatInterface({
   ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4.6rem)] sm:h-[calc(100vh-5.2rem)] space-y-2 min-h-0">
-      {/* Unified Sleek Top Bar */}
-      <div className="card p-2 sm:p-2.5 rounded-xl sm:rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-2.5 shrink-0 border border-border/40 shadow-xs">
-        {/* Left: View Switcher Tabs */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-1 p-0.5 bg-surface border border-border-solid rounded-xl shrink-0">
+    <div className="flex flex-col h-[calc(100dvh-8.8rem)] sm:h-[calc(100vh-5.2rem)] space-y-1.5 sm:space-y-2 min-h-0">
+      {/* Unified Sleek Top Bar (Mobile-optimized two-tier on small screens, single-tier on desktop) */}
+      <div className="card p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-1.5 sm:gap-2.5 shrink-0 border border-border/40 shadow-xs">
+        {/* Tier 1 on Mobile: View Switcher Tabs + Mobile Quick Actions */}
+        <div className="flex items-center justify-between gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-1 p-0.5 bg-surface border border-border-solid rounded-lg sm:rounded-xl shrink-0">
             <button
               onClick={() => setActiveTab("chat")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "chat"
                   ? "bg-accent text-white shadow-xs"
                   : "text-muted hover:text-clean"
               }`}
             >
-              <MessageSquare className="h-3.5 w-3.5" /> Chat Coach
+              <MessageSquare className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span>Coach</span>
             </button>
             <button
               onClick={() => setActiveTab("report")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "report"
                   ? "bg-accent text-white shadow-xs"
                   : "text-muted hover:text-clean"
               }`}
             >
-              <FileText className="h-3.5 w-3.5" /> Report Card
+              <FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span>Report</span>
             </button>
           </div>
+
+          {/* Mobile-Only Actions Row (Save, Saved, New) */}
+          {activeTab === "chat" && (
+            <div className="flex items-center gap-1 sm:hidden shrink-0">
+              <button
+                onClick={handleNewChat}
+                title="Start a fresh chat"
+                className="h-7 w-7 rounded-lg bg-surface border border-border-solid text-accent hover:border-accent flex items-center justify-center cursor-pointer shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+
+              <button
+                onClick={() => handleSaveChat(false)}
+                disabled={isSaving || (messages.length <= 1 && messages[0].role === "assistant")}
+                title={currentChatId ? `Update (${messages.length})` : "Save to DB"}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-border-solid cursor-pointer disabled:opacity-40 transition-colors ${
+                  saveSuccessNotice.show
+                    ? "bg-profit/20 text-profit border-profit/30"
+                    : currentChatId
+                    ? "bg-surface text-ai hover:bg-ai/10"
+                    : "bg-surface text-soft"
+                }`}
+              >
+                {isSaving ? (
+                  <RefreshCw className="h-3 w-3 animate-spin text-ai" />
+                ) : (
+                  <Bookmark className="h-3 w-3 text-ai" />
+                )}
+                <span>{isSaving ? "..." : currentChatId ? `Update (${messages.length})` : "Save"}</span>
+              </button>
+
+              <button
+                onClick={() => setShowSavedModal(true)}
+                title="View saved coaching sessions"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-surface border border-border-solid text-soft hover:text-clean cursor-pointer shrink-0"
+              >
+                <History className="h-3 w-3 text-muted" />
+                {savedSessions.length > 0 && (
+                  <span className="bg-ai/20 text-ai text-[9px] px-1 rounded-full font-mono font-bold">
+                    {savedSessions.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Right: Controls & Actions (Responsive & neatly aligned) */}
+        {/* Tier 2 on Mobile (Model Selector & Trade Focus) | Desktop Controls Right */}
         {activeTab === "chat" && (
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-between sm:justify-end w-full md:w-auto">
-            {/* AI Model Dropdown (compact, clean, responsive - AUTO by default) */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface border border-border-solid text-xs shrink-0 hover:border-border-hover transition-colors">
-              <Sparkles className="h-3.5 w-3.5 text-accent shrink-0" />
+          <div className="flex items-center gap-1.5 sm:gap-2 justify-between sm:justify-end w-full md:w-auto">
+            {/* AI Model Dropdown */}
+            <div className="flex-1 sm:flex-initial flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl bg-surface border border-border-solid text-[11px] sm:text-xs shrink-0 hover:border-border-hover transition-colors min-w-0">
+              <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-accent shrink-0" />
               <select
                 value={provider}
                 onChange={(e) => {
@@ -946,24 +994,24 @@ export function AIChatInterface({
                   else if (p === "Google Gemini") setModel("gemini-3.6-flash");
                   else if (p === "NVIDIA NIM") setModel("meta/llama-3.2-11b-vision-instruct");
                 }}
-                className="bg-transparent text-clean font-semibold text-xs outline-none cursor-pointer pr-1"
-                title="Select AI Reasoning Engine (Auto automatically picks the fastest available)"
+                className="bg-transparent text-clean font-semibold text-[11px] sm:text-xs outline-none cursor-pointer w-full truncate pr-1"
+                title="Select AI Reasoning Engine"
               >
-                <option value="Auto" className="bg-surface text-clean">⚡ Auto (Best Engine)</option>
-                <option value="Google Gemini" className="bg-surface text-clean">✨ Gemini 2.5 Flash</option>
-                <option value="NVIDIA NIM" className="bg-surface text-clean">🧠 NVIDIA Llama 3.2</option>
+                <option value="Auto" className="bg-surface text-clean">⚡ Auto (Best)</option>
+                <option value="Google Gemini" className="bg-surface text-clean">✨ Gemini 2.5</option>
+                <option value="NVIDIA NIM" className="bg-surface text-clean">🧠 Llama 3.2</option>
               </select>
             </div>
 
             {/* Trade Focus Selector */}
             {initialTrades.length > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface border border-border-solid text-xs shrink-0 hover:border-border-hover transition-colors">
-                <span className="text-dim text-[11px] font-mono">Focus:</span>
+              <div className="flex-1 sm:flex-initial flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl bg-surface border border-border-solid text-[11px] sm:text-xs shrink-0 hover:border-border-hover transition-colors min-w-0">
+                <span className="text-dim text-[10px] sm:text-[11px] font-mono shrink-0">Focus:</span>
                 <select
                   value={selectedTradeId}
                   onChange={(e) => setSelectedTradeId(e.target.value)}
-                  className="bg-transparent text-clean font-semibold text-xs outline-none cursor-pointer max-w-28 sm:max-w-36 truncate font-mono"
-                  title="Focus AI context on a specific trade from your journal"
+                  className="bg-transparent text-clean font-semibold text-[11px] sm:text-xs outline-none cursor-pointer w-full truncate font-mono"
+                  title="Focus AI context on a specific trade"
                 >
                   <option value="" className="bg-surface text-clean">All Trades</option>
                   {initialTrades.map((t) => (
@@ -975,19 +1023,17 @@ export function AIChatInterface({
               </div>
             )}
 
-            {/* Action Buttons Group */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* New Chat Button */}
+            {/* Desktop Action Buttons Group (hidden on mobile, shown on sm:) */}
+            <div className="hidden sm:flex items-center gap-1.5 shrink-0">
               <button
                 onClick={handleNewChat}
                 title="Start a fresh chat"
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-surface border border-border-solid text-soft hover:text-clean hover:border-accent transition-all cursor-pointer shrink-0"
               >
                 <Plus className="h-3.5 w-3.5 text-accent" />
-                <span className="hidden sm:inline">New</span>
+                <span>New</span>
               </button>
 
-              {/* Save / Update Chat Button */}
               <div className="flex items-center rounded-xl border border-border-solid bg-surface overflow-hidden shrink-0">
                 <button
                   onClick={() => handleSaveChat(false)}
@@ -1035,14 +1081,13 @@ export function AIChatInterface({
                 )}
               </div>
 
-              {/* Saved Chats Library Button */}
               <button
                 onClick={() => setShowSavedModal(true)}
                 title="View your saved coaching conversations from database"
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-surface border border-border-solid text-soft hover:text-clean hover:border-border transition-all cursor-pointer shrink-0"
               >
                 <History className="h-3.5 w-3.5 text-muted" />
-                <span className="hidden sm:inline">Saved</span>
+                <span>Saved</span>
                 {savedSessions.length > 0 && (
                   <span className="bg-ai/20 text-ai text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold">
                     {savedSessions.length}
@@ -1237,30 +1282,30 @@ export function AIChatInterface({
             </div>
           )}
 
-          <div className="card flex-1 flex flex-col min-h-0 overflow-hidden rounded-2xl border border-border/40 shadow-sm relative">
+          <div className="card flex-1 flex flex-col min-h-0 overflow-hidden rounded-xl sm:rounded-2xl border border-border/40 shadow-sm relative">
             <div
               ref={messagesContainerRef}
               onScroll={handleScroll}
-              className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4"
+              className="flex-1 overflow-y-auto p-2 sm:p-5 space-y-2.5 sm:space-y-4"
             >
               {messages.length >= 25 && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-card-accent/60 border border-border/40 text-xs text-muted">
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <Sparkles className="h-3.5 w-3.5 text-accent shrink-0" />
-                    Full conversation recall active ({messages.length} messages) · AI remembers all discussions from message #1 to current.
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-card-accent/60 border border-border/40 text-[11px] sm:text-xs text-muted">
+                  <span className="flex items-center gap-1.5 font-medium leading-tight">
+                    <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-accent shrink-0" />
+                    <span>Full recall active ({messages.length} msgs) · AI remembers message #1 to current.</span>
                   </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
                     <button
                       type="button"
                       onClick={() => handleSaveChat(false)}
-                      className="px-2 py-0.5 rounded-lg bg-surface hover:bg-elevated border border-border text-[11px] font-semibold text-soft hover:text-clean transition-colors cursor-pointer"
+                      className="px-2 py-0.5 rounded-lg bg-surface hover:bg-elevated border border-border text-[10px] sm:text-[11px] font-semibold text-soft hover:text-clean transition-colors cursor-pointer"
                     >
                       Save Progress
                     </button>
                     <button
                       type="button"
                       onClick={handleNewChat}
-                      className="px-2 py-0.5 rounded-lg bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 text-[11px] font-semibold transition-colors cursor-pointer"
+                      className="px-2 py-0.5 rounded-lg bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 text-[10px] sm:text-[11px] font-semibold transition-colors cursor-pointer"
                     >
                       Start Fresh
                     </button>
@@ -1271,16 +1316,16 @@ export function AIChatInterface({
               {messages.map((msg, idx) => {
             const isUser = msg.role === "user";
             return (
-              <div key={idx} className={`flex items-start gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
+              <div key={idx} className={`flex items-start gap-2 sm:gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
                 <div
-                  className={`h-8 w-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
+                  className={`h-7 w-7 sm:h-8 sm:w-8 rounded-lg sm:rounded-xl flex items-center justify-center text-[10px] sm:text-xs font-bold shrink-0 ${
                     isUser ? "bg-accent text-white" : "bg-ai-muted text-ai border border-ai/30"
                   }`}
                 >
-                  {isUser ? "You" : <Bot className="h-4 w-4" />}
+                  {isUser ? "You" : <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                 </div>
 
-                <div className={`space-y-2 max-w-[85%] sm:max-w-2xl ${isUser ? "items-end text-right" : ""}`}>
+                <div className={`space-y-1.5 sm:space-y-2 max-w-[90%] sm:max-w-2xl ${isUser ? "items-end text-right" : ""}`}>
                   {msg.reasoning && (
                     <div className="rounded-xl bg-elevated/70 border border-ai/20 p-2.5 text-left text-xs space-y-1">
                       <button
@@ -1353,7 +1398,7 @@ export function AIChatInterface({
                   ) : (
                     <div className="relative group">
                       <div
-                        className={`p-4 rounded-2xl text-xs sm:text-[13px] leading-relaxed text-left ${
+                        className={`p-2.5 sm:p-4 rounded-xl sm:rounded-2xl text-[12px] sm:text-[13px] leading-relaxed text-left ${
                           isUser
                             ? "bg-accent/15 text-clean border border-accent/30 font-medium whitespace-pre-wrap"
                             : "bg-card-accent text-soft border border-border/40 shadow-sm"
@@ -1362,15 +1407,15 @@ export function AIChatInterface({
                         {isUser ? (
                           <div>
                             {msg.imageUrl && (
-                              <div className="mb-2.5">
+                              <div className="mb-2">
                                 <img
                                   src={msg.imageUrl}
                                   alt="Chart Screenshot"
                                   onClick={() => setPreviewModalUrl(msg.imageUrl!)}
-                                  className="max-h-52 rounded-xl border border-accent/40 object-cover cursor-pointer hover:opacity-90 hover:scale-[1.01] transition-all shadow-xs"
+                                  className="max-h-48 sm:max-h-56 rounded-lg sm:rounded-xl border border-accent/40 object-cover cursor-pointer hover:opacity-90 hover:scale-[1.01] transition-all shadow-xs"
                                 />
-                                <span className="text-[10px] text-accent/80 font-mono block mt-1">
-                                  🔍 Click screenshot to enlarge
+                                <span className="text-[9px] sm:text-[10px] text-accent/80 font-mono block mt-1">
+                                  🔍 Tap screenshot to enlarge
                                 </span>
                               </div>
                             )}
@@ -1386,7 +1431,7 @@ export function AIChatInterface({
 
                       {/* Edit & Copy Action Pills for user message */}
                       {isUser && !isGenerating && (
-                        <div className="absolute -bottom-2.5 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-1 bg-surface border border-border-solid rounded-lg p-0.5 shadow-sm">
+                        <div className="absolute -bottom-2.5 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-1 bg-surface border border-border-solid rounded-lg p-0.5 shadow-sm">
                           <button
                             type="button"
                             onClick={() => handleStartEdit(idx, msg.content)}
@@ -1476,17 +1521,17 @@ export function AIChatInterface({
 
         <div
           onPaste={handlePaste}
-          className="p-3 sm:p-4 bg-card border-t border-border/30 space-y-2 shrink-0 relative"
+          className="p-2 sm:p-4 bg-card border-t border-border/30 space-y-1.5 sm:space-y-2 shrink-0 relative"
         >
           {/* Centered Floating Stop Button (Always visible and positioned above the input box) */}
           {isGenerating && (
-            <div className="absolute -top-11 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+            <div className="absolute -top-10 sm:-top-11 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
               <button
                 type="button"
                 onClick={handleStop}
-                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface border-2 border-loss/70 text-loss shadow-2xl text-xs font-bold hover:bg-loss/15 active:scale-95 transition-all cursor-pointer group"
+                className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-surface border-2 border-loss/70 text-loss shadow-2xl text-[11px] sm:text-xs font-bold hover:bg-loss/15 active:scale-95 transition-all cursor-pointer group"
               >
-                <Square className="h-3.5 w-3.5 fill-current text-loss group-hover:scale-110 transition-transform" />
+                <Square className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-current text-loss group-hover:scale-110 transition-transform" />
                 <span>Stop generating</span>
               </button>
             </div>
@@ -1494,7 +1539,7 @@ export function AIChatInterface({
 
           {/* Floating Jump to Latest Button (Positioned on the right above the input box) */}
           {isUserScrolledUp && (
-            <div className="absolute -top-11 right-4 sm:right-6 z-30 pointer-events-auto">
+            <div className="absolute -top-10 sm:-top-11 right-3 sm:right-6 z-30 pointer-events-auto">
               <button
                 type="button"
                 onClick={() => {
@@ -1502,63 +1547,63 @@ export function AIChatInterface({
                   setIsUserScrolledUp(false);
                   messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-surface/95 backdrop-blur-md border border-border/80 shadow-lg text-xs font-semibold text-soft hover:text-clean hover:border-accent hover:shadow-accent/20 transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2"
+                className="flex items-center gap-1.5 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-surface/95 backdrop-blur-md border border-border/80 shadow-lg text-[11px] sm:text-xs font-semibold text-soft hover:text-clean hover:border-accent hover:shadow-accent/20 transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2"
               >
-                <ArrowDown className="h-3.5 w-3.5 text-accent animate-bounce" />
-                <span>{isGenerating ? "Generating below..." : "Jump to latest"}</span>
+                <ArrowDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-accent animate-bounce" />
+                <span>{isGenerating ? "Generating..." : "Jump to latest"}</span>
               </button>
             </div>
           )}
 
           {/* Attached Image / Screenshot Preview Card */}
           {attachedImage && (
-            <div className="flex items-center justify-between p-2 sm:p-2.5 rounded-xl bg-ai/10 border border-ai/30 text-xs text-ai animate-in fade-in slide-in-from-bottom-2 shadow-xs">
-              <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center justify-between p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-ai/10 border border-ai/30 text-xs text-ai animate-in fade-in slide-in-from-bottom-2 shadow-xs">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <img
                   src={attachedImage.url}
                   alt="Pasted screenshot"
                   onClick={() => setPreviewModalUrl(attachedImage.url)}
-                  className="h-10 w-12 rounded-lg object-cover border border-ai/40 shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                  className="h-9 w-11 sm:h-10 sm:w-12 rounded-lg object-cover border border-ai/40 shrink-0 cursor-pointer hover:scale-105 transition-transform"
                 />
                 <div className="truncate">
-                  <div className="font-semibold text-clean flex items-center gap-1.5 text-xs">
-                    <ImageIcon className="h-3.5 w-3.5 text-ai" />
-                    <span className="truncate">{attachedImage.name || "Pasted Chart Screenshot"}</span>
+                  <div className="font-semibold text-clean flex items-center gap-1 text-[11px] sm:text-xs">
+                    <ImageIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-ai" />
+                    <span className="truncate">{attachedImage.name || "Chart Screenshot"}</span>
                   </div>
-                  <div className="text-[10px] text-dim font-mono">
-                    Multimodal Vision Active • AI Coach will inspect levels & candles
+                  <div className="text-[9px] sm:text-[10px] text-dim font-mono">
+                    Multimodal Vision Active • AI Coach ready
                   </div>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setAttachedImage(null)}
-                className="h-7 w-7 rounded-lg hover:bg-loss/15 text-muted hover:text-loss flex items-center justify-center transition-colors cursor-pointer shrink-0 ml-2"
+                className="h-6 w-6 sm:h-7 sm:w-7 rounded-lg hover:bg-loss/15 text-muted hover:text-loss flex items-center justify-center transition-colors cursor-pointer shrink-0 ml-1.5"
                 title="Remove attached screenshot"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
             </div>
           )}
 
           {chartUrl && !attachedImage && (
-            <div className="flex items-center justify-between p-2 rounded-xl bg-ai/10 border border-ai/20 text-xs text-ai">
-              <span className="flex items-center gap-2 truncate">
-                <ImageIcon className="h-3.5 w-3.5" /> DB Trade Screenshot: {chartUrl.slice(0, 40)}...
+            <div className="flex items-center justify-between p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-ai/10 border border-ai/20 text-xs text-ai">
+              <span className="flex items-center gap-1.5 truncate text-[11px] sm:text-xs">
+                <ImageIcon className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Trade Chart: {chartUrl.slice(0, 35)}...</span>
               </span>
-              <button onClick={() => setChartUrl("")} className="hover:text-loss cursor-pointer">
+              <button onClick={() => setChartUrl("")} className="hover:text-loss cursor-pointer p-0.5">
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Screenshot Upload / File Attachment Button */}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              title="Attach Chart Screenshot (or press Ctrl+V anywhere)"
-              className={`h-10 w-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+              title="Attach Chart Screenshot"
+              className={`h-9 w-9 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl border flex items-center justify-center transition-all cursor-pointer shrink-0 ${
                 attachedImage
                   ? "bg-ai/15 border-ai text-ai shadow-xs"
                   : "bg-surface border-border-solid text-muted hover:text-ai hover:border-ai/40"
@@ -1581,12 +1626,12 @@ export function AIChatInterface({
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && !isGenerating && handleSend()}
               placeholder={
                 isGenerating
-                  ? "AI Coach is generating response..."
+                  ? "AI Coach is generating..."
                   : attachedImage
-                  ? "Add a note or press Enter to analyze this chart..."
-                  : "Ask your Coach, or paste a chart screenshot (Ctrl+V)..."
+                  ? "Analyze this chart..."
+                  : "Ask Coach or paste chart..."
               }
-              className="input-field flex-1 text-xs sm:text-sm py-2.5"
+              className="input-field flex-1 text-xs sm:text-sm py-2 sm:py-2.5 px-2.5 sm:px-3 rounded-lg sm:rounded-xl"
               disabled={isGenerating}
             />
 
@@ -1595,19 +1640,19 @@ export function AIChatInterface({
                 type="button"
                 onClick={handleStop}
                 title="Stop generating response"
-                className="h-10 px-4 rounded-xl bg-loss text-white font-bold flex items-center justify-center gap-1.5 text-xs cursor-pointer shadow-md hover:bg-loss/90 active:scale-95 transition-all shrink-0 animate-pulse"
+                className="h-9 px-3 sm:h-10 sm:px-4 rounded-lg sm:rounded-xl bg-loss text-white font-bold flex items-center justify-center gap-1.5 text-xs cursor-pointer shadow-md hover:bg-loss/90 active:scale-95 transition-all shrink-0 animate-pulse"
               >
-                <Square className="h-3.5 w-3.5 fill-current" />
-                <span>Stop</span>
+                <Square className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-current" />
+                <span className="text-[11px] sm:text-xs">Stop</span>
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => handleSend()}
                 disabled={!input.trim() && !attachedImage}
-                className="btn-primary rounded-xl! px-4! py-2.5! cursor-pointer disabled:opacity-50 shrink-0"
+                className="btn-primary rounded-lg! sm:rounded-xl! px-3! py-2! sm:px-4! sm:py-2.5! cursor-pointer disabled:opacity-50 shrink-0 h-9 sm:h-10 flex items-center justify-center"
               >
-                <Send className="h-4 w-4" />
+                <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
             )}
           </div>

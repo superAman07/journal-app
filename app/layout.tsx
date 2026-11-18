@@ -44,7 +44,7 @@ export default function RootLayout({
           {/* Main Content Area */}
           <div className="flex-1 flex flex-col min-w-0 min-h-screen">
             <Header />
-            <main className="flex-1 px-4 py-5 md:px-6 md:py-6 lg:px-8 lg:py-8 overflow-y-auto has-bottom-nav lg:pb-8">
+            <main className="flex-1 px-2.5 py-2.5 sm:px-4 sm:py-5 md:px-6 md:py-6 lg:px-8 lg:py-8 overflow-y-auto has-bottom-nav lg:pb-8">
               <div className="max-w-6xl mx-auto w-full page-enter">
                 {children}
               </div>

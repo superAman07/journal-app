@@ -447,5 +447,13 @@ input[type="radio"] {
 
 /* ── Mobile touch improvements ── */
 @media (max-width: 768px) {
-  input, select, textarea, button { font-size: 16px !important; }
+  /* Prevent iOS Safari auto-zoom on text entry without breaking compact buttons and toolbars */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="search"],
+  textarea {
+    font-size: 16px;
+  }
 }
