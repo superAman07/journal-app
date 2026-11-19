@@ -321,6 +321,192 @@ export async function createTrade(
   }
 }
 
+export interface AITradeDraftInput {
+  market?: string;
+  instrument: string;
+  date?: string;
+  session?: string;
+  setup?: string;
+  strategyId?: string | null;
+  bias?: "BULLISH" | "BEARISH";
+  actualEntry: number;
+  stopLoss: number;
+  target?: number;
+  actualExit: number;
+  pnl?: number;
+  outcome?: "WIN" | "LOSS" | "BE";
+  exitReason?: string;
+  expectedRR?: number;
+  actualRR?: number;
+  positionSize?: number;
+  lotSize?: number;
+  numberOfLots?: number;
+  spotPrice?: number;
+  strikePrice?: number;
+  optionType?: "CE" | "PE" | null;
+  rulesFollowed?: boolean;
+  ruleBreakReason?: string | null;
+  mindsetBefore?: string | null;
+  mindsetDuring?: string | null;
+  mindsetAfter?: string | null;
+  emotions?: string[] | { emotion: string; stage?: "BEFORE" | "DURING" | "AFTER" }[];
+  mistakes?: string[];
+  screenshots?: { dataUrl: string; stage?: string }[];
+}
+
+export async function createTradeFromJSON(
+  draft: AITradeDraftInput
+): Promise<{ success: boolean; message: string; tradeId?: string }> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, message: "You must be signed in to log a trade." };
+  }
+
+  try {
+    const market = (draft.market || "Nifty Options").trim();
+    const instrument = (draft.instrument || "").trim().toUpperCase();
+    const sessionName = (draft.session || "Indian / Morning").trim();
+    const setup = (draft.setup || "Discretionary").trim();
+    const bias = (draft.bias || "BULLISH").trim();
+
+    const actualEntry = Number(draft.actualEntry);
+    const stopLoss = Number(draft.stopLoss);
+    const actualExit = Number(draft.actualExit);
+    const target = draft.target != null ? Number(draft.target) : actualExit;
+
+    if (!instrument) {
+      return { success: false, message: "Instrument name is required." };
+    }
+
+    if (isNaN(actualEntry) || isNaN(stopLoss) || isNaN(actualExit)) {
+      return {
+        success: false,
+        message: "Invalid prices: Entry, SL, and Exit are required numbers.",
+      };
+    }
+
+    // Determine outcome
+    let outcome = draft.outcome;
+    let pnl = draft.pnl != null ? Number(draft.pnl) : 0;
+    if (!outcome) {
+      if (pnl > 0) outcome = "WIN";
+      else if (pnl < 0) outcome = "LOSS";
+      else outcome = "BE";
+    }
+
+    const computedRR =
+      draft.actualRR != null && !isNaN(draft.actualRR)
+        ? Number(draft.actualRR)
+        : calculateRR(actualEntry, stopLoss, actualExit, outcome);
+
+    const tradeDate = parseSafeDate(draft.date);
+
+    const trade = await prisma.trade.create({
+      data: {
+        userId: session.user.id,
+        market,
+        instrument,
+        session: sessionName,
+        date: tradeDate,
+        setup,
+        strategyId: draft.strategyId || null,
+        bias,
+
+        stopLoss,
+        target,
+        expectedRR: draft.expectedRR || computedRR,
+
+        actualEntry,
+        actualExit,
+        positionSize: draft.positionSize || 1,
+        riskPercent: 1,
+        actualRR: computedRR,
+        slippage: 0,
+
+        outcome,
+        exitReason: draft.exitReason || (outcome === "WIN" ? "TARGET_HIT" : "STOP_HIT"),
+        pnl,
+        rMultiple: computedRR,
+        rulesFollowed: draft.rulesFollowed ?? true,
+        ruleBreakReason: draft.ruleBreakReason || null,
+
+        mindsetBefore: draft.mindsetBefore || null,
+        mindsetDuring: draft.mindsetDuring || null,
+        mindsetAfter: draft.mindsetAfter || null,
+
+        optionType: draft.optionType || null,
+        strikePrice: draft.strikePrice ? Number(draft.strikePrice) : null,
+        spotPrice: draft.spotPrice ? Number(draft.spotPrice) : null,
+        lotSize: draft.lotSize ? Number(draft.lotSize) : null,
+        numberOfLots: draft.numberOfLots ? Number(draft.numberOfLots) : null,
+      },
+    });
+
+    // Create emotions
+    if (draft.emotions && Array.isArray(draft.emotions) && draft.emotions.length > 0) {
+      const emotionData = draft.emotions
+        .map((e) => {
+          if (typeof e === "string") {
+            return { tradeId: trade.id, stage: "DURING" as const, emotion: e.trim() };
+          }
+          return {
+            tradeId: trade.id,
+            stage: (e.stage || "DURING") as "BEFORE" | "DURING" | "AFTER",
+            emotion: String(e.emotion).trim(),
+          };
+        })
+        .filter((e) => e.emotion);
+
+      if (emotionData.length > 0) {
+        await prisma.emotionTag.createMany({ data: emotionData });
+      }
+    }
+
+    // Create mistakes
+    if (draft.mistakes && Array.isArray(draft.mistakes) && draft.mistakes.length > 0) {
+      const mistakeData = draft.mistakes
+        .map((m) => ({ tradeId: trade.id, mistake: String(m).trim() }))
+        .filter((m) => m.mistake);
+      if (mistakeData.length > 0) {
+        await prisma.mistakeTag.createMany({ data: mistakeData });
+      }
+    }
+
+    // Create screenshots
+    if (draft.screenshots && Array.isArray(draft.screenshots) && draft.screenshots.length > 0) {
+      const screenshotData = draft.screenshots
+        .filter((s) => s && s.dataUrl)
+        .map((s) => ({
+          tradeId: trade.id,
+          url: s.dataUrl.trim(),
+          stage: s.stage || "DURING_TRADE",
+        }));
+      if (screenshotData.length > 0) {
+        await prisma.screenshot.createMany({ data: screenshotData });
+      }
+    }
+
+    revalidatePath("/");
+    revalidatePath("/trades");
+    revalidatePath("/analytics");
+    revalidatePath("/dna");
+    revalidatePath("/strategies");
+    revalidatePath("/ai-coach");
+
+    return {
+      success: true,
+      message: "Trade successfully auto-logged to your journal!",
+      tradeId: trade.id,
+    };
+  } catch (error: any) {
+    console.error("[createTradeFromJSON] Error:", error);
+    return {
+      success: false,
+      message: error?.message || "Failed to auto-log trade to journal.",
+    };
+  }
+}
+
 export async function deleteTrade(tradeId: string): Promise<TradeFormState> {
   const session = await auth();
   if (!session?.user?.id) {

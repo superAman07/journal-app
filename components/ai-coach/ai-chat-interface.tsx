@@ -449,17 +449,22 @@ export function AIChatInterface({
           setSavingStatus(`Saving (${i + 1}/${totalChunks})...`);
           const chunk = sanitizedClientMessages.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
 
-          const chunkRes = await saveChatChunkToDB({
-            id: savedId || undefined,
-            title: titleToSave,
-            tradeId: selectedTradeId || undefined,
-            chunkIndex: i,
-            totalChunks,
-            messages: chunk,
-            totalMessagesCount: totalMessages,
+          const res = await fetch("/api/ai/save-chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: savedId || undefined,
+              title: titleToSave,
+              tradeId: selectedTradeId || undefined,
+              chunkIndex: i,
+              totalChunks,
+              messages: chunk,
+              totalMessagesCount: totalMessages,
+            }),
           });
 
-          if (!chunkRes.success || !chunkRes.chat) {
+          const chunkRes = await res.json();
+          if (!res.ok || !chunkRes.success || !chunkRes.chat) {
             throw new Error(chunkRes.error || `Failed saving chunk ${i + 1} of ${totalChunks}`);
           }
 
@@ -469,14 +474,19 @@ export function AIChatInterface({
         }
       } else {
         setSavingStatus("Saving to database...");
-        const result = await saveChatToDB({
-          id: isUpdating ? currentChatId : undefined,
-          title: titleToSave,
-          tradeId: selectedTradeId || undefined,
-          messages: sanitizedClientMessages,
+        const res = await fetch("/api/ai/save-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: isUpdating ? currentChatId : undefined,
+            title: titleToSave,
+            tradeId: selectedTradeId || undefined,
+            messages: sanitizedClientMessages,
+          }),
         });
 
-        if (!result.success || !result.chat) {
+        const result = await res.json();
+        if (!res.ok || !result.success || !result.chat) {
           throw new Error(result.error || "Failed to save to database");
         }
 
@@ -891,6 +901,10 @@ export function AIChatInterface({
 
   const quickPrompts = [
     {
+      label: "📝 Auto-Journal Live Trade",
+      prompt: "Act as my live Trade Journal Co-Pilot: Review what we discussed and any chart screenshots I shared today. Ask me any missing questions needed to complete my Trade Journal (prices, PnL, rules followed, 3-phase mindset), and emit the interactive Draft Journal Card for my confirmation.",
+    },
+    {
       label: "🎯 Auto-Detect Strategy Match",
       prompt: selectedTrade
         ? `Cross-check this trade (${selectedTrade.instrument}) against my Playbook strategies. Auto-detect which strategy matches this execution, verify if I followed all entry rules and target RR, and diagnose any deviation.`
@@ -925,7 +939,7 @@ export function AIChatInterface({
   ];
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-8.8rem)] sm:h-[calc(100vh-5.2rem)] space-y-1.5 sm:space-y-2 min-h-0">
+    <div className="flex flex-col h-[calc(100dvh-10.2rem)] sm:h-[calc(100vh-5.2rem)] space-y-1.5 sm:space-y-2 min-h-0">
       {/* Unified Sleek Top Bar (Mobile-optimized two-tier on small screens, single-tier on desktop) */}
       <div className="card p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-1.5 sm:gap-2.5 shrink-0 border border-border/40 shadow-xs">
         {/* Tier 1 on Mobile: View Switcher Tabs + Mobile Quick Actions */}
@@ -1156,21 +1170,21 @@ export function AIChatInterface({
       {/* Active Loaded Session Breadcrumb Bar (Transparent background, full title, zero clutter in top bar) */}
       {activeTab === "chat" && currentChatId && (
         <div className="flex items-center justify-between px-2 py-0.5 text-xs text-muted font-medium bg-transparent animate-in fade-in">
-          <div className="flex items-center gap-2 truncate">
-            <Bookmark className="h-3.5 w-3.5 text-ai shrink-0" />
-            <span className="text-dim text-[11px] font-mono">Active Session:</span>
-            <span className="text-clean font-semibold truncate max-w-xs sm:max-w-md md:max-w-xl">
+          <div className="flex items-center gap-1.5 sm:gap-2 truncate min-w-0">
+            <Bookmark className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-ai shrink-0" />
+            <span className="text-dim text-[10px] sm:text-[11px] font-mono hidden xs:inline">Session:</span>
+            <span className="text-clean font-semibold truncate max-w-[130px] sm:max-w-md md:max-w-xl text-[11px] sm:text-xs">
               &ldquo;{currentChatTitle || "Saved Session"}&rdquo;
             </span>
-            <span className="text-[10px] bg-ai/15 text-ai px-1.5 py-0.2 rounded-full font-mono font-bold shrink-0">
+            <span className="text-[9px] sm:text-[10px] bg-ai/15 text-ai px-1.5 py-0.2 rounded-full font-mono font-bold shrink-0">
               {messages.length} msgs
             </span>
             {!hasUnsavedChanges ? (
-              <span className="text-[10px] text-profit font-semibold flex items-center gap-1 bg-profit/10 px-2 py-0.5 rounded-full shrink-0">
+              <span className="hidden sm:inline-flex text-[10px] text-profit font-semibold items-center gap-1 bg-profit/10 px-2 py-0.5 rounded-full shrink-0">
                 <Check className="h-2.5 w-2.5" /> Synced with DB
               </span>
             ) : (
-              <span className="text-[10px] text-ai font-semibold flex items-center gap-1 bg-ai/10 px-2 py-0.5 rounded-full shrink-0">
+              <span className="hidden sm:inline-flex text-[10px] text-ai font-semibold items-center gap-1 bg-ai/10 px-2 py-0.5 rounded-full shrink-0">
                 ● Unsaved changes
               </span>
             )}
@@ -1178,10 +1192,10 @@ export function AIChatInterface({
           <button
             type="button"
             onClick={handleNewChat}
-            className="text-[11px] text-muted hover:text-accent flex items-center gap-1 hover:underline cursor-pointer shrink-0 ml-2 font-medium transition-colors"
+            className="text-[10px] sm:text-[11px] text-muted hover:text-accent flex items-center gap-1 hover:underline cursor-pointer shrink-0 ml-1.5 font-medium transition-colors"
             title="Start a fresh chat"
           >
-            <Plus className="h-3 w-3" /> Start New Topic
+            <Plus className="h-3 w-3" /> <span className="hidden xs:inline">Start New Topic</span><span className="xs:hidden">New</span>
           </button>
         </div>
       )}

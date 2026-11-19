@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import Link from "next/link";
 import {
   TrendingUp,
   TrendingDown,
@@ -13,8 +14,16 @@ import {
   Flame,
   Award,
   Layers,
+  Edit3,
+  Check,
+  Loader2,
+  ExternalLink,
+  ShieldAlert,
+  Calendar,
+  Sparkles,
 } from "lucide-react";
 import { formatAggregatedPnl } from "@/lib/utils/currency";
+import { createTradeFromJSON, AITradeDraftInput } from "@/lib/actions/trade-actions";
 
 export interface ChartDataPoint {
   label: string;
@@ -323,3 +332,409 @@ export function AIVisualGauge({ title, value = 0, max = 100, label, summary }: V
     </div>
   );
 }
+
+export interface VisualTradeDraftProps {
+  market?: string;
+  instrument: string;
+  date?: string;
+  session?: string;
+  setup?: string;
+  bias?: "BULLISH" | "BEARISH";
+  actualEntry: number;
+  stopLoss: number;
+  target?: number;
+  actualExit: number;
+  pnl?: number;
+  outcome?: "WIN" | "LOSS" | "BE";
+  exitReason?: string;
+  expectedRR?: number;
+  actualRR?: number;
+  positionSize?: number;
+  lotSize?: number;
+  numberOfLots?: number;
+  spotPrice?: number;
+  strikePrice?: number;
+  optionType?: "CE" | "PE" | null;
+  rulesFollowed?: boolean;
+  ruleBreakReason?: string | null;
+  mindsetBefore?: string | null;
+  mindsetDuring?: string | null;
+  mindsetAfter?: string | null;
+  emotions?: string[] | { emotion: string; stage?: "BEFORE" | "DURING" | "AFTER" }[];
+  mistakes?: string[];
+  notes?: string;
+}
+
+export function AIVisualTradeDraft(props: VisualTradeDraftProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedTradeId, setSavedTradeId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Editable local state
+  const [instrument, setInstrument] = useState(props.instrument || "NIFTY");
+  const [market, setMarket] = useState(props.market || "Nifty Options");
+  const [setup, setSetup] = useState(props.setup || "Breakout Retest");
+  const [bias, setBias] = useState<"BULLISH" | "BEARISH">(props.bias || "BULLISH");
+  const [actualEntry, setActualEntry] = useState(props.actualEntry || 0);
+  const [actualExit, setActualExit] = useState(props.actualExit || 0);
+  const [stopLoss, setStopLoss] = useState(props.stopLoss || 0);
+  const [target, setTarget] = useState(props.target || props.actualExit || 0);
+  const [pnl, setPnl] = useState(props.pnl ?? 0);
+  const [rulesFollowed, setRulesFollowed] = useState(props.rulesFollowed ?? true);
+  const [mindsetBefore, setMindsetBefore] = useState(props.mindsetBefore || "");
+  const [mindsetDuring, setMindsetDuring] = useState(props.mindsetDuring || "");
+  const [mindsetAfter, setMindsetAfter] = useState(props.mindsetAfter || "");
+  const [spotPrice, setSpotPrice] = useState(props.spotPrice || 0);
+  const [strikePrice, setStrikePrice] = useState(props.strikePrice || 0);
+
+  const effectiveOutcome =
+    props.outcome || (pnl > 0 ? "WIN" : pnl < 0 ? "LOSS" : "BE");
+  const isWin = effectiveOutcome === "WIN";
+  const isLoss = effectiveOutcome === "LOSS";
+
+  const handleConfirmAndSave = async () => {
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      const draftPayload: AITradeDraftInput = {
+        market,
+        instrument,
+        date: props.date || new Date().toISOString().split("T")[0],
+        session: props.session || "Indian / Morning",
+        setup,
+        bias,
+        actualEntry: Number(actualEntry),
+        stopLoss: Number(stopLoss),
+        target: Number(target),
+        actualExit: Number(actualExit),
+        pnl: Number(pnl),
+        outcome: effectiveOutcome,
+        exitReason: props.exitReason || (isWin ? "TARGET_HIT" : isLoss ? "STOP_HIT" : "EARLY_EXIT"),
+        actualRR: props.actualRR,
+        expectedRR: props.expectedRR,
+        positionSize: props.positionSize || 1,
+        lotSize: props.lotSize,
+        numberOfLots: props.numberOfLots,
+        spotPrice: spotPrice ? Number(spotPrice) : undefined,
+        strikePrice: strikePrice ? Number(strikePrice) : undefined,
+        optionType: props.optionType,
+        rulesFollowed,
+        ruleBreakReason: props.ruleBreakReason,
+        mindsetBefore: mindsetBefore || null,
+        mindsetDuring: mindsetDuring || null,
+        mindsetAfter: mindsetAfter || null,
+        emotions: props.emotions,
+        mistakes: props.mistakes,
+      };
+
+      const res = await createTradeFromJSON(draftPayload);
+      if (res.success && res.tradeId) {
+        setSavedTradeId(res.tradeId);
+      } else {
+        setErrorMessage(res.message || "Failed to save trade.");
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "Error logging trade to database.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (savedTradeId) {
+    return (
+      <div className="card p-3 sm:p-4 rounded-xl border border-profit/40 bg-profit/10 my-3 space-y-2 animate-in fade-in shadow-md">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-profit font-bold text-xs sm:text-sm">
+            <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+            <span>✓ Trade Successfully Logged to Database!</span>
+          </div>
+          <Link
+            href="/trades"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface border border-profit/40 text-profit hover:bg-profit/20 text-[11px] font-bold cursor-pointer transition-all"
+          >
+            <span>View in Journal</span>
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+        </div>
+        <p className="text-[11px] text-soft">
+          Logged {instrument} ({setup}) with {formatAggregatedPnl(pnl)}. Your metrics, 3-phase psychology arc, and DNA charts have been refreshed.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card p-3 sm:p-4.5 rounded-xl sm:rounded-2xl border-2 border-ai/40 bg-surface/95 my-3 space-y-3 shadow-lg relative overflow-hidden">
+      {/* Top Banner Tag */}
+      <div className="flex items-center justify-between border-b border-border/40 pb-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-ai/15 text-ai text-[10px] font-mono font-bold uppercase tracking-wider shrink-0">
+            <Sparkles className="h-3 w-3 text-ai" /> AI Draft Journal
+          </span>
+          <span className="text-[11px] font-mono text-dim truncate">
+            {props.date || new Date().toISOString().split("T")[0]} • {props.session || "Live Session"}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsEditing(!isEditing)}
+          className="flex items-center gap-1 text-[11px] text-muted hover:text-clean cursor-pointer font-semibold shrink-0"
+        >
+          <Edit3 className="h-3 w-3" />
+          <span>{isEditing ? "Done Editing" : "Edit Values"}</span>
+        </button>
+      </div>
+
+      {/* Header Info */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm sm:text-base font-extrabold text-clean tracking-tight">
+              {instrument}
+            </span>
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase font-mono ${
+                bias === "BULLISH"
+                  ? "bg-profit/15 text-profit border border-profit/30"
+                  : "bg-loss/15 text-loss border border-loss/30"
+              }`}
+            >
+              {bias}
+            </span>
+            <span className="text-[11px] text-muted font-medium bg-card px-2 py-0.5 rounded border border-border/30">
+              {setup}
+            </span>
+          </div>
+          <div className="text-[11px] text-dim font-mono mt-0.5">
+            {market} {props.optionType ? `• ${props.optionType}` : ""} {strikePrice ? `@ strike ${strikePrice}` : ""}
+          </div>
+        </div>
+
+        {/* PnL & Outcome Badge */}
+        <div className="text-right shrink-0">
+          <div
+            className={`font-mono font-bold text-sm sm:text-base ${
+              isWin ? "text-profit" : isLoss ? "text-loss" : "text-muted"
+            }`}
+          >
+            {formatAggregatedPnl(pnl)}
+          </div>
+          <span
+            className={`inline-block px-1.5 py-0.2 rounded text-[9px] font-bold tracking-wider font-mono uppercase ${
+              isWin
+                ? "bg-profit/20 text-profit"
+                : isLoss
+                ? "bg-loss/20 text-loss"
+                : "bg-elevated text-muted"
+            }`}
+          >
+            {effectiveOutcome}
+          </span>
+        </div>
+      </div>
+
+      {/* Interactive Edit Fields (if toggled) */}
+      {isEditing ? (
+        <div className="p-2.5 rounded-xl bg-card border border-border/40 space-y-2 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
+              <label className="text-[10px] text-dim font-mono">Instrument</label>
+              <input
+                value={instrument}
+                onChange={(e) => setInstrument(e.target.value.toUpperCase())}
+                className="input-field w-full py-1 px-2 text-xs mt-0.5"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-dim font-mono">Entry Price</label>
+              <input
+                type="number"
+                value={actualEntry}
+                onChange={(e) => setActualEntry(Number(e.target.value))}
+                className="input-field w-full py-1 px-2 text-xs mt-0.5"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-dim font-mono">Exit Price</label>
+              <input
+                type="number"
+                value={actualExit}
+                onChange={(e) => setActualExit(Number(e.target.value))}
+                className="input-field w-full py-1 px-2 text-xs mt-0.5"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-dim font-mono">Stop Loss</label>
+              <input
+                type="number"
+                value={stopLoss}
+                onChange={(e) => setStopLoss(Number(e.target.value))}
+                className="input-field w-full py-1 px-2 text-xs mt-0.5"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div>
+              <label className="text-[10px] text-dim font-mono">Net PnL (₹ / $)</label>
+              <input
+                type="number"
+                value={pnl}
+                onChange={(e) => setPnl(Number(e.target.value))}
+                className="input-field w-full py-1 px-2 text-xs mt-0.5"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-dim font-mono">Spot Price</label>
+              <input
+                type="number"
+                value={spotPrice}
+                onChange={(e) => setSpotPrice(Number(e.target.value))}
+                className="input-field w-full py-1 px-2 text-xs mt-0.5"
+                placeholder="Optional"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-dim font-mono">Followed Rules?</label>
+              <select
+                value={rulesFollowed ? "true" : "false"}
+                onChange={(e) => setRulesFollowed(e.target.value === "true")}
+                className="input-field w-full py-1 px-2 text-xs mt-0.5"
+              >
+                <option value="true">Yes (Disciplined)</option>
+                <option value="false">No (Rule Broken)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Summary Key Metric Cards */
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+          <div className="p-2 rounded-lg bg-card border border-border/30">
+            <div className="text-[10px] text-dim font-mono">Entry • Exit</div>
+            <div className="font-mono text-xs font-semibold text-clean mt-0.5">
+              {actualEntry} <span className="text-dim">→</span> {actualExit}
+            </div>
+          </div>
+          <div className="p-2 rounded-lg bg-card border border-border/30">
+            <div className="text-[10px] text-dim font-mono">Stop Loss • Target</div>
+            <div className="font-mono text-xs font-semibold text-clean mt-0.5">
+              {stopLoss} <span className="text-dim">/</span> {target}
+            </div>
+          </div>
+          <div className="p-2 rounded-lg bg-card border border-border/30">
+            <div className="text-[10px] text-dim font-mono">Risk : Reward</div>
+            <div className="font-mono text-xs font-bold text-accent mt-0.5">
+              {props.actualRR ? `${props.actualRR}R` : "1:2 R"}
+            </div>
+          </div>
+          <div className="p-2 rounded-lg bg-card border border-border/30">
+            <div className="text-[10px] text-dim font-mono">Rules Discipline</div>
+            <div className="font-mono text-xs font-bold mt-0.5 flex items-center gap-1">
+              {rulesFollowed ? (
+                <span className="text-profit flex items-center gap-0.5">
+                  <Check className="h-3 w-3" /> 100% Followed
+                </span>
+              ) : (
+                <span className="text-warn flex items-center gap-0.5">
+                  <ShieldAlert className="h-3 w-3" /> Rule Broken
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3-Phase Mindset Arc (Captured from user conversation) */}
+      <div className="space-y-1.5 pt-1 border-t border-border/30">
+        <div className="text-[10px] uppercase font-mono font-bold text-dim tracking-wider">
+          🧠 3-Phase Psychology Extracted From Conversation
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-xs">
+          {/* Phase 1: Before */}
+          <div className="p-2 rounded-lg bg-surface border border-border/30 space-y-0.5">
+            <div className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
+              <span>🟡 Before Entry</span>
+            </div>
+            <p className="text-[11px] text-soft italic line-clamp-3">
+              {mindsetBefore ? `"${mindsetBefore}"` : "Patiently waited for edge setup confirmation"}
+            </p>
+          </div>
+
+          {/* Phase 2: During */}
+          <div className="p-2 rounded-lg bg-surface border border-border/30 space-y-0.5">
+            <div className="text-[10px] font-bold text-ai flex items-center gap-1">
+              <span>🔵 During Trade</span>
+            </div>
+            <p className="text-[11px] text-soft italic line-clamp-3">
+              {mindsetDuring ? `"${mindsetDuring}"` : "Tracked price action without premature panic"}
+            </p>
+          </div>
+
+          {/* Phase 3: After */}
+          <div className="p-2 rounded-lg bg-surface border border-border/30 space-y-0.5">
+            <div className="text-[10px] font-bold text-profit flex items-center gap-1">
+              <span>🟢 After Exit</span>
+            </div>
+            <p className="text-[11px] text-soft italic line-clamp-3">
+              {mindsetAfter ? `"${mindsetAfter}"` : "Accepted market feedback calmly without revenge bias"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Emotion / Mistake Tags */}
+      {props.emotions && Array.isArray(props.emotions) && props.emotions.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+          <span className="text-[10px] font-mono text-dim">Emotions:</span>
+          {props.emotions.map((em, idx) => {
+            const name = typeof em === "string" ? em : em.emotion;
+            return (
+              <span
+                key={idx}
+                className="px-2 py-0.5 rounded-full bg-ai/10 border border-ai/20 text-ai text-[10px] font-medium"
+              >
+                {name}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="p-2 rounded-lg bg-loss/15 border border-loss/30 text-loss text-xs flex items-center gap-1.5">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {/* Action Footer */}
+      <div className="pt-2 border-t border-border/30 flex items-center justify-between gap-2">
+        <span className="text-[10px] text-dim font-mono">
+          Ready to save into your permanent trade journal?
+        </span>
+
+        <button
+          type="button"
+          onClick={handleConfirmAndSave}
+          disabled={isSaving}
+          className="btn-primary py-1.5 px-3.5 sm:px-4 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md cursor-pointer hover:shadow-accent/25 transition-all disabled:opacity-50 shrink-0"
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Saving to Journal...</span>
+            </>
+          ) : (
+            <>
+              <Check className="h-3.5 w-3.5" />
+              <span>Confirm & Save to Journal</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+

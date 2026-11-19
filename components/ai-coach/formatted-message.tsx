@@ -6,6 +6,7 @@ import {
   AIVisualSetup,
   AIVisualFlowchart,
   AIVisualGauge,
+  AIVisualTradeDraft,
 } from "./ai-visuals";
 
 function parseInlineTokens(text: string): React.ReactNode[] {
@@ -81,6 +82,9 @@ function renderVisualBlock(tag: string, jsonStr: string, key: number) {
     }
     if (tag === "visual:gauge") {
       return <AIVisualGauge key={key} {...data} />;
+    }
+    if (tag === "visual:trade-draft" || tag === "visual:trade_draft" || tag === "visual:journal") {
+      return <AIVisualTradeDraft key={key} {...data} />;
     }
   } catch {
     // If JSON is malformed or still typing, return as a clean styled block
