@@ -367,8 +367,8 @@ export interface VisualTradeDraftProps {
   mindsetAfter?: string | null;
   emotions?: string[] | { emotion: string; stage?: "BEFORE" | "DURING" | "AFTER" }[];
   mistakes?: string[];
-  screenshots?: { dataUrl?: string; url?: string; stage?: string; caption?: string }[];
-  sessionScreenshots?: { url: string; stage?: string; caption?: string }[];
+  screenshots?: { dataUrl?: string; url?: string; stage?: string; caption?: string; date?: string }[];
+  sessionScreenshots?: { url: string; stage?: string; caption?: string; date?: string }[];
   notes?: string;
 }
 
@@ -376,6 +376,7 @@ export interface DraftScreenshotItem {
   url: string;
   stage?: string;
   caption?: string;
+  date?: string;
 }
 
 export function AIVisualTradeDraft(props: VisualTradeDraftProps) {
@@ -387,31 +388,63 @@ export function AIVisualTradeDraft(props: VisualTradeDraftProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewScreenshotUrl, setPreviewScreenshotUrl] = useState<string | null>(null);
 
-  // Initialize screenshots by merging props.screenshots with sessionScreenshots
+  // Initialize screenshots:
+  // 1. Prioritize explicit screenshots provided by AI in props.screenshots
+  // 2. Strictly filter sessionScreenshots to ONLY include images from THIS trade's date (excludes previous days!)
+  // 3. Cap at average 3-4 images, at most 6 to preserve database storage!
   const [screenshots, setScreenshots] = useState<DraftScreenshotItem[]>(() => {
     const list: DraftScreenshotItem[] = [];
     const seenUrls = new Set<string>();
+    const tradeDate = props.date || new Date().toISOString().split("T")[0];
 
+    // Priority 1: Check if AI provided explicit screenshots with URLs
     if (props.screenshots && Array.isArray(props.screenshots)) {
       props.screenshots.forEach((s) => {
         const u = s.dataUrl || s.url;
         if (u && !seenUrls.has(u)) {
           seenUrls.add(u);
-          list.push({ url: u, stage: s.stage || "DURING_TRADE", caption: s.caption });
+          list.push({
+            url: u,
+            stage: s.stage || "DURING_TRADE",
+            caption: s.caption,
+            date: s.date || tradeDate,
+          });
         }
       });
     }
 
+    // Priority 2: Filter sessionScreenshots to ONLY include images from THIS trade's date (excludes previous days!)
     if (props.sessionScreenshots && Array.isArray(props.sessionScreenshots)) {
-      props.sessionScreenshots.forEach((s) => {
+      const matchingDateScreenshots = props.sessionScreenshots.filter((s) => {
+        if (!s.date) return true; // untagged fallback
+        return s.date === tradeDate;
+      });
+
+      matchingDateScreenshots.forEach((s, idx) => {
         if (s.url && !seenUrls.has(s.url)) {
           seenUrls.add(s.url);
-          list.push({ url: s.url, stage: s.stage || "BEFORE_ENTRY", caption: s.caption });
+          // Auto assign logical stages if not set:
+          // 1st image -> BEFORE_ENTRY (Setup / Context)
+          // Middle images -> DURING_TRADE (Execution / Pullback)
+          // Last image -> AFTER_EXIT (Exit / PnL) if >= 2 images
+          let autoStage = s.stage;
+          if (!autoStage) {
+            if (idx === 0) autoStage = "BEFORE_ENTRY";
+            else if (idx === matchingDateScreenshots.length - 1 && matchingDateScreenshots.length >= 2) autoStage = "AFTER_EXIT";
+            else autoStage = "DURING_TRADE";
+          }
+          list.push({
+            url: s.url,
+            stage: autoStage,
+            caption: s.caption,
+            date: s.date || tradeDate,
+          });
         }
       });
     }
 
-    return list;
+    // Enforce storage quota: Average 3-4 images, at most 6 to save database storage
+    return list.slice(0, 6);
   });
 
   // Editable local state
@@ -736,17 +769,26 @@ export function AIVisualTradeDraft(props: VisualTradeDraftProps) {
       {/* Attached Chart Screenshots Section */}
       <div className="space-y-1.5 pt-1 border-t border-border/30">
         <div className="flex items-center justify-between">
-          <div className="text-[10px] uppercase font-mono font-bold text-dim tracking-wider flex items-center gap-1.5">
+          <div className="text-[10px] uppercase font-mono font-bold text-dim tracking-wider flex items-center gap-1.5 flex-wrap">
             <Camera className="h-3 w-3 text-ai" />
-            <span>📸 Attached Chart Screenshots ({screenshots.length})</span>
+            <span>📸 Attached Charts ({screenshots.length}/6 max)</span>
+            <span className="text-[9px] text-muted font-normal lowercase hidden sm:inline">
+              • storage-optimized for {props.date || "today"}
+            </span>
           </div>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="text-[10px] text-accent hover:underline flex items-center gap-1 font-mono font-semibold cursor-pointer"
-          >
-            <Plus className="h-2.5 w-2.5" /> Attach Chart
-          </button>
+          {screenshots.length < 6 ? (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="text-[10px] text-accent hover:underline flex items-center gap-1 font-mono font-semibold cursor-pointer"
+            >
+              <Plus className="h-2.5 w-2.5" /> Attach Chart
+            </button>
+          ) : (
+            <span className="text-[9px] text-muted font-mono bg-elevated px-1.5 py-0.5 rounded border border-border/30">
+              Max 6 reached
+            </span>
+          )}
         </div>
 
         {screenshots.length > 0 ? (
@@ -804,7 +846,7 @@ export function AIVisualTradeDraft(props: VisualTradeDraftProps) {
           >
             <div className="text-[10px] text-muted flex items-center justify-center gap-1.5">
               <Camera className="h-3 w-3 text-dim" />
-              <span>No chart screenshots attached yet. Click to upload chart or paste while chatting.</span>
+              <span>No chart screenshots attached for this trade. Click to attach chart (max 6).</span>
             </div>
           </div>
         )}
@@ -815,16 +857,25 @@ export function AIVisualTradeDraft(props: VisualTradeDraftProps) {
           accept="image/*"
           className="hidden"
           onChange={(e) => {
+            if (screenshots.length >= 6) return;
             const file = e.target.files?.[0];
             if (file) {
               const reader = new FileReader();
               reader.onload = (event) => {
                 const raw = event.target?.result as string;
                 if (raw) {
-                  setScreenshots((prev) => [
-                    ...prev,
-                    { url: raw, stage: "DURING_TRADE", caption: file.name },
-                  ]);
+                  setScreenshots((prev) => {
+                    if (prev.length >= 6) return prev;
+                    return [
+                      ...prev,
+                      {
+                        url: raw,
+                        stage: "DURING_TRADE",
+                        caption: file.name,
+                        date: props.date || new Date().toISOString().split("T")[0],
+                      },
+                    ];
+                  });
                 }
               };
               reader.readAsDataURL(file);

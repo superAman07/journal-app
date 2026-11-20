@@ -68,6 +68,7 @@ interface Message {
   reasoning?: string;
   modelUsed?: string;
   timestamp: string;
+  date?: string;
   isTyping?: boolean;
   imageUrl?: string;
   screenshotUrl?: string;
@@ -190,6 +191,7 @@ export function AIChatInterface({
       role: "assistant",
       content: `Welcome to your Trading Psychology & Performance Desk. I am your AI Performance Coach — connected directly to your trading database and your 3-phase psychology journal.\n\nI automatically pick the best available AI model for you. No manual setup needed.\n\nI can see your recent trades, setups, stop-losses, and your exact thoughts Before, During, and After exit. You can also paste any chart screenshot (Ctrl+V) directly into this chat for an instant Vision analysis.\n\nHow are you feeling right now? Use the quick buttons above, or just type.`,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      date: new Date().toISOString().split("T")[0],
     },
   ]);
 
@@ -212,6 +214,7 @@ export function AIChatInterface({
         url: (m.imageUrl || m.screenshotUrl)!,
         stage: idx === 0 ? "BEFORE_ENTRY" : "DURING_TRADE",
         caption: m.content ? m.content.slice(0, 40) : `Chart Screenshot ${idx + 1}`,
+        date: m.date || new Date().toISOString().split("T")[0],
       }));
   }, [messages]);
 
@@ -444,6 +447,7 @@ export function AIChatInterface({
             timestamp:
               m.timestamp ||
               new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            date: m.date || new Date().toISOString().split("T")[0],
           };
         })
       );
@@ -667,6 +671,7 @@ export function AIChatInterface({
         role: "assistant",
         content: `Started a fresh coaching session. I am connected directly to your trading database and your 3-phase psychology journal.\n\nWhat would you like to review or work on?`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        date: new Date().toISOString().split("T")[0],
       },
     ]);
   };
@@ -770,6 +775,7 @@ export function AIChatInterface({
         reasoning: data.reasoning || undefined,
         modelUsed: data.modelUsed,
         timestamp,
+        date: new Date().toISOString().split("T")[0],
         isTyping: true,
       };
 
@@ -851,6 +857,7 @@ export function AIChatInterface({
           role: "assistant",
           content: `💡 **Quick Note:** ${friendlyMsg}\n\n*Remember: Capital preservation is rule #1. No revenge trade. Tomorrow is a fresh market.*`,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          date: new Date().toISOString().split("T")[0],
         },
       ]);
     } finally {
@@ -873,6 +880,7 @@ export function AIChatInterface({
       content: textToSend.trim() || (attachedImage ? "Please review my chart screenshot." : ""),
       imageUrl: attachedImage?.url || undefined,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      date: new Date().toISOString().split("T")[0],
     };
 
     const currentHistory = [...messages];
@@ -902,6 +910,7 @@ export function AIChatInterface({
       content: newContent,
       imageUrl: preservedImageUrl,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      date: new Date().toISOString().split("T")[0],
     };
 
     setMessages([...historyBefore, updatedUserMsg]);

@@ -67,7 +67,7 @@ function renderVisualBlock(
   tag: string,
   jsonStr: string,
   key: number,
-  sessionScreenshots?: { url: string; stage?: string; caption?: string }[]
+  sessionScreenshots?: { url: string; stage?: string; caption?: string; date?: string }[]
 ) {
   try {
     // Attempt standard parse
@@ -122,7 +122,7 @@ export function FormattedMessage({
 }: {
   content: string;
   isTyping?: boolean;
-  sessionScreenshots?: { url: string; stage?: string; caption?: string }[];
+  sessionScreenshots?: { url: string; stage?: string; caption?: string; date?: string }[];
 }) {
   // Auto-close open codeblocks if generation was cut off or in typewriter transition
   let safeContent = content;

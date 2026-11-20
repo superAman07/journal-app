@@ -30,6 +30,7 @@ function sanitizeMessages(messages: any[]): any[] {
         typeof m.timestamp === "string"
           ? m.timestamp
           : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      date: typeof m.date === "string" ? m.date : new Date().toISOString().split("T")[0],
     };
 
     if (m.modelUsed) sanitized.modelUsed = String(m.modelUsed);
@@ -44,6 +45,11 @@ function sanitizeMessages(messages: any[]): any[] {
       // Only replace if an uncompressed raw image exceeds 350KB
       sanitized.imageUrl =
         m.imageUrl.length > 350000 ? "[Screenshot Attached]" : m.imageUrl;
+    }
+
+    if (m.screenshotUrl && typeof m.screenshotUrl === "string") {
+      sanitized.screenshotUrl =
+        m.screenshotUrl.length > 350000 ? "[Screenshot Attached]" : m.screenshotUrl;
     }
 
     return sanitized;

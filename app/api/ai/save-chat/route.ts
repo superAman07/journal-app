@@ -14,6 +14,7 @@ function sanitizeMessages(messages: any[]): any[] {
         typeof m.timestamp === "string"
           ? m.timestamp
           : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      date: typeof m.date === "string" ? m.date : new Date().toISOString().split("T")[0],
     };
 
     if (m.modelUsed) sanitized.modelUsed = String(m.modelUsed);
@@ -27,6 +28,11 @@ function sanitizeMessages(messages: any[]): any[] {
       // Keep compressed thumbnails up to 250KB; truncate raw giant uploads to safeguard DB
       sanitized.imageUrl =
         m.imageUrl.length > 250000 ? "[Screenshot Attached]" : m.imageUrl;
+    }
+
+    if (m.screenshotUrl && typeof m.screenshotUrl === "string") {
+      sanitized.screenshotUrl =
+        m.screenshotUrl.length > 250000 ? "[Screenshot Attached]" : m.screenshotUrl;
     }
 
     return sanitized;
