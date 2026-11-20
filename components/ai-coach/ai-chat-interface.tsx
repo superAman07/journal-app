@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Send,
@@ -199,6 +199,21 @@ export function AIChatInterface({
     hasUserMessages && (!currentChatId || messages.length > lastSavedMessageCount)
   );
   const isSaveDisabled = isSaving || !hasUnsavedChanges;
+
+  // Collect all chart screenshots shared during the current coaching conversation
+  const sessionScreenshots = useMemo(() => {
+    return messages
+      .filter(
+        (m) =>
+          (m.imageUrl || m.screenshotUrl) &&
+          String(m.imageUrl || m.screenshotUrl).startsWith("data:image/")
+      )
+      .map((m, idx) => ({
+        url: (m.imageUrl || m.screenshotUrl)!,
+        stage: idx === 0 ? "BEFORE_ENTRY" : "DURING_TRADE",
+        caption: m.content ? m.content.slice(0, 40) : `Chart Screenshot ${idx + 1}`,
+      }));
+  }, [messages]);
 
   // Sync saved chats from DB prop, with localStorage fallback for offline cache
   useEffect(() => {
@@ -1503,6 +1518,7 @@ export function AIChatInterface({
                           <FormattedMessage
                             content={msg.content}
                             isTyping={msg.isTyping}
+                            sessionScreenshots={sessionScreenshots}
                           />
                         )}
                       </div>

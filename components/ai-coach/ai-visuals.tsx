@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -21,6 +21,11 @@ import {
   ShieldAlert,
   Calendar,
   Sparkles,
+  Camera,
+  Image as ImageIcon,
+  Plus,
+  Trash2,
+  X,
 } from "lucide-react";
 import { formatAggregatedPnl } from "@/lib/utils/currency";
 import { createTradeFromJSON, AITradeDraftInput } from "@/lib/actions/trade-actions";
@@ -362,7 +367,15 @@ export interface VisualTradeDraftProps {
   mindsetAfter?: string | null;
   emotions?: string[] | { emotion: string; stage?: "BEFORE" | "DURING" | "AFTER" }[];
   mistakes?: string[];
+  screenshots?: { dataUrl?: string; url?: string; stage?: string; caption?: string }[];
+  sessionScreenshots?: { url: string; stage?: string; caption?: string }[];
   notes?: string;
+}
+
+export interface DraftScreenshotItem {
+  url: string;
+  stage?: string;
+  caption?: string;
 }
 
 export function AIVisualTradeDraft(props: VisualTradeDraftProps) {
@@ -370,6 +383,36 @@ export function AIVisualTradeDraft(props: VisualTradeDraftProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [savedTradeId, setSavedTradeId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [previewScreenshotUrl, setPreviewScreenshotUrl] = useState<string | null>(null);
+
+  // Initialize screenshots by merging props.screenshots with sessionScreenshots
+  const [screenshots, setScreenshots] = useState<DraftScreenshotItem[]>(() => {
+    const list: DraftScreenshotItem[] = [];
+    const seenUrls = new Set<string>();
+
+    if (props.screenshots && Array.isArray(props.screenshots)) {
+      props.screenshots.forEach((s) => {
+        const u = s.dataUrl || s.url;
+        if (u && !seenUrls.has(u)) {
+          seenUrls.add(u);
+          list.push({ url: u, stage: s.stage || "DURING_TRADE", caption: s.caption });
+        }
+      });
+    }
+
+    if (props.sessionScreenshots && Array.isArray(props.sessionScreenshots)) {
+      props.sessionScreenshots.forEach((s) => {
+        if (s.url && !seenUrls.has(s.url)) {
+          seenUrls.add(s.url);
+          list.push({ url: s.url, stage: s.stage || "BEFORE_ENTRY", caption: s.caption });
+        }
+      });
+    }
+
+    return list;
+  });
 
   // Editable local state
   const [instrument, setInstrument] = useState(props.instrument || "NIFTY");
@@ -426,6 +469,12 @@ export function AIVisualTradeDraft(props: VisualTradeDraftProps) {
         mindsetAfter: mindsetAfter || null,
         emotions: props.emotions,
         mistakes: props.mistakes,
+        screenshots: screenshots.map((s) => ({
+          dataUrl: s.url,
+          url: s.url,
+          stage: s.stage || "DURING_TRADE",
+          caption: s.caption,
+        })),
       };
 
       const res = await createTradeFromJSON(draftPayload);
@@ -684,6 +733,107 @@ export function AIVisualTradeDraft(props: VisualTradeDraftProps) {
         </div>
       </div>
 
+      {/* Attached Chart Screenshots Section */}
+      <div className="space-y-1.5 pt-1 border-t border-border/30">
+        <div className="flex items-center justify-between">
+          <div className="text-[10px] uppercase font-mono font-bold text-dim tracking-wider flex items-center gap-1.5">
+            <Camera className="h-3 w-3 text-ai" />
+            <span>📸 Attached Chart Screenshots ({screenshots.length})</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-[10px] text-accent hover:underline flex items-center gap-1 font-mono font-semibold cursor-pointer"
+          >
+            <Plus className="h-2.5 w-2.5" /> Attach Chart
+          </button>
+        </div>
+
+        {screenshots.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {screenshots.map((ss, sIdx) => (
+              <div
+                key={sIdx}
+                className="relative group rounded-xl overflow-hidden border border-border/50 bg-card hover:border-ai/60 transition-all shadow-xs"
+              >
+                <img
+                  src={ss.url}
+                  alt={ss.caption || "Chart"}
+                  onClick={() => setPreviewScreenshotUrl(ss.url)}
+                  className="w-full h-24 object-cover cursor-pointer group-hover:scale-105 transition-transform duration-200"
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const stages = ["BEFORE_ENTRY", "DURING_TRADE", "AFTER_EXIT"];
+                    const currentIdx = stages.indexOf(ss.stage || "DURING_TRADE");
+                    const nextStage = stages[(currentIdx + 1) % stages.length];
+                    setScreenshots((prev) =>
+                      prev.map((item, idx) => (idx === sIdx ? { ...item, stage: nextStage } : item))
+                    );
+                  }}
+                  title="Click to toggle stage: Before Entry / During Trade / After Exit"
+                  className="absolute top-1 left-1 bg-background/85 backdrop-blur-xs px-1.5 py-0.5 rounded text-[8px] font-mono font-bold text-clean border border-border/40 hover:border-accent cursor-pointer transition-colors"
+                >
+                  {ss.stage === "BEFORE_ENTRY"
+                    ? "🟡 Before"
+                    : ss.stage === "AFTER_EXIT"
+                    ? "🟢 Exit"
+                    : "🔵 In Trade"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setScreenshots((prev) => prev.filter((_, idx) => idx !== sIdx));
+                  }}
+                  title="Remove screenshot from journal"
+                  className="absolute top-1 right-1 h-5 w-5 rounded-full bg-background/90 text-muted hover:text-loss hover:bg-loss/20 flex items-center justify-center opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer border border-border/40"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2.5 rounded-lg border border-dashed border-border/60 hover:border-ai/50 bg-surface/50 text-center cursor-pointer transition-colors"
+          >
+            <div className="text-[10px] text-muted flex items-center justify-center gap-1.5">
+              <Camera className="h-3 w-3 text-dim" />
+              <span>No chart screenshots attached yet. Click to upload chart or paste while chatting.</span>
+            </div>
+          </div>
+        )}
+
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                const raw = event.target?.result as string;
+                if (raw) {
+                  setScreenshots((prev) => [
+                    ...prev,
+                    { url: raw, stage: "DURING_TRADE", caption: file.name },
+                  ]);
+                }
+              };
+              reader.readAsDataURL(file);
+              e.target.value = "";
+            }
+          }}
+        />
+      </div>
+
       {/* Emotion / Mistake Tags */}
       {props.emotions && Array.isArray(props.emotions) && props.emotions.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
@@ -734,6 +884,31 @@ export function AIVisualTradeDraft(props: VisualTradeDraftProps) {
           )}
         </button>
       </div>
+
+      {/* Full-Screen Chart Lightbox for Draft Card */}
+      {previewScreenshotUrl && (
+        <div
+          onClick={() => setPreviewScreenshotUrl(null)}
+          className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-background/90 backdrop-blur-md animate-in fade-in cursor-zoom-out"
+        >
+          <div
+            className="relative max-w-4xl max-h-[85vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={previewScreenshotUrl}
+              alt="Expanded Chart"
+              className="max-h-[80vh] max-w-full rounded-2xl border border-border shadow-2xl object-contain bg-black/40"
+            />
+            <button
+              onClick={() => setPreviewScreenshotUrl(null)}
+              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-surface border border-border text-clean hover:bg-elevated flex items-center justify-center shadow-xl cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

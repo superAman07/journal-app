@@ -63,7 +63,12 @@ function parseInlineTokens(text: string): React.ReactNode[] {
   return tokens;
 }
 
-function renderVisualBlock(tag: string, jsonStr: string, key: number) {
+function renderVisualBlock(
+  tag: string,
+  jsonStr: string,
+  key: number,
+  sessionScreenshots?: { url: string; stage?: string; caption?: string }[]
+) {
   try {
     // Attempt standard parse
     let cleanJson = jsonStr.trim();
@@ -84,7 +89,13 @@ function renderVisualBlock(tag: string, jsonStr: string, key: number) {
       return <AIVisualGauge key={key} {...data} />;
     }
     if (tag === "visual:trade-draft" || tag === "visual:trade_draft" || tag === "visual:journal") {
-      return <AIVisualTradeDraft key={key} {...data} />;
+      return (
+        <AIVisualTradeDraft
+          key={key}
+          {...data}
+          sessionScreenshots={sessionScreenshots}
+        />
+      );
     }
   } catch {
     // If JSON is malformed or still typing, return as a clean styled block
@@ -107,9 +118,11 @@ function renderVisualBlock(tag: string, jsonStr: string, key: number) {
 export function FormattedMessage({
   content,
   isTyping = false,
+  sessionScreenshots,
 }: {
   content: string;
   isTyping?: boolean;
+  sessionScreenshots?: { url: string; stage?: string; caption?: string }[];
 }) {
   // Auto-close open codeblocks if generation was cut off or in typewriter transition
   let safeContent = content;
@@ -143,7 +156,7 @@ export function FormattedMessage({
     const codeContent = match[2] || "";
 
     if (lang.startsWith("visual:")) {
-      sections.push(renderVisualBlock(lang, codeContent, sectionKey++));
+      sections.push(renderVisualBlock(lang, codeContent, sectionKey++, sessionScreenshots));
     } else {
       sections.push(
         <pre

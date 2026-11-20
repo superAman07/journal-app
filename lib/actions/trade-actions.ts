@@ -351,7 +351,7 @@ export interface AITradeDraftInput {
   mindsetAfter?: string | null;
   emotions?: string[] | { emotion: string; stage?: "BEFORE" | "DURING" | "AFTER" }[];
   mistakes?: string[];
-  screenshots?: { dataUrl: string; stage?: string }[];
+  screenshots?: { dataUrl?: string; url?: string; stage?: string; caption?: string }[];
 }
 
 export async function createTradeFromJSON(
@@ -475,11 +475,12 @@ export async function createTradeFromJSON(
     // Create screenshots
     if (draft.screenshots && Array.isArray(draft.screenshots) && draft.screenshots.length > 0) {
       const screenshotData = draft.screenshots
-        .filter((s) => s && s.dataUrl)
+        .filter((s) => s && (s.dataUrl || s.url))
         .map((s) => ({
           tradeId: trade.id,
-          url: s.dataUrl.trim(),
+          url: (s.dataUrl || s.url || "").trim(),
           stage: s.stage || "DURING_TRADE",
+          caption: s.caption || null,
         }));
       if (screenshotData.length > 0) {
         await prisma.screenshot.createMany({ data: screenshotData });
